@@ -32,11 +32,9 @@ npm run dev
 
 ### Migrations Supabase en production
 
-Après le premier déploiement :
+Après le premier déploiement, exécuter les fichiers SQL de `supabase/migrations/` via le **SQL Editor** du projet Supabase (dans l’ordre des noms de fichiers).
 
-1. Ouvrir `https://votre-domaine.vercel.app/administration`
-2. Définir `FLORA_ADMIN_SECRET` dans Vercel, puis utiliser le bouton « Appliquer les migrations »  
-   **ou** exécuter les fichiers SQL dans `supabase/migrations/` via le SQL Editor Supabase.
+En développement local, la page `/administration` permet aussi d’appliquer les migrations.
 
 ## Variables d’environnement (Vercel)
 
@@ -53,10 +51,10 @@ Après le premier déploiement :
 | `GEMINI_API_KEY` | Oui | Non | API Google Gemini |
 | `FLORA_STORAGE_PROVIDER` | Non | Non | `cloudflare_r2` (défaut) ou `supabase` |
 | `FLORA_MAX_UPLOAD_BYTES` | Non | Non | Taille max upload (défaut 500 Mo) |
-| `FLORA_ADMIN_SECRET` | Recommandé | Non | Secret pour `/administration` en prod |
+| `FLORA_ADMIN_SECRET` | Non | Non | Secret pour l’API migrations en développement local |
 | `FLORA_AUTO_MIGRATE` | Non | Non | `true` pour migrations au démarrage (optionnel) |
 
-\* Requis pour les migrations automatiques et l’administration.  
+\* Requis pour les migrations automatiques (`FLORA_AUTO_MIGRATE`) et l’administration en développement local.  
 \*\* Requis si `FLORA_STORAGE_PROVIDER=cloudflare_r2`.
 
 **Ne jamais** préfixer les clés R2 ou Gemini par `NEXT_PUBLIC_`.
@@ -117,4 +115,4 @@ Couleurs Flora : vert sauge `#4a6752`, fond `#f4f7f2`.
 | Données vides | Vérifier `NEXT_PUBLIC_SUPABASE_*` dans Vercel |
 | Upload échoue | Vérifier les 5 variables R2 ; logs fonction Vercel |
 | Pas d’icône iOS | Utiliser Safari ; vider cache ; revérifier `/apple-icon` |
-| Migrations manquantes | `/administration` ou SQL Editor Supabase |
+| Migrations manquantes | SQL Editor Supabase (`supabase/migrations/`) |

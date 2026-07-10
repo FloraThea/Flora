@@ -5,6 +5,7 @@ import {
   resolveRequestUrl,
   serializeError,
 } from "@/lib/api/error-diagnostics";
+import { devLog } from "@/lib/logger";
 
 export async function readResponseBody(response: Response): Promise<{
   parsed: unknown;
@@ -127,7 +128,7 @@ export async function fetchApiWithDiagnostics<T = unknown>(
       : {}),
   };
 
-  console.info(`[${label}] Appel API`, {
+  devLog(`[${label}] Appel API`, {
     route,
     method,
     url,
@@ -174,7 +175,7 @@ export async function fetchApiWithDiagnostics<T = unknown>(
     throw new ApiFetchDiagnosticError(message, responseDiagnostics);
   }
 
-  console.info(`[${label}] Réponse API OK`, {
+  devLog(`[${label}] Réponse API OK`, {
     route,
     method,
     url,

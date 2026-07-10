@@ -142,7 +142,7 @@ export function TheaHeroPanel({ className, ...props }: HTMLAttributes<HTMLDivEle
     >
       <button
         type="button"
-        className="mt-2 inline-flex items-center gap-2 rounded-[1.25rem] border border-sauge-strong/20 bg-sauge-strong px-6 py-3 text-sm font-normal text-flora-text-inverse shadow-[var(--shadow-button)] transition hover:bg-sauge active:scale-[0.98]"
+        className="flora-btn-primary mt-2 inline-flex items-center gap-2 px-6 py-3 text-sm font-normal active:scale-[0.98]"
       >
         Discuter avec Théa
         <span aria-hidden>✨</span>

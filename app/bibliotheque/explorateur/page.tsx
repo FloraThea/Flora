@@ -1,10 +1,6 @@
-import { FloraAppShell } from "@/components/ui/FloraAppShell";
-import { ExplorateurPage } from "./components/ExplorateurPage";
+import { notFound } from "next/navigation";
 
+/** Route technique supprimée de la version publique. */
 export default function ExplorateurRoutePage() {
-  return (
-    <FloraAppShell>
-      <ExplorateurPage />
-    </FloraAppShell>
-  );
+  notFound();
 }

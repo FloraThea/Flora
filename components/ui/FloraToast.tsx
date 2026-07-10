@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 export type FloraToastItem = {
   id: string;
   message: string;
-  variant?: "info" | "reminder";
+  variant?: "info" | "success" | "error" | "reminder";
   durationMs?: number;
 };
 
@@ -38,26 +38,38 @@ function FloraToast({
   toast: FloraToastItem;
   onDismiss: (id: string) => void;
 }) {
-  const duration = toast.durationMs ?? 8000;
+  const duration = toast.durationMs ?? (toast.variant === "error" ? 10000 : 8000);
 
   useEffect(() => {
     const timer = window.setTimeout(() => onDismiss(toast.id), duration);
     return () => window.clearTimeout(timer);
   }, [duration, onDismiss, toast.id]);
 
+  const variantStyles = {
+    reminder: "bg-lavande-light/90 text-flora-text border-lavande-light/60",
+    success: "bg-sauge-bg/95 text-flora-text border-sauge-light/60",
+    error: "bg-cream-rose/95 text-flora-text border-rose-poudre/50",
+    info: "bg-cream-rose/95 text-flora-text border-rose-soft/50",
+  } as const;
+
+  const variantIcon = {
+    reminder: "🔔",
+    success: "✓",
+    error: "✕",
+    info: "ℹ️",
+  } as const;
+
   return (
     <div
       className={cn(
         "pointer-events-auto rounded-2xl border border-white/70 px-4 py-3 shadow-lg backdrop-blur-sm transition-transform",
-        toast.variant === "reminder"
-          ? "bg-lavande-light/90 text-flora-text border-lavande-light/60"
-          : "bg-cream-rose/95 text-flora-text border-rose-soft/50",
+        variantStyles[toast.variant ?? "info"],
       )}
       role="status"
     >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 text-base" aria-hidden>
-          {toast.variant === "reminder" ? "🔔" : "ℹ️"}
+          {variantIcon[toast.variant ?? "info"]}
         </span>
         <p className="flex-1 text-sm font-light leading-snug">{toast.message}</p>
         <button

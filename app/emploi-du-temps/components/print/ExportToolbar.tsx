@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import type { SmartTimetableSlot, TimetablePayload, TimetableSettings } from "@/lib/timetable/types";
 import { VARIANT_LABELS } from "@/lib/timetable/types";
@@ -12,16 +12,39 @@ type ExportToolbarProps = {
   settings: TimetableSettings;
 };
 
+type ProfileValues = {
+  prenom?: string;
+  nom?: string;
+  zoneScolaire?: string;
+  levels?: string[];
+  personalization?: { schoolName?: string };
+};
+
 export function ExportToolbar({ payload, settings }: ExportToolbarProps) {
   const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState<ProfileValues | null>(null);
 
-  const meta = buildSchedulePrintMeta({
-    scheduleName: payload.schedule.name,
-    schoolYear: payload.schedule.schoolYear,
-    levels: payload.schedule.levels,
-    metadata: payload.schedule.metadata,
-    variantLabel: VARIANT_LABELS[payload.schedule.variantType],
-  });
+  useEffect(() => {
+    void fetch("/api/profil")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { values?: ProfileValues } | null) => {
+        if (data?.values) setProfile(data.values);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const meta = useMemo(
+    () =>
+      buildSchedulePrintMeta({
+        scheduleName: payload.schedule.name,
+        schoolYear: payload.schedule.schoolYear,
+        levels: payload.schedule.levels,
+        metadata: payload.schedule.metadata,
+        variantLabel: VARIANT_LABELS[payload.schedule.variantType],
+        profile: profile ?? undefined,
+      }),
+    [payload, profile],
+  );
 
   return (
     <>

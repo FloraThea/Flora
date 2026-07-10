@@ -30,6 +30,9 @@ import {
   type WorkQuotaPreset,
 } from "@/lib/profile/work-schedule";
 import { accents, colors } from "@/lib/theme";
+import { ThemePicker } from "@/components/theme/ThemePicker";
+import { useFloraTheme } from "@/components/theme/ThemeProvider";
+import type { FloraAppThemeId } from "@/lib/themes/types";
 import {
   CLASS_TYPE_OPTIONS,
   createTimetableEntry,
@@ -84,6 +87,7 @@ function ToggleChip({
 }
 
 export function ProfilPage() {
+  const { themeId, setThemeId } = useFloraTheme();
   const [values, setValues] = useState<ProfilFormValues>(initialProfilValues);
   const [completion, setCompletion] = useState<{ complete: boolean; missing: string[] }>({
     complete: false,
@@ -111,7 +115,9 @@ export function ProfilPage() {
         }
 
         if (!cancelled) {
-          setValues(ensureDefaultTimetableId(data.values));
+          const loaded = ensureDefaultTimetableId(data.values);
+          setValues(loaded);
+          setThemeId(loaded.personalization.appTheme ?? "flora");
           setCompletion(data.completion);
           workingDaysCustomizedRef.current = true;
         }
@@ -715,8 +721,25 @@ export function ProfilPage() {
         </div>
       </FloraCard>
 
+      <FloraCard padding="lg" accent="lavender">
+        <SectionTitle number={10} title="Apparence" />
+        <p className="mb-5 text-sm font-light text-flora-text-muted">
+          Choisissez l&apos;ambiance graphique de Flora. Le changement est instantané et mémorisé dans votre profil.
+        </p>
+        <ThemePicker
+          value={(values.personalization.appTheme ?? themeId) as FloraAppThemeId}
+          onChange={(nextTheme) => {
+            setThemeId(nextTheme);
+            update("personalization", {
+              ...values.personalization,
+              appTheme: nextTheme,
+            });
+          }}
+        />
+      </FloraCard>
+
       <FloraCard padding="lg" accent="peach">
-        <SectionTitle number={10} title="Personnalisation des exports" />
+        <SectionTitle number={11} title="Personnalisation des exports" />
         <div className="grid gap-6 lg:grid-cols-2">
           <label className="block">
             <span className={labelClassName}>Couleur d&apos;accent</span>

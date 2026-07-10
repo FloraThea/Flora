@@ -120,7 +120,7 @@ export const surfaces = {
 
 export const layout = {
   sidebar: "flora-sidebar",
-  pageShell: "watercolor-bg flex min-h-screen",
+  pageShell: "flora-page-bg flex min-h-screen",
   main: "flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:px-12 lg:py-10",
 } as const;
 

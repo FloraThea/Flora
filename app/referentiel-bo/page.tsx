@@ -7,7 +7,7 @@ type Props = {
 export default async function ReferentielBoRedirectPage({ searchParams }: Props) {
   const params = await searchParams;
   const query = params.documentId
-    ? `?tab=referentiels&documentId=${encodeURIComponent(params.documentId)}`
-    : "?tab=referentiels";
+    ? `?documentId=${encodeURIComponent(params.documentId)}`
+    : "";
   redirect(`/bibliotheque${query}`);
 }

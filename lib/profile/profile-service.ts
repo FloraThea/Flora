@@ -7,6 +7,7 @@ import {
   normalizeWorkingDays,
   resolveWorkQuotaLabel,
 } from "./work-schedule";
+import { normalizeFloraAppTheme } from "@/lib/themes/types";
 import type {
   PersonalizationSettings,
   ProfilSaveInput,
@@ -25,6 +26,7 @@ const DEFAULT_PERSONALIZATION: PersonalizationSettings = {
   className: "",
   schoolName: "",
   signature: "",
+  appTheme: "flora",
 };
 
 function mapProfile(row: Record<string, unknown>): StoredTeacherProfile {
@@ -70,6 +72,9 @@ function mapProfile(row: Record<string, unknown>): StoredTeacherProfile {
     personalization: {
       ...DEFAULT_PERSONALIZATION,
       ...((row.personalization as Partial<PersonalizationSettings>) ?? {}),
+      appTheme: normalizeFloraAppTheme(
+        (row.personalization as Partial<PersonalizationSettings> | undefined)?.appTheme,
+      ),
     },
     status: String(row.status ?? "draft"),
     metadata: (row.metadata as Record<string, unknown>) ?? {},

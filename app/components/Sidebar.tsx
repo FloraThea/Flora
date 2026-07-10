@@ -42,16 +42,6 @@ function LeafLogo() {
 
 const navItems: NavItem[] = [
   {
-    label: "Planificateur annuel",
-    href: "/planificateur-annuel",
-    icon: (
-      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-        <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M3 7h14M7 3v14M11 3v14" stroke="currentColor" strokeWidth="1.3" />
-      </svg>
-    ),
-  },
-  {
     label: "Accueil",
     href: "/accueil",
     icon: (
@@ -66,29 +56,40 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    label: "Tableau de bord",
-    href: "/accueil",
+    label: "Bibliothèque",
+    href: "/bibliotheque",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-        <rect x="3" y="3" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-        <rect x="11" y="3" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-        <rect x="3" y="11" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-        <rect x="11" y="11" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+        <path
+          d="M4 4h8l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
+          stroke="currentColor"
+          strokeWidth="1.3"
+        />
       </svg>
     ),
   },
   {
-    label: "Agenda",
-    href: "/agenda",
+    label: "Planificateur annuel",
+    href: "/planificateur-annuel",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-        <rect x="3" y="5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M3 9h14M7 3v3M13 3v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M3 7h14M7 3v14M11 3v14" stroke="currentColor" strokeWidth="1.3" />
       </svg>
     ),
   },
   {
-    label: "Programmation",
+    label: "Emploi du temps",
+    href: "/emploi-du-temps",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
+        <rect x="3" y="5" width="14" height="11" rx="2" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M7 3v3M13 3v3M3 9h14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "Programmations",
     href: "/programmation",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
@@ -126,6 +127,16 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: "Agenda",
+    href: "/agenda",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
+        <rect x="3" y="5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M3 9h14M7 3v3M13 3v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     label: "Cahier journal",
     href: "/cahier-journal",
     icon: (
@@ -138,61 +149,10 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
-  {
-    label: "Bibliothèque",
-    href: "/bibliotheque",
-    icon: (
-      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-        <path
-          d="M4 4h8l4 4v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
-          stroke="currentColor"
-          strokeWidth="1.3"
-        />
-      </svg>
-    ),
-  },
-  {
-    label: "Référentiel BO",
-    href: "/bibliotheque?tab=referentiels",
-    icon: (
-      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-        <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M10 6v4l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Emploi du temps",
-    href: "/emploi-du-temps",
-    icon: (
-      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-        <rect x="3" y="5" width="14" height="11" rx="2" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M7 3v3M13 3v3M3 9h14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Paramètres",
-    href: "/profil",
-    icon: (
-      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-        <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.3" />
-        <path
-          d="M10 3v1.5M10 15.5V17M3 10h1.5M15.5 10H17"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
-  },
 ];
 
-function isActivePath(pathname: string, href: string, label: string) {
-  if (label === "Tableau de bord") return false;
+function isActivePath(pathname: string, href: string) {
   if (href === "/accueil") return pathname === "/accueil";
-  if (href === "/planificateur-annuel") return pathname === "/planificateur-annuel";
-  if (href.startsWith("/bibliotheque?")) return pathname.startsWith("/bibliotheque");
   if (href === "/agenda") return pathname === "/agenda" || pathname === "/";
   return pathname.startsWith(href.split("?")[0]);
 }
@@ -208,7 +168,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
   return (
     <aside className={cn("flora-sidebar flex w-72 shrink-0 flex-col px-4 py-7 lg:px-5 lg:py-8", className)}>
       <div className="mb-8 px-2">
-        <Link href="/planificateur-annuel" className="flex items-center gap-3" onClick={onNavigate}>
+        <Link href="/accueil" className="flex items-center gap-3" onClick={onNavigate}>
           <LeafLogo />
           <div>
             <h1 className="font-serif text-2xl font-semibold tracking-tight text-flora-text-inverse">
@@ -222,14 +182,17 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       <Link
         href="/profil"
         onClick={onNavigate}
-        className="mb-6 flex items-center gap-3 rounded-2xl px-3 py-2.5 transition hover:bg-white/8"
+        className={cn(
+          "mb-6 flex items-center gap-3 rounded-2xl px-3 py-2.5 transition",
+          pathname.startsWith("/profil") ? "bg-white/12" : "hover:bg-white/8",
+        )}
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15 text-sm font-medium text-white">
           CM
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-normal text-white">Mon profil</p>
-          <p className="truncate text-xs font-light text-white/60">Enseignant·e</p>
+          <p className="truncate text-sm font-normal text-white">Profil enseignant</p>
+          <p className="truncate text-xs font-light text-white/60">Paramètres et préférences</p>
         </div>
         <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0 text-white/50" aria-hidden>
           <path d="M7 8l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
@@ -239,7 +202,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       <nav className="flex flex-1 flex-col overflow-y-auto">
         <ul className="flex flex-col gap-0.5">
           {navItems.map((item) => {
-            const active = isActivePath(pathname, item.href, item.label);
+            const active = isActivePath(pathname, item.href);
 
             return (
               <li key={item.label}>
@@ -260,60 +223,31 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
         </ul>
       </nav>
 
-      <div className="mt-6 flex flex-col gap-1 border-t border-white/10 pt-4">
-        <Link
-          href="/administration"
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-light",
-            pathname.startsWith("/administration") ? "flora-sidebar-link-active" : "flora-sidebar-link",
-          )}
-        >
-          <NavIcon active={pathname.startsWith("/administration")}>
-            <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-              <path
-                d="M7 4h6M5 8h10M7 12h6M9 16h2"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              />
-              <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.3" />
-            </svg>
-          </NavIcon>
-          Administration
-        </Link>
-        <Link
-          href="#"
-          onClick={onNavigate}
-          className="flora-sidebar-link flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-light"
-        >
-          <NavIcon>
-            <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-              <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.3" />
-              <path d="M10 7v3M10 13h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
-          </NavIcon>
-          Aide
-        </Link>
-        <Link
-          href="#"
-          onClick={onNavigate}
-          className="flora-sidebar-link flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-light"
-        >
-          <NavIcon>
-            <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
-              <path
-                d="M7 16l-4-4 4-4M13 8l4 4-4 4"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </NavIcon>
-          Déconnexion
-        </Link>
-      </div>
+      {process.env.NODE_ENV === "development" ? (
+        <div className="mt-6 flex flex-col gap-1 border-t border-white/10 pt-4">
+          <Link
+            href="/administration"
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-light",
+              pathname.startsWith("/administration") ? "flora-sidebar-link-active" : "flora-sidebar-link",
+            )}
+          >
+            <NavIcon active={pathname.startsWith("/administration")}>
+              <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
+                <path
+                  d="M7 4h6M5 8h10M7 12h6M9 16h2"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                />
+                <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.3" />
+              </svg>
+            </NavIcon>
+            Administration
+          </Link>
+        </div>
+      ) : null}
     </aside>
   );
 }

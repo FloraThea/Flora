@@ -184,7 +184,7 @@ export function ProgrammationPage() {
           <p className="text-sm font-light text-flora-text-muted">
             {referentielWarning}{" "}
             <Link
-              href="/bibliotheque?tab=referentiels"
+              href="/bibliotheque"
               className="text-[#b88989] underline underline-offset-2"
             >
               Ouvrir la Bibliothèque documentaire

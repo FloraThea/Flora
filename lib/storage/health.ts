@@ -1,5 +1,6 @@
 import "server-only";
 
+import { devLog, logWarn } from "@/lib/logger";
 import {
   formatMissingR2EnvMessage,
   getMissingR2EnvVars,
@@ -72,14 +73,14 @@ export async function logStorageHealth(): Promise<void> {
   const health = await getStorageHealth();
 
   if (health.ok) {
-    console.info("[storage-health] OK", {
+    devLog("[storage-health] OK", {
       provider: health.provider,
       bucket: health.bucket,
     });
     return;
   }
 
-  console.warn("[storage-health] Problème", health);
+  logWarn("[storage-health] Problème", health);
 }
 
 export { cloudflareR2Provider, supabaseStorageProvider };

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getExplorerPayload } from "@/lib/knowledge/pipeline";
+import { isDevOnlyRouteEnabled } from "@/lib/env/admin-access";
 
 export async function GET(request: Request) {
+  if (!isDevOnlyRouteEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get("id");

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import { PwaRegister } from "@/components/PwaRegister";
 import "./globals.css";
+import "./themes.css";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
@@ -50,7 +51,16 @@ export default function RootLayout({
     <html
       lang="fr"
       className={`${cormorant.variable} ${dmSans.variable} h-full antialiased`}
+      data-theme="flora"
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('flora-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full">
         <PwaRegister />
         {children}

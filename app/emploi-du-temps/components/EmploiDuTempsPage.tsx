@@ -9,6 +9,7 @@ import type {
   TimetableHistoryEntry,
   TimetablePayload,
   TimetableSettings,
+  TimetableSlotUpdateInput,
   TimetableVariant,
   TimetableVersion,
 } from "@/lib/timetable/types";
@@ -19,9 +20,10 @@ import { TimetableGrid } from "./TimetableGrid";
 import { TimetableHistoryPanel } from "./TimetableHistoryPanel";
 import { TimetableVersionsPanel } from "./TimetableVersionsPanel";
 import { TimetableImportWizard } from "./TimetableImportWizard";
-import { TimetableSlotEditor } from "./TimetableSlotEditor";
+import { TimetableSlotDrawer } from "./TimetableSlotDrawer";
 import { ExportToolbar } from "./print/ExportToolbar";
 import type { SmartTimetableSlot } from "@/lib/timetable/types";
+import { useTimetableUndo } from "../hooks/useTimetableUndo";
 
 export function EmploiDuTempsPage() {
   const [payload, setPayload] = useState<TimetablePayload | null>(null);
@@ -32,10 +34,20 @@ export function EmploiDuTempsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"grid" | "config" | "versions">("grid");
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [editingSlot, setEditingSlot] = useState<SmartTimetableSlot | null>(null);
   const [isSavingSlot, setIsSavingSlot] = useState(false);
+
+  const {
+    canUndo,
+    canRedo,
+    pushSnapshot,
+    commitUndo,
+    commitRedo,
+    resetHistory,
+  } = useTimetableUndo();
 
   const scheduleId = payload?.schedule.id;
 
@@ -64,6 +76,7 @@ export function EmploiDuTempsPage() {
 
       setPayload(data);
       setSettings(data.schedule.settings);
+      resetHistory();
       await loadMeta(data.schedule.id);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Erreur de chargement.");
@@ -71,11 +84,29 @@ export function EmploiDuTempsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [loadMeta]);
+  }, [loadMeta, resetHistory]);
 
   useEffect(() => {
     void loadTimetable();
   }, [loadTimetable]);
+
+  const applyPayload = useCallback(
+    async (data: TimetablePayload, message?: string) => {
+      setPayload(data);
+      setSettings(data.schedule.settings);
+      if (message) setSuccessMessage(message);
+      await loadMeta(data.schedule.id);
+    },
+    [loadMeta],
+  );
+
+  const commitChange = useCallback(
+    async (data: TimetablePayload, message?: string) => {
+      if (payload) pushSnapshot(payload);
+      await applyPayload(data, message);
+    },
+    [applyPayload, payload, pushSnapshot],
+  );
 
   async function handleGenerate(variantType?: TimetableVariant) {
     if (!scheduleId) return;
@@ -97,9 +128,9 @@ export function EmploiDuTempsPage() {
       const data = (await response.json()) as TimetablePayload & { error?: string };
       if (!response.ok) throw new Error(data.error || "Génération impossible.");
 
-      setPayload(data);
-      setSettings(data.schedule.settings);
-      await loadMeta(data.schedule.id);
+      if (payload) pushSnapshot(payload);
+      resetHistory();
+      await applyPayload(data, "Emploi du temps régénéré");
     } catch (generateError) {
       setError(generateError instanceof Error ? generateError.message : "Erreur de génération.");
     } finally {
@@ -122,9 +153,7 @@ export function EmploiDuTempsPage() {
       const data = (await response.json()) as TimetablePayload & { error?: string };
       if (!response.ok) throw new Error(data.error || "Sauvegarde impossible.");
 
-      setPayload(data);
-      setSettings(data.schedule.settings);
-      await loadMeta(scheduleId);
+      await applyPayload(data, "Paramètres enregistrés");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Erreur de sauvegarde.");
     } finally {
@@ -138,7 +167,7 @@ export function EmploiDuTempsPage() {
     targetStart: string,
     targetEnd: string,
   ) {
-    if (!scheduleId) return;
+    if (!scheduleId || !payload) return;
 
     const response = await fetch("/api/emploi-du-temps/slots", {
       method: "PUT",
@@ -152,40 +181,40 @@ export function EmploiDuTempsPage() {
       return;
     }
 
-    setPayload(data);
-    await loadMeta(scheduleId);
+    await commitChange(data);
   }
 
-  async function handleUpdateSlot(
-    patch: {
-      subject: string;
-      subSubject: string;
-      customText: string;
-      color: string;
-      gradient: string;
-    },
-  ) {
+  async function handleUpdateSlot(patch: TimetableSlotUpdateInput) {
     if (!scheduleId || !editingSlot) return;
     setIsSavingSlot(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const response = await fetch("/api/emploi-du-temps/slots", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scheduleId,
-          slotId: editingSlot.id,
-          ...patch,
-        }),
+        body: JSON.stringify(patch),
       });
 
-      const data = (await response.json()) as TimetablePayload & { error?: string };
-      if (!response.ok) throw new Error(data.error || "Mise à jour impossible.");
+      const data = (await response.json()) as TimetablePayload & {
+        error?: string;
+        details?: string;
+        cause?: { message?: string };
+      };
 
-      setPayload(data);
-      setEditingSlot(null);
-      await loadMeta(scheduleId);
+      if (!response.ok) {
+        const parts = [
+          data.error || "Mise à jour impossible.",
+          data.details,
+          data.cause?.message,
+        ].filter(Boolean);
+        throw new Error(parts.join(" — "));
+      }
+
+      const updatedSlot = data.slots.find((s) => s.id === editingSlot.id) ?? null;
+      setEditingSlot(updatedSlot);
+      await commitChange(data, "Créneau enregistré");
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Mise à jour impossible.");
     } finally {
@@ -193,8 +222,132 @@ export function EmploiDuTempsPage() {
     }
   }
 
-  async function handleLock(scope: "session" | "full_day", day: string, slotId?: string) {
+  async function handleSlotAction(actionBody: Record<string, unknown>) {
+    if (!scheduleId || !editingSlot) return;
+    setIsSavingSlot(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/emploi-du-temps/slots/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scheduleId,
+          slotId: editingSlot.id,
+          ...actionBody,
+        }),
+      });
+
+      const data = (await response.json()) as TimetablePayload & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Action impossible.");
+
+      if (actionBody.action === "delete") {
+        setEditingSlot(null);
+      } else if (actionBody.action === "duplicate") {
+        const daySlots = data.slots
+          .filter((s) => s.day === editingSlot.day)
+          .sort((a, b) => a.start.localeCompare(b.start));
+        const sourceIndex = daySlots.findIndex((s) => s.id === editingSlot.id);
+        const duplicate = sourceIndex >= 0 ? daySlots[sourceIndex + 1] : null;
+        if (duplicate) setEditingSlot(duplicate);
+      } else if (actionBody.action === "split") {
+        const daySlots = data.slots
+          .filter((s) => s.day === editingSlot.day)
+          .sort((a, b) => a.start.localeCompare(b.start));
+        const second = daySlots.find((s) => s.start === actionBody.splitTime);
+        if (second) setEditingSlot(second);
+      } else {
+        const refreshed = data.slots.find((s) => s.id === editingSlot.id) ?? editingSlot;
+        setEditingSlot(refreshed);
+      }
+
+      await commitChange(data, "Modification appliquée");
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Action impossible.");
+    } finally {
+      setIsSavingSlot(false);
+    }
+  }
+
+  async function handleCreateSlot(day: string, afterSlotId: string | null) {
+    if (!scheduleId || !payload) return;
+    setError(null);
+
+    const previousIds = new Set(payload.slots.map((slot) => slot.id));
+
+    try {
+      const response = await fetch("/api/emploi-du-temps/slots/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          scheduleId,
+          day,
+          afterSlotId,
+        }),
+      });
+
+      const data = (await response.json()) as TimetablePayload & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Création impossible.");
+
+      const created = data.slots.find((slot) => slot.day === day && !previousIds.has(slot.id));
+      if (created) setEditingSlot(created);
+      await commitChange(data, "Nouveau créneau ajouté");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Création impossible.");
+    }
+  }
+
+  async function handleRestoreSnapshot(snapshot: TimetablePayload) {
     if (!scheduleId) return;
+
+    const response = await fetch("/api/emploi-du-temps/slots/actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "restore",
+        scheduleId,
+        slots: snapshot.slots,
+      }),
+    });
+
+    const data = (await response.json()) as TimetablePayload & { error?: string };
+    if (!response.ok) {
+      setError(data.error || "Restauration impossible.");
+      return null;
+    }
+
+    return data;
+  }
+
+  async function handleUndo() {
+    if (!payload) return;
+    const previous = commitUndo(payload);
+    if (!previous) return;
+
+    const restored = await handleRestoreSnapshot(previous);
+    if (restored) {
+      setPayload(restored);
+      setEditingSlot(null);
+      setSuccessMessage("Modification annulée");
+    }
+  }
+
+  async function handleRedo() {
+    if (!payload) return;
+    const next = commitRedo(payload);
+    if (!next) return;
+
+    const restored = await handleRestoreSnapshot(next);
+    if (restored) {
+      setPayload(restored);
+      setEditingSlot(null);
+      setSuccessMessage("Modification rétablie");
+    }
+  }
+
+  async function handleLock(scope: "session" | "full_day", day: string, slotId?: string) {
+    if (!scheduleId || !payload) return;
 
     const response = await fetch("/api/emploi-du-temps/lock", {
       method: "POST",
@@ -214,8 +367,7 @@ export function EmploiDuTempsPage() {
       return;
     }
 
-    setPayload(data);
-    await loadMeta(scheduleId);
+    await commitChange(data);
   }
 
   async function handleSaveVersion() {
@@ -244,8 +396,10 @@ export function EmploiDuTempsPage() {
       return;
     }
 
+    if (payload) pushSnapshot(payload);
     setPayload(data);
     setSettings(data.schedule.settings);
+    setEditingSlot(null);
     if (data.schedule.id) await loadMeta(data.schedule.id);
   }
 
@@ -300,6 +454,28 @@ export function EmploiDuTempsPage() {
           {isGenerating ? "Génération…" : "Générer automatiquement"}
         </FloraButton>
         {payload && settings ? <ExportToolbar payload={payload} settings={settings} /> : null}
+        {payload ? (
+          <>
+            <FloraButton
+              accent="cream"
+              variant="secondary"
+              size="sm"
+              disabled={!canUndo}
+              onClick={() => void handleUndo()}
+            >
+              Annuler
+            </FloraButton>
+            <FloraButton
+              accent="cream"
+              variant="secondary"
+              size="sm"
+              disabled={!canRedo}
+              onClick={() => void handleRedo()}
+            >
+              Refaire
+            </FloraButton>
+          </>
+        ) : null}
       </div>
 
       <div className="mb-6 flex gap-2">
@@ -325,6 +501,12 @@ export function EmploiDuTempsPage() {
         </FloraCard>
       ) : null}
 
+      {successMessage ? (
+        <FloraCard padding="md" accent="sage" className="mb-6">
+          <p className="text-sm font-light text-flora-text">{successMessage}</p>
+        </FloraCard>
+      ) : null}
+
       {isLoading ? (
         <p className="text-sm font-light text-flora-text-subtle">Chargement de l&apos;emploi du temps…</p>
       ) : payload && settings ? (
@@ -339,6 +521,7 @@ export function EmploiDuTempsPage() {
                   onLockSlot={(slotId, day) => void handleLock("session", day, slotId)}
                   onLockDay={(day) => void handleLock("full_day", day)}
                   onEditSlot={setEditingSlot}
+                  onCreateSlot={(day, afterSlotId) => void handleCreateSlot(day, afterSlotId)}
                 />
               </FloraCard>
             ) : null}
@@ -418,11 +601,13 @@ export function EmploiDuTempsPage() {
         </FloraCard>
       )}
 
-      {editingSlot ? (
-        <TimetableSlotEditor
+      {editingSlot && payload ? (
+        <TimetableSlotDrawer
           slot={editingSlot}
+          allSlots={payload.slots}
           onClose={() => setEditingSlot(null)}
           onSave={handleUpdateSlot}
+          onAction={handleSlotAction}
           isSaving={isSavingSlot}
         />
       ) : null}
@@ -435,6 +620,7 @@ export function EmploiDuTempsPage() {
             setSettings(data.schedule.settings);
             setShowImportWizard(false);
             setActiveTab("grid");
+            resetHistory();
             void loadMeta(data.schedule.id);
           }}
         />

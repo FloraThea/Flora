@@ -1,6 +1,23 @@
 import { supabase } from "@/lib/supabase";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
+import {
+  createBlankSlot,
+  detectSlotConflicts,
+  duplicateSlot,
+  insertSlotAfter,
+  mergeSlotMeta,
+  mergeTwoSlots,
+  moveSlotWithinDay,
+  readSlotMeta,
+  removeSlot,
+  shiftFollowingSlotsOnDay,
+  splitSlotAt,
+  durationMinutes,
+} from "./slot-editor/operations";
+import type { SlotEditorMetadata } from "./slot-editor/operations";
 import { enrichSlotFields, resolveSlotAppearance } from "./subject-palette";
+import { hoursFromSlot, sortSlots } from "./time-grid";
+import { inferSlotType } from "./import/subject-mapper";
 import type { TimetableInput } from "@/lib/programming/types";
 import type { RitualDefinition } from "@/lib/journal/types";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
@@ -19,6 +36,7 @@ import type {
   TimetableMoveInput,
   TimetablePayload,
   TimetableSettings,
+  TimetableSlotActionInput,
   TimetableSlotUpdateInput,
   TimetableVariant,
   TimetableVersion,
@@ -407,46 +425,141 @@ export async function updateTimetableSlot(input: TimetableSlotUpdateInput): Prom
   const current = payload.slots.find((slot) => slot.id === input.slotId);
   if (!current) throw new Error("Créneau introuvable.");
 
+  const meta = readSlotMeta(current);
+  const useCustomColor = input.useCustomColor ?? meta.useCustomColor ?? false;
   const subject = input.subject ?? current.subject;
   const subSubject = input.subSubject ?? current.subSubject;
-  const appearance = resolveSlotAppearance({
-    subject,
-    subSubject,
-    slotType: current.slotType,
-    color: input.color ?? current.color,
-    gradient: input.gradient ?? current.gradient,
+  const subjectChanged = subject !== current.subject;
+  const slotType = subjectChanged ? inferSlotType(subject) : current.slotType;
+  const label = input.label ?? (subjectChanged ? subject : current.label);
+  const start = input.start ?? current.start;
+  const end = input.end ?? current.end;
+  const day = input.day ?? current.day;
+
+  const appearance = useCustomColor
+    ? {
+        color: input.color ?? current.color,
+        gradient: input.gradient ?? current.gradient,
+        borderColor: current.color,
+        textColor: "#1a1a1a",
+      }
+    : resolveSlotAppearance({ subject, subSubject, slotType });
+
+  const nextMetadata = mergeSlotMeta(current, {
+    icon: input.icon ?? meta.icon,
+    levels: (input.levels as SlotEditorMetadata["levels"]) ?? meta.levels,
+    displayText: input.displayText ?? meta.displayText,
+    notes: input.notes ?? meta.notes,
+    useCustomColor,
+    teacherName: input.teacherName ?? meta.teacherName,
   });
 
-  const { error } = await supabase
-    .from("timetable_slots")
-    .update({
-      subject,
-      sub_subject: subSubject,
-      custom_text: input.customText ?? current.customText ?? "",
-      color: appearance.color,
-      gradient: appearance.gradient,
-      label: input.label ?? current.label,
-      room: input.room ?? current.room,
-      start_time: input.start ?? current.start,
-      end_time: input.end ?? current.end,
-      updated_at: new Date().toISOString(),
-      metadata: {
-        ...current.metadata,
-        color: appearance.color,
-      },
-    })
-    .eq("id", input.slotId);
+  let slots = payload.slots.map((slot) =>
+    slot.id === input.slotId
+      ? {
+          ...slot,
+          day,
+          start,
+          end,
+          subject,
+          subSubject,
+          customText: input.customText ?? current.customText ?? "",
+          color: appearance.color,
+          gradient: appearance.gradient,
+          slotType,
+          label,
+          room: input.room ?? current.room,
+          intervenant: input.intervenant ?? current.intervenant,
+          hours: hoursFromSlot({ start, end, hours: slot.hours }),
+          metadata: nextMetadata,
+        }
+      : slot,
+  );
 
-  if (error) throw error;
+  if (input.shiftFollowing && (start !== current.start || end !== current.end)) {
+    const delta = durationMinutes(current.end, end) - durationMinutes(current.start, start);
+    if (delta !== 0) {
+      slots = shiftFollowingSlotsOnDay(slots, day, current.end, delta);
+    }
+  }
 
-  await appendHistory(input.scheduleId, "update_slot", {
-    slotId: input.slotId,
-    subject,
-    subSubject,
-  });
+  const conflicts = detectSlotConflicts(slots);
+  if (conflicts.some((c) => c.severity === "error")) {
+    throw new Error(conflicts[0]?.message ?? "Conflit horaire détecté.");
+  }
 
-  const updated = await loadTimetablePayload(input.scheduleId);
-  if (!updated) throw new Error("Emploi du temps introuvable.");
+  const updated = await replaceScheduleSlots(input.scheduleId, sortSlots(slots), "update_slot");
+  void pedagogicalEngine.emit({ type: "emploi_du_temps.modifie", scheduleId: input.scheduleId, scope: "slot" });
+  return updated;
+}
+
+export async function applyTimetableSlotAction(input: TimetableSlotActionInput): Promise<TimetablePayload> {
+  const payload = await loadTimetablePayload(input.scheduleId);
+  if (!payload) throw new Error("Emploi du temps introuvable.");
+
+  let slots = payload.slots;
+
+  switch (input.action) {
+    case "duplicate": {
+      const source = slots.find((s) => s.id === input.slotId);
+      if (!source) throw new Error("Créneau introuvable.");
+      const copy = duplicateSlot(source, input.scheduleId);
+      slots = insertSlotAfter(slots, source.id, source.day, copy);
+      break;
+    }
+    case "delete": {
+      slots = removeSlot(slots, input.slotId, input.reorganize ?? false);
+      break;
+    }
+    case "merge": {
+      const a = slots.find((s) => s.id === input.slotId);
+      const b = slots.find((s) => s.id === input.targetSlotId);
+      if (!a || !b) throw new Error("Créneaux introuvables.");
+      if (a.day !== b.day) throw new Error("La fusion n'est possible que sur le même jour.");
+      const merged = mergeTwoSlots(a, b);
+      slots = sortSlots(slots.filter((s) => s.id !== b.id).map((s) => (s.id === a.id ? merged : s)));
+      break;
+    }
+    case "split": {
+      const source = slots.find((s) => s.id === input.slotId);
+      if (!source) throw new Error("Créneau introuvable.");
+      const [first, second] = splitSlotAt(
+        source,
+        input.splitTime,
+        input.secondSubject ?? source.subject,
+        input.secondSubSubject ?? "",
+      );
+      slots = sortSlots(slots.filter((s) => s.id !== source.id).concat([first, second]));
+      break;
+    }
+    case "create": {
+      const blank = createBlankSlot({
+        scheduleId: input.scheduleId,
+        day: input.day,
+        start: "08:30",
+        end: "09:30",
+      });
+      slots = insertSlotAfter(slots, input.afterSlotId ?? null, input.day, blank);
+      break;
+    }
+    case "move": {
+      slots = moveSlotWithinDay(slots, input.slotId, input.direction);
+      break;
+    }
+    case "restore": {
+      slots = input.slots;
+      break;
+    }
+    default:
+      throw new Error("Action inconnue.");
+  }
+
+  const conflicts = detectSlotConflicts(slots);
+  if (conflicts.some((c) => c.severity === "error")) {
+    throw new Error(conflicts[0]?.message ?? "Conflit horaire détecté.");
+  }
+
+  const updated = await replaceScheduleSlots(input.scheduleId, sortSlots(slots), input.action);
   void pedagogicalEngine.emit({ type: "emploi_du_temps.modifie", scheduleId: input.scheduleId, scope: "slot" });
   return updated;
 }

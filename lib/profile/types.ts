@@ -1,5 +1,6 @@
 import type { AcademicZone, SchoolLevel, TimetableInput } from "@/lib/programming/types";
 import type { FloraAccent } from "@/lib/theme";
+import type { FloraAppThemeId } from "@/lib/themes/types";
 import type { TeacherWorkingDay, WorkQuotaPreset } from "./work-schedule";
 
 export const CLASS_TYPES = [
@@ -96,6 +97,7 @@ export type PersonalizationSettings = {
   className: string;
   schoolName: string;
   signature: string;
+  appTheme: FloraAppThemeId;
 };
 
 export type TeacherMethod = {

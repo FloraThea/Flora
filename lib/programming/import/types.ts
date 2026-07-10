@@ -2,6 +2,24 @@ import type { AcademicZone, CalendarSnapshot, ProgrammingTable, SchoolLevel } fr
 
 export type ProgrammationImportFormat = "pdf" | "word" | "excel" | "csv" | "text";
 
+export type ProgrammationColumnField =
+  | "period"
+  | "week"
+  | "discipline"
+  | "niveau"
+  | "sequence"
+  | "seance"
+  | "objectif"
+  | "competence"
+  | "notion"
+  | "materiel"
+  | "ressource"
+  | "remarques"
+  | "deroulement"
+  | "evaluation"
+  | "differenciation"
+  | "domaine";
+
 export type ImportedProgrammationRow = {
   id: string;
   periodNumber: number | null;
@@ -32,6 +50,16 @@ export type ParsedProgrammationImport = {
   rows: ImportedProgrammationRow[];
   warnings: string[];
   extractedTextPreview: string;
+  sheetNames?: string[];
+  sheetName?: string;
+  columns: string[];
+  previewRows: string[][];
+  rowCount: number;
+  needsColumnMapping: boolean;
+  detectedFields: Partial<Record<ProgrammationColumnField, string>>;
+  columnMapping?: Partial<Record<ProgrammationColumnField, number>>;
+  headerRowIndex?: number;
+  sourceGrid?: string[][];
 };
 
 export type AdaptationStrategy =

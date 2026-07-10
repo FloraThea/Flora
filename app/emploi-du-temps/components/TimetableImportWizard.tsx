@@ -300,10 +300,12 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
               Excel, CSV — Flora analyse intelligemment votre tableau, même si les jours ne sont pas en première ligne.
             </p>
           </div>
-          <label className="flex items-center gap-2 text-xs font-light text-flora-text-muted">
-            <input type="checkbox" checked={showDebug} onChange={(e) => setShowDebug(e.target.checked)} />
-            Mode diagnostic
-          </label>
+          {process.env.NODE_ENV === "development" ? (
+            <label className="flex items-center gap-2 text-xs font-light text-flora-text-muted">
+              <input type="checkbox" checked={showDebug} onChange={(e) => setShowDebug(e.target.checked)} />
+              Mode diagnostic
+            </label>
+          ) : null}
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">

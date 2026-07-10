@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDevOnlyRouteEnabled } from "@/lib/env/admin-access";
 import {
   formatMissingR2EnvMessage,
   getMissingR2EnvVars,
@@ -9,6 +10,10 @@ import {
 import { buildR2Diagnostics, logR2Diagnostics } from "@/lib/storage/r2-diagnostics";
 
 export async function GET() {
+  if (!isDevOnlyRouteEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   logR2Diagnostics("[storage/health]");
 
   const provider = getStorageProviderName();

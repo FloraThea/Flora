@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Sidebar } from "@/app/components/Sidebar";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { layout } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
@@ -15,7 +16,8 @@ export function FloraAppShell({ children, className, mainClassName }: FloraAppSh
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className={cn(layout.pageShell, className)}>
+    <ThemeProvider>
+      <div className={cn(layout.pageShell, className)}>
       <div
         className={cn(
           "fixed inset-0 z-40 bg-sauge-sidebar/40 backdrop-blur-sm transition lg:hidden",
@@ -50,6 +52,7 @@ export function FloraAppShell({ children, className, mainClassName }: FloraAppSh
 
         <main className={cn(layout.main, mainClassName)}>{children}</main>
       </div>
-    </div>
+      </div>
+    </ThemeProvider>
   );
 }

@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAdminAuthHint, isAdminActionAllowed } from "@/lib/db/admin-auth";
 import { applyPendingMigrations, getMigrationStatus } from "@/lib/db/migrations";
+import { isAdministrationEnabled } from "@/lib/env/admin-access";
 
 export async function GET() {
+  if (!isAdministrationEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     const status = await getMigrationStatus();
     return NextResponse.json({
@@ -17,6 +22,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isAdministrationEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   if (!isAdminActionAllowed(request)) {
     return NextResponse.json(
       {

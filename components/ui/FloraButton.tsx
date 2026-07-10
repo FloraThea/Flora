@@ -19,8 +19,8 @@ const sizeClasses: Record<FloraButtonSize, string> = {
 };
 
 const variantBase: Record<FloraButtonVariant, string> = {
-  primary: buttons.primary,
-  secondary: buttons.secondary,
+  primary: "flora-btn-primary",
+  secondary: "flora-btn-secondary",
   ghost: buttons.ghost,
   outline: buttons.outline,
 };

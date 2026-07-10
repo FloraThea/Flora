@@ -2,6 +2,7 @@ import { toJpeg, toPng } from "html-to-image";
 import type { ExportFormat, PrintOrientation } from "./types";
 import { getPageDimensions } from "./PdfGenerator";
 import { PdfGenerator } from "./PdfGenerator";
+import { PRINT_FONT_URL } from "./print-theme";
 
 const CAPTURE_OPTIONS = {
   cacheBust: true,
@@ -104,16 +105,14 @@ export class ExportService {
 
     printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8" />
       <title>Emploi du temps — Flora</title>
-      <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      <link href="${PRINT_FONT_URL}" rel="stylesheet" />
       <style>
-        @page { size: ${pageSize}; margin: 8mm; }
-        * { box-sizing: border-box; }
+        @page { size: ${pageSize}; margin: 10mm; }
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         html, body {
           margin: 0;
           padding: 0;
           background: white;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
         }
         body { display: flex; justify-content: center; align-items: flex-start; }
       </style>

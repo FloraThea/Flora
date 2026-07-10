@@ -89,7 +89,7 @@ export async function saveSubjectMappings(
     if (isMissingSubjectMappingsTable(error)) {
       console.warn(
         "[timetable-import] Table subject_mappings absente — correspondances non enregistrées. " +
-          "Appliquez les migrations depuis /administration.",
+          "Appliquez les migrations via le SQL Editor Supabase.",
       );
       return;
     }

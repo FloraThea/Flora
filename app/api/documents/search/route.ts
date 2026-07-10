@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { searchDocuments } from "@/lib/documents/document-service";
 import type { DocumentSearchFilters } from "@/lib/documents/types";
+import { logRouteInfo } from "@/lib/api/route-diagnostics";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 
 export async function POST(request: Request) {
@@ -9,13 +10,11 @@ export async function POST(request: Request) {
   try {
     filters = (await request.json()) as DocumentSearchFilters;
 
-    console.info("[/api/documents/search] Requête reçue", {
-      filters,
-    });
+    logRouteInfo("/api/documents/search", "Requête reçue", { filters });
 
     const documents = await searchDocuments(filters);
 
-    console.info("[/api/documents/search] Succès", {
+    logRouteInfo("/api/documents/search", "Succès", {
       count: documents.length,
       query: filters.query ?? "",
     });

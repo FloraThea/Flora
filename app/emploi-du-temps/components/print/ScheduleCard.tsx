@@ -1,7 +1,7 @@
 import type { SmartTimetableSlot } from "@/lib/timetable/types";
 import {
-  computeCardFontSizes,
-  getCardMinHeight,
+  buildCardContentLines,
+  computeAdaptiveCardTypography,
   getCardPadding,
   getSubjectIcon,
   type PrintThemeTokens,
@@ -11,19 +11,15 @@ import {
   resolvePrintCardBackground,
 } from "@/lib/timetable/export/print-layout-engine";
 import type { PrintCustomization } from "@/lib/timetable/export/types";
+import { useFloraTheme } from "@/components/theme/ThemeProvider";
 
 type ScheduleCardProps = {
   slot: SmartTimetableSlot;
   theme: PrintThemeTokens;
   customization: PrintCustomization;
   variant?: "lesson" | "break";
-};
-
-const clampStyle = {
-  overflow: "hidden" as const,
-  textOverflow: "ellipsis" as const,
-  display: "-webkit-box" as const,
-  WebkitBoxOrient: "vertical" as const,
+  cellWidth?: number;
+  cellHeight?: number;
 };
 
 export function ScheduleCard({
@@ -31,147 +27,119 @@ export function ScheduleCard({
   theme,
   customization,
   variant = "lesson",
+  cellWidth = 420,
+  cellHeight = 200,
 }: ScheduleCardProps) {
+  const { themeId } = useFloraTheme();
   const monochrome = customization.styleTheme === "monochrome";
-  const { objectif, competence, complementaryText } = extractSlotDetails(slot);
-
-  const visibleParts = [
-    slot.subject,
-    slot.subSubject,
-    customization.showObjectives ? objectif : "",
-    customization.showCompetencies ? competence : "",
-    customization.showComplementaryText ? complementaryText : "",
-  ].filter(Boolean);
-
-  const contentLength = visibleParts.join(" ").length;
-  const fonts = computeCardFontSizes(contentLength, customization.fontScale);
-  const card = resolvePrintCardBackground(slot, theme.useGradients, monochrome);
-  const icon = getSubjectIcon(slot.subject, slot.subSubject, slot.slotType);
+  const { objectif, competence, complementaryText, displayTitle } = extractSlotDetails(slot);
+  const card = resolvePrintCardBackground(slot, theme.useGradients, monochrome, themeId);
+  const metaIcon =
+    typeof slot.metadata?.icon === "string" ? slot.metadata.icon : undefined;
+  const icon = metaIcon ?? getSubjectIcon(slot.subject, slot.subSubject, slot.slotType);
   const padding = getCardPadding(customization.cardScale);
-  const minHeight = getCardMinHeight(customization.cardScale);
+  const hasIcon = customization.showIcons;
+
+  const contentLines = buildCardContentLines({
+    subject: displayTitle,
+    subSubject: slot.subSubject,
+    complementaryText,
+    objectif,
+    competence,
+    showComplementaryText: customization.showComplementaryText,
+    showObjectives: customization.showObjectives,
+    showCompetencies: customization.showCompetencies,
+  });
+
+  const { fontSizes, lineHeight } = computeAdaptiveCardTypography({
+    lines: contentLines,
+    cellWidth,
+    cellHeight,
+    padding,
+    hasIcon,
+    fontScale: customization.fontScale,
+  });
+
+  const cardStyle = {
+    width: "100%",
+    height: "100%",
+    minHeight: cellHeight,
+    boxSizing: "border-box" as const,
+    padding,
+    borderRadius: 20,
+    border: `1.5px solid ${card.borderColor}`,
+    background: card.background,
+    color: card.color,
+    boxShadow: theme.shadow,
+    display: "flex",
+    flexDirection: "column" as const,
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center" as const,
+    overflow: "hidden",
+    fontFamily: theme.fontFamily,
+  };
 
   if (variant === "break") {
+    const breakFont = Math.max(18, fontSizes[0] ?? 22);
     return (
-      <div
-        style={{
-          borderRadius: 16,
-          border: `1px solid ${card.borderColor}`,
-          background: card.background,
-          color: card.color,
-          boxShadow: theme.shadow,
-          padding: `${padding + 4}px ${padding + 8}px`,
-          textAlign: "center",
-          fontWeight: 600,
-          fontSize: fonts.subject,
-        }}
-      >
-        <span style={{ marginRight: 8, fontSize: 18 }}>{icon}</span>
-        {slot.subject}
+      <div style={cardStyle}>
+        {hasIcon ? (
+          <span style={{ fontSize: breakFont * 0.85, lineHeight: 1, marginBottom: 8, opacity: 0.9 }}>
+            {icon}
+          </span>
+        ) : null}
+        <div
+          style={{
+            fontSize: breakFont,
+            fontWeight: 700,
+            lineHeight,
+            wordBreak: "break-word",
+            hyphens: "auto",
+            width: "100%",
+          }}
+        >
+          {slot.subject}
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        height: "100%",
-        minHeight,
-        boxSizing: "border-box",
-        padding,
-        borderRadius: 16,
-        border: `1px solid ${card.borderColor}`,
-        background: card.background,
-        color: card.color,
-        boxShadow: theme.shadow,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        overflow: "hidden",
-      }}
-    >
-      {customization.showIcons ? (
-        <span style={{ fontSize: 18, lineHeight: 1, opacity: 0.8, marginBottom: 6 }}>{icon}</span>
-      ) : null}
-
-      <div
-        style={{
-          ...clampStyle,
-          fontSize: fonts.subject,
-          fontWeight: 700,
-          lineHeight: 1.15,
-          WebkitLineClamp: 2,
-          width: "100%",
-        }}
-      >
-        {slot.subject}
-      </div>
-
-      {slot.subSubject ? (
-        <div
+    <div style={cardStyle}>
+      {hasIcon ? (
+        <span
           style={{
-            marginTop: 4,
-            fontSize: fonts.subSubject,
-            fontWeight: 500,
-            lineHeight: 1.2,
-            opacity: 0.92,
-            ...clampStyle,
-            WebkitLineClamp: 2,
-            width: "100%",
-          }}
-        >
-          {slot.subSubject}
-        </div>
-      ) : null}
-
-      {customization.showComplementaryText && complementaryText ? (
-        <p
-          style={{
-            margin: "6px 0 0",
-            fontSize: fonts.detail,
-            lineHeight: 1.25,
-            opacity: 0.88,
-            ...clampStyle,
-            WebkitLineClamp: 2,
-            width: "100%",
-          }}
-        >
-          {complementaryText}
-        </p>
-      ) : null}
-
-      {customization.showObjectives && objectif ? (
-        <p
-          style={{
-            margin: "5px 0 0",
-            fontSize: fonts.detail,
-            lineHeight: 1.25,
+            fontSize: Math.max(16, (fontSizes[0] ?? 22) * 0.65),
+            lineHeight: 1,
+            marginBottom: 8,
             opacity: 0.85,
-            ...clampStyle,
-            WebkitLineClamp: 2,
-            width: "100%",
           }}
+          aria-hidden
         >
-          {objectif}
-        </p>
+          {icon}
+        </span>
       ) : null}
 
-      {customization.showCompetencies && competence ? (
-        <p
+      {contentLines.map((line, index) => (
+        <div
+          key={`${line.role}-${index}`}
           style={{
-            margin: "4px 0 0",
-            fontSize: fonts.detail - 0.5,
-            lineHeight: 1.2,
-            opacity: 0.75,
-            ...clampStyle,
-            WebkitLineClamp: 2,
+            marginTop: index > 0 ? 6 : 0,
+            fontSize: fontSizes[index] ?? MIN_FALLBACK,
+            fontWeight: line.role === "primary" ? 700 : line.role === "secondary" ? 600 : 500,
+            lineHeight,
+            wordBreak: "break-word",
+            hyphens: "auto",
             width: "100%",
+            opacity: line.role === "tertiary" ? 0.88 : 1,
           }}
         >
-          {competence}
-        </p>
-      ) : null}
+          {line.text}
+        </div>
+      ))}
     </div>
   );
 }
+
+const MIN_FALLBACK = 16;

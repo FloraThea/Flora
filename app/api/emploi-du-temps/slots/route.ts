@@ -41,16 +41,22 @@ export async function PATCH(request: Request) {
     logRouteInfo(ROUTE_PATH, "Mise à jour créneau", {
       scheduleId: body.scheduleId,
       slotId: body.slotId,
+      subject: body.subject,
+      subSubject: body.subSubject,
     });
 
     const payload = await updateTimetableSlot(body);
     return NextResponse.json({ route: ROUTE_PATH, ...payload });
   } catch (error) {
+    const message = toErrorMessage(error);
+    console.error("[EDT] PATCH /slots échec", error);
     return jsonRouteError(
       ROUTE_PATH,
       500,
       "Impossible de mettre à jour le créneau.",
-      toErrorMessage(error),
+      message,
+      undefined,
+      error,
     );
   }
 }

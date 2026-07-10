@@ -1,3 +1,8 @@
+import type { FloraAppThemeId } from "@/lib/themes/types";
+import {
+  getThemeBasePalette,
+  getThemedSubjectOverride,
+} from "@/lib/themes/subject-colors";
 import {
   FRENCH_SUB_SUBJECTS,
   MATH_SUB_SUBJECTS,
@@ -22,6 +27,10 @@ export const FLORA_PALETTE: Record<PaletteKey, FloraPaletteTone> = {
   violet: { base: "#c5b8d4", light: "#e4dcf0", dark: "#9a8ab0", border: "#d0c4de", text: "#524760" },
   orange: { base: "#f0d4b8", light: "#fce8d4", dark: "#c49a88", border: "#e8c8b0", text: "#6b4e38" },
 };
+
+export function getActivePalette(themeId: FloraAppThemeId = "flora"): Record<PaletteKey, FloraPaletteTone> {
+  return getThemeBasePalette(themeId);
+}
 
 export const TIMETABLE_SUBJECTS = [
   "Français",
@@ -108,9 +117,22 @@ function hashString(value: string): number {
   return Math.abs(hash);
 }
 
-export function buildSubjectGradient(subject: string, subSubject = "", slotType?: string): string {
+function themedGradient(tone: FloraPaletteTone): string {
+  return `linear-gradient(145deg, ${tone.light} 0%, ${tone.base} 45%, ${tone.dark} 100%)`;
+}
+
+export function buildSubjectGradient(
+  subject: string,
+  subSubject = "",
+  slotType?: string,
+  themeId: FloraAppThemeId = "flora",
+): string {
+  const override = getThemedSubjectOverride(themeId, subject, subSubject);
+  if (override) return themedGradient(override);
+
+  const palette = getActivePalette(themeId);
   const paletteKey = getPaletteKeyForSubject(subject, slotType);
-  const tone = FLORA_PALETTE[paletteKey];
+  const tone = palette[paletteKey];
   const subs = getSubSubjectsForSubject(subject);
   const subIndex = subSubject ? subs.indexOf(subSubject) : -1;
   const variation =
@@ -125,9 +147,15 @@ export function buildSubjectGradient(subject: string, subSubject = "", slotType?
   return `linear-gradient(145deg, ${tone.light} 0%, ${mid} 45%, ${end} 100%)`;
 }
 
-export function getSubjectBaseColor(subject: string, slotType?: string): string {
+export function getSubjectBaseColor(
+  subject: string,
+  slotType?: string,
+  themeId: FloraAppThemeId = "flora",
+): string {
+  const override = getThemedSubjectOverride(themeId, subject);
+  if (override) return override.base;
   const paletteKey = getPaletteKeyForSubject(subject, slotType);
-  return FLORA_PALETTE[paletteKey].base;
+  return getActivePalette(themeId)[paletteKey].base;
 }
 
 export type SlotAppearance = {
@@ -137,18 +165,31 @@ export type SlotAppearance = {
   textColor: string;
 };
 
-export function resolveSlotAppearance(input: {
-  subject: string;
-  subSubject?: string;
-  slotType?: string;
-  color?: string;
-  gradient?: string;
-}): SlotAppearance {
+export function resolveSlotAppearance(
+  input: {
+    subject: string;
+    subSubject?: string;
+    slotType?: string;
+    color?: string;
+    gradient?: string;
+  },
+  themeId: FloraAppThemeId = "flora",
+): SlotAppearance {
+  const override = getThemedSubjectOverride(themeId, input.subject, input.subSubject);
+  if (override) {
+    return {
+      color: override.base,
+      gradient: themedGradient(override),
+      borderColor: override.border,
+      textColor: override.text,
+    };
+  }
+
+  const palette = getActivePalette(themeId);
   const paletteKey = getPaletteKeyForSubject(input.subject, input.slotType);
-  const tone = FLORA_PALETTE[paletteKey];
-  const color = input.color?.trim() || tone.base;
-  const gradient =
-    input.gradient?.trim() || buildSubjectGradient(input.subject, input.subSubject ?? "", input.slotType);
+  const tone = palette[paletteKey];
+  const color = getSubjectBaseColor(input.subject, input.slotType, themeId);
+  const gradient = buildSubjectGradient(input.subject, input.subSubject ?? "", input.slotType, themeId);
 
   return {
     color,
@@ -168,16 +209,25 @@ export function enrichSlotFields<
     customText?: string;
     metadata?: Record<string, unknown>;
   },
->(slot: T): T & { color: string; gradient: string; customText: string } {
-  const legacyColor =
-    typeof slot.metadata?.color === "string" ? slot.metadata.color : undefined;
-  const appearance = resolveSlotAppearance({
-    subject: slot.subject,
-    subSubject: slot.subSubject,
-    slotType: slot.slotType,
-    color: slot.color || legacyColor,
-    gradient: slot.gradient,
-  });
+>(slot: T, themeId: FloraAppThemeId = "flora"): T & { color: string; gradient: string; customText: string } {
+  const useCustomColor = Boolean(slot.metadata?.useCustomColor);
+  if (useCustomColor && slot.color && slot.gradient) {
+    return {
+      ...slot,
+      customText: slot.customText ?? "",
+      color: slot.color,
+      gradient: slot.gradient,
+    };
+  }
+
+  const appearance = resolveSlotAppearance(
+    {
+      subject: slot.subject,
+      subSubject: slot.subSubject,
+      slotType: slot.slotType,
+    },
+    themeId,
+  );
 
   return {
     ...slot,

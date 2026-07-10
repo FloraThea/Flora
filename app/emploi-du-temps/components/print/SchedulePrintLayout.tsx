@@ -6,7 +6,7 @@ import {
   buildPrintScheduleRows,
   resolvePrintDays,
 } from "@/lib/timetable/export/print-layout-engine";
-import { getPrintThemeTokens } from "@/lib/timetable/export/print-theme";
+import { getPrintThemeTokens, PRINT_FONT_URL, TIME_FONT_PX } from "@/lib/timetable/export/print-theme";
 import {
   A4_LANDSCAPE_PX,
   A4_PORTRAIT_PX,
@@ -15,6 +15,14 @@ import {
 } from "@/lib/timetable/export/types";
 import { PrintHeader } from "./PrintHeader";
 import { ScheduleCard } from "./ScheduleCard";
+
+/** Marges d'impression A4 (~10 mm à 300 dpi). */
+const PAGE_MARGIN_X = 70;
+const PAGE_MARGIN_TOP = 56;
+const PAGE_MARGIN_BOTTOM = 48;
+const TABLE_GAP = 4;
+const TIME_COLUMN_WIDTH = 148;
+const HEADER_BLOCK_HEIGHT = 320;
 
 type SchedulePrintLayoutProps = {
   slots: SmartTimetableSlot[];
@@ -60,9 +68,15 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
       customization.orientation === "portrait" ? A4_PORTRAIT_PX : A4_LANDSCAPE_PX;
     const days = useMemo(() => resolvePrintDays(schoolDays), [schoolDays]);
     const rows = useMemo(() => buildPrintScheduleRows(slots, days), [slots, days]);
-    const headerHeight = 280;
-    const tableHeight = dimensions.height - headerHeight - 80;
-    const rowHeight = Math.max(64, Math.floor(tableHeight / Math.max(rows.length, 1)));
+
+    const contentWidth = dimensions.width - PAGE_MARGIN_X * 2;
+    const tableHeight =
+      dimensions.height - PAGE_MARGIN_TOP - PAGE_MARGIN_BOTTOM - HEADER_BLOCK_HEIGHT;
+    const rowHeight = Math.max(88, Math.floor(tableHeight / Math.max(rows.length, 1)));
+    const dayColumnCount = days.length;
+    const timeColWidth = customization.showTimes ? TIME_COLUMN_WIDTH : 0;
+    const horizontalGaps = TABLE_GAP * (dayColumnCount + (customization.showTimes ? 1 : 0));
+    const cellWidth = Math.floor((contentWidth - timeColWidth - horizontalGaps) / dayColumnCount);
 
     return (
       <div
@@ -73,17 +87,14 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
           width: dimensions.width,
           height: dimensions.height,
           boxSizing: "border-box",
-          padding: "48px 44px 40px",
+          padding: `${PAGE_MARGIN_TOP}px ${PAGE_MARGIN_X}px ${PAGE_MARGIN_BOTTOM}px`,
           background: theme.pageBackground,
           color: theme.headerText,
           fontFamily: theme.fontFamily,
           overflow: "hidden",
         }}
       >
-        <link
-          href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
+        <link href={PRINT_FONT_URL} rel="stylesheet" />
         <WatermarkLayer opacity={theme.watermarkOpacity} />
 
         <PrintHeader meta={meta} theme={theme} />
@@ -94,7 +105,7 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
               width: "100%",
               height: "100%",
               borderCollapse: "separate",
-              borderSpacing: 8,
+              borderSpacing: TABLE_GAP,
               tableLayout: "fixed",
             }}
           >
@@ -103,13 +114,15 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                 {customization.showTimes ? (
                   <th
                     style={{
-                      width: 110,
-                      padding: "12px 8px",
-                      borderRadius: 14,
+                      width: TIME_COLUMN_WIDTH,
+                      padding: "14px 10px",
+                      borderRadius: 16,
                       background: theme.timeColumnBg,
                       color: theme.headerText,
-                      fontSize: 13,
+                      fontSize: TIME_FONT_PX,
                       fontWeight: 700,
+                      textAlign: "center",
+                      verticalAlign: "middle",
                     }}
                   >
                     Horaires
@@ -119,12 +132,14 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                   <th
                     key={day}
                     style={{
-                      padding: "12px 8px",
-                      borderRadius: 14,
+                      padding: "14px 10px",
+                      borderRadius: 16,
                       background: theme.tableHeaderBg,
                       color: theme.tableHeaderText,
-                      fontSize: 14,
+                      fontSize: TIME_FONT_PX + 1,
                       fontWeight: 700,
+                      textAlign: "center",
+                      verticalAlign: "middle",
                     }}
                   >
                     {day}
@@ -140,22 +155,23 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                       style={{
                         verticalAlign: "middle",
                         textAlign: "center",
-                        borderRadius: 14,
+                        borderRadius: 16,
                         background: theme.timeColumnBg,
                         border: `1px solid ${theme.borderColor}`,
-                        fontSize: 13,
+                        fontSize: TIME_FONT_PX,
                         fontWeight: 700,
                         color: theme.headerText,
-                        padding: 8,
+                        padding: "10px 8px",
+                        fontFamily: theme.fontFamily,
                       }}
                     >
                       <div>{row.start}</div>
                       <div
                         style={{
-                          fontSize: 11,
+                          fontSize: TIME_FONT_PX - 1,
                           fontWeight: 500,
                           color: theme.mutedText,
-                          marginTop: 2,
+                          marginTop: 4,
                         }}
                       >
                         {row.end}
@@ -166,34 +182,44 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                   {row.kind === "break" ? (
                     <td
                       colSpan={days.length}
-                      style={{ padding: 4, verticalAlign: "middle" }}
+                      style={{ padding: 0, verticalAlign: "stretch", height: rowHeight }}
                     >
                       <ScheduleCard
                         slot={row.slot}
                         theme={theme}
                         customization={customization}
                         variant="break"
+                        cellWidth={contentWidth - timeColWidth - TABLE_GAP}
+                        cellHeight={rowHeight}
                       />
                     </td>
                   ) : (
                     row.cells.map((cell, index) => (
                       <td
                         key={`${row.start}-${days[index]}`}
-                        style={{ padding: 0, verticalAlign: "stretch" }}
+                        style={{
+                          padding: 0,
+                          verticalAlign: "stretch",
+                          height: rowHeight,
+                          width: cellWidth,
+                        }}
                       >
                         {cell ? (
                           <ScheduleCard
                             slot={cell}
                             theme={theme}
                             customization={customization}
+                            cellWidth={cellWidth}
+                            cellHeight={rowHeight}
                           />
                         ) : (
                           <div
                             style={{
+                              width: "100%",
                               height: "100%",
-                              minHeight: 64,
-                              borderRadius: 16,
-                              border: `1px dashed ${theme.borderColor}`,
+                              minHeight: rowHeight,
+                              borderRadius: 20,
+                              border: `1.5px dashed ${theme.borderColor}`,
                               background: theme.cardBackground,
                             }}
                           />

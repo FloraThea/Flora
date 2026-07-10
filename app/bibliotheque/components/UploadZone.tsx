@@ -4,10 +4,8 @@ import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { TheaGlow } from "@/components/ui/TheaGlow";
 import { cn } from "@/lib/cn";
-import {
-  ACCEPTED_RESOURCE_EXTENSIONS,
-  formatFileSize,
-} from "@/lib/documents/types";
+import { formatFileSize } from "@/lib/documents/types";
+import { UNIFIED_ACCEPTED_EXTENSIONS } from "@/lib/library/types";
 import { MAX_UPLOAD_SIZE } from "@/lib/upload/max-upload-size";
 import { colors } from "@/lib/theme";
 
@@ -45,15 +43,14 @@ export function UploadZone({
               className="font-serif text-2xl font-medium"
               style={{ color: colors.charcoal.DEFAULT }}
             >
-              Importer vos ressources
+              Importer un document
             </h2>
             <p
               className="mt-2 text-sm font-light leading-relaxed"
               style={{ color: colors.charcoal.subtle }}
             >
-              Déposez un ou plusieurs documents (jusqu&apos;à 500 Mo pour les PDF).
-              L&apos;envoi se fait par morceaux avec reprise automatique, puis
-              l&apos;analyse démarre en arrière-plan.
+              Déposez vos référentiels BO, guides, méthodes, programmations ou ressources personnelles.
+              Flora détecte le type de document et lance l&apos;analyse automatique.
             </p>
           </div>
         </div>
@@ -95,7 +92,7 @@ export function UploadZone({
             Glissez-déposez vos documents ici
           </p>
           <p className="mt-2 text-sm font-light" style={{ color: colors.charcoal.subtle }}>
-            PDF · DOCX · XLSX · PPTX · TXT — jusqu&apos;à {Math.round(MAX_UPLOAD_SIZE / (1024 * 1024))} Mo
+            PDF · DOCX · XLSX · CSV · PPTX · Images · TXT — jusqu&apos;à {Math.round(MAX_UPLOAD_SIZE / (1024 * 1024))} Mo
           </p>
 
           {selectedFiles.length > 0 ? (
@@ -119,7 +116,7 @@ export function UploadZone({
             ref={inputRef}
             type="file"
             multiple
-            accept={ACCEPTED_RESOURCE_EXTENSIONS.join(",")}
+            accept={UNIFIED_ACCEPTED_EXTENSIONS.join(",")}
             className="hidden"
             onChange={(event) => handleFiles(event.target.files)}
           />

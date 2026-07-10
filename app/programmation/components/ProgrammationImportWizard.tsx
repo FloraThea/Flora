@@ -7,6 +7,7 @@ import { FloraBadge } from "@/components/ui/FloraBadge";
 import type { ProgrammationPayload } from "@/lib/programming/types";
 import type {
   ParsedProgrammationImport,
+  ProgrammationColumnField,
   ProgrammationFormatColumn,
   ProgrammationFormatConfig,
   ProgrammationImportSession,
@@ -15,7 +16,20 @@ import {
   DEFAULT_FORMAT_COLUMNS,
   DEFAULT_FORMAT_CONFIG,
 } from "@/lib/programming/import/types";
+import { applyProgrammationColumnMapping, COLUMN_FIELD_LABELS } from "@/lib/programming/import/grid-parser";
 import type { ProgrammationFormValues } from "../types";
+
+const MAPPING_FIELDS: ProgrammationColumnField[] = [
+  "period",
+  "week",
+  "discipline",
+  "niveau",
+  "sequence",
+  "seance",
+  "objectif",
+  "competence",
+  "materiel",
+];
 
 const STEPS = [
   "Importer le fichier",
@@ -49,6 +63,7 @@ export function ProgrammationImportWizard({
   const [storagePath, setStoragePath] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [columnMapping, setColumnMapping] = useState<Partial<Record<ProgrammationColumnField, number>>>({});
 
   const schoolYear = formValues.schoolYear;
   const academicZone = formValues.academicZone;
@@ -81,6 +96,7 @@ export function ProgrammationImportWizard({
         const data = (await response.json()) as { parsed?: ParsedProgrammationImport; error?: string };
         if (!response.ok) throw new Error(data.error || "Analyse impossible.");
         setParsed(data.parsed ?? null);
+        setColumnMapping(data.parsed?.columnMapping ?? {});
         setTitle(
           `Import ${data.parsed?.discipline || formValues.matiere} ${schoolYear}`,
         );
@@ -98,6 +114,7 @@ export function ProgrammationImportWizard({
         const data = (await response.json()) as { parsed?: ParsedProgrammationImport; error?: string };
         if (!response.ok) throw new Error(data.error || "Analyse impossible.");
         setParsed(data.parsed ?? null);
+        setColumnMapping(data.parsed?.columnMapping ?? {});
         setStep(1);
       } else {
         throw new Error("Choisissez un fichier ou collez du texte.");
@@ -194,6 +211,25 @@ export function ProgrammationImportWizard({
     });
   }
 
+  function applyColumnMapping() {
+    if (!parsed) return;
+    const updated = applyProgrammationColumnMapping(parsed, columnMapping);
+    setParsed(updated);
+    setColumnMapping(updated.columnMapping ?? columnMapping);
+  }
+
+  function updateColumnMapping(field: ProgrammationColumnField, columnIndex: number | "") {
+    setColumnMapping((current) => {
+      const next = { ...current };
+      if (columnIndex === "") {
+        delete next[field];
+      } else {
+        next[field] = columnIndex;
+      }
+      return next;
+    });
+  }
+
   return (
     <FloraCard padding="lg" accent="lavender" className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -252,19 +288,119 @@ export function ProgrammationImportWizard({
 
       {step === 1 && parsed ? (
         <div className="space-y-4">
-          <p className="text-sm font-light text-flora-text-muted">
-            {parsed.rows.length} ligne(s) détectée(s) · Discipline :{" "}
-            {parsed.discipline || "—"} · Niveau : {parsed.niveau || "—"}
-          </p>
+          <div className="flex flex-wrap gap-2">
+            <FloraBadge accent="sage">{parsed.rowCount} ligne(s) détectée(s)</FloraBadge>
+            {parsed.sheetName ? (
+              <FloraBadge accent="cream">Feuille : {parsed.sheetName}</FloraBadge>
+            ) : null}
+            {parsed.discipline ? (
+              <FloraBadge accent="lavender">Discipline : {parsed.discipline}</FloraBadge>
+            ) : null}
+            {parsed.niveau ? <FloraBadge accent="cream">Niveau : {parsed.niveau}</FloraBadge> : null}
+          </div>
+
+          {parsed.sheetNames && parsed.sheetNames.length > 1 ? (
+            <p className="text-xs font-light text-flora-text-subtle">
+              Feuilles disponibles : {parsed.sheetNames.join(", ")}
+            </p>
+          ) : null}
+
+          {Object.keys(parsed.detectedFields).length > 0 ? (
+            <div className="rounded-2xl bg-white/50 p-3">
+              <p className="mb-2 text-xs uppercase tracking-wide text-flora-text-subtle">
+                Colonnes détectées
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(parsed.detectedFields).map(([field, label]) => (
+                  <span
+                    key={field}
+                    className="rounded-full bg-sauge/20 px-2.5 py-1 text-xs text-flora-text"
+                  >
+                    {COLUMN_FIELD_LABELS[field as ProgrammationColumnField] ?? field} : {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {parsed.warnings.map((warning) => (
             <p key={warning} className="text-sm text-[#b88989]">
               {warning}
             </p>
           ))}
-          <div className="max-h-48 overflow-auto rounded-2xl bg-white/50 p-3 text-xs font-light">
-            <pre className="whitespace-pre-wrap">{parsed.extractedTextPreview}</pre>
-          </div>
-          <FloraButton onClick={() => setStep(2)}>Continuer</FloraButton>
+
+          {parsed.columns.length > 0 ? (
+            <div className="overflow-x-auto rounded-2xl border border-white/60 bg-white/50">
+              <table className="min-w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-white/60 bg-white/40">
+                    {parsed.columns.map((column, index) => (
+                      <th key={`${column}-${index}`} className="px-3 py-2 font-medium text-flora-text">
+                        {column || `Colonne ${index + 1}`}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsed.previewRows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="border-b border-white/40 last:border-0">
+                      {parsed.columns.map((_, colIndex) => (
+                        <td key={colIndex} className="px-3 py-2 font-light text-flora-text-muted">
+                          {row[colIndex] ?? ""}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-white/50 p-3 text-sm font-light text-flora-text-muted">
+              {parsed.extractedTextPreview}
+            </div>
+          )}
+
+          {parsed.needsColumnMapping && parsed.columns.length > 0 ? (
+            <div className="rounded-2xl bg-white/50 p-4">
+              <p className="mb-3 text-sm font-medium text-flora-text-muted">
+                Correspondance des colonnes
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {MAPPING_FIELDS.map((field) => (
+                  <label key={field} className="block text-xs text-flora-text-subtle">
+                    {COLUMN_FIELD_LABELS[field]}
+                    <select
+                      className="mt-1 w-full rounded-xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
+                      value={columnMapping[field] ?? ""}
+                      onChange={(event) =>
+                        updateColumnMapping(
+                          field,
+                          event.target.value === "" ? "" : Number(event.target.value),
+                        )
+                      }
+                    >
+                      <option value="">— Non utilisée —</option>
+                      {parsed.columns.map((column, index) => (
+                        <option key={`${field}-${index}`} value={index}>
+                          {column || `Colonne ${index + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+              <FloraButton className="mt-4" variant="secondary" onClick={applyColumnMapping}>
+                Appliquer les correspondances
+              </FloraButton>
+            </div>
+          ) : null}
+
+          <FloraButton
+            onClick={() => setStep(2)}
+            disabled={parsed.rowCount === 0 || parsed.needsColumnMapping}
+          >
+            Continuer
+          </FloraButton>
         </div>
       ) : null}
 

@@ -126,16 +126,69 @@ export type SmartTimetableSlot = {
 export type TimetableSlotUpdateInput = {
   scheduleId: string;
   slotId: string;
+  day?: string;
   subject?: string;
   subSubject?: string;
   customText?: string;
+  displayText?: string;
   color?: string;
   gradient?: string;
+  useCustomColor?: boolean;
   label?: string;
   room?: string;
+  intervenant?: string;
+  teacherName?: string;
   start?: string;
   end?: string;
+  icon?: string;
+  levels?: string[];
+  notes?: string;
+  shiftFollowing?: boolean;
 };
+
+export type TimetableSlotActionInput =
+  | {
+      action: "duplicate";
+      scheduleId: string;
+      slotId: string;
+    }
+  | {
+      action: "delete";
+      scheduleId: string;
+      slotId: string;
+      reorganize?: boolean;
+    }
+  | {
+      action: "merge";
+      scheduleId: string;
+      slotId: string;
+      targetSlotId: string;
+    }
+  | {
+      action: "split";
+      scheduleId: string;
+      slotId: string;
+      splitTime: string;
+      secondSubject?: string;
+      secondSubSubject?: string;
+    }
+  | {
+      action: "create";
+      scheduleId: string;
+      day: string;
+      afterSlotId?: string | null;
+    }
+  | {
+      action: "move";
+      scheduleId: string;
+      slotId: string;
+      direction: "up" | "down";
+    }
+  | {
+      action: "restore";
+      scheduleId: string;
+      slots: SmartTimetableSlot[];
+    };
 
 export type StoredTimetableSchedule = {
   id: string;

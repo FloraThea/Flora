@@ -20,8 +20,8 @@ export function getAdminAuthHint(): string | null {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "Définissez FLORA_ADMIN_SECRET dans .env pour sécuriser l'application des migrations en production.";
+    return null;
   }
 
-  return null;
+  return "Définissez FLORA_ADMIN_SECRET dans .env pour sécuriser l'application des migrations.";
 }

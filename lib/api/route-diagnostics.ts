@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { logStructuredError, serializeError } from "@/lib/api/error-diagnostics";
+import { devLog } from "@/lib/logger";
 
 export function toErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -56,5 +57,5 @@ export function jsonRouteError(
 }
 
 export function logRouteInfo(route: string, message: string, meta?: Record<string, unknown>) {
-  console.info(`[${route}] ${message}`, meta ?? {});
+  devLog(`[${route}] ${message}`, meta ?? {});
 }

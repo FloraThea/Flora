@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { SmartTimetableSlot, TimetableSettings } from "@/lib/timetable/types";
 import { SCHOOL_DAYS } from "@/lib/timetable/types";
 import { colors } from "@/lib/theme";
@@ -12,6 +13,7 @@ type TimetableGridProps = {
   onLockSlot: (slotId: string, day: string) => void;
   onLockDay: (day: string) => void;
   onEditSlot?: (slot: SmartTimetableSlot) => void;
+  onCreateSlot?: (day: string, afterSlotId: string | null) => void;
 };
 
 export function TimetableGrid({
@@ -21,8 +23,10 @@ export function TimetableGrid({
   onLockSlot,
   onLockDay,
   onEditSlot,
+  onCreateSlot,
 }: TimetableGridProps) {
   const days = settings.schoolDays.length > 0 ? settings.schoolDays : [...SCHOOL_DAYS];
+  const [hoverInsert, setHoverInsert] = useState<string | null>(null);
 
   function handleDragStart(event: React.DragEvent, slot: SmartTimetableSlot) {
     event.dataTransfer.setData("slotId", slot.id);
@@ -35,6 +39,10 @@ export function TimetableGrid({
     const slot = slots.find((item) => item.id === slotId);
     if (!slot || slot.day === day) return;
     onMoveSlot(slotId, day, slot.start, slot.end);
+  }
+
+  function insertKey(day: string, afterSlotId: string | null) {
+    return `${day}:${afterSlotId ?? "start"}`;
   }
 
   return (
@@ -66,21 +74,40 @@ export function TimetableGrid({
                 </button>
               </div>
 
-              <div className="flex flex-col gap-2.5">
-                {daySlots.length === 0 ? (
+              <div className="flex flex-col gap-1">
+                {onCreateSlot ? (
+                  <InsertSlotButton
+                    visible={hoverInsert === insertKey(day, null)}
+                    onMouseEnter={() => setHoverInsert(insertKey(day, null))}
+                    onMouseLeave={() => setHoverInsert(null)}
+                    onClick={() => onCreateSlot(day, null)}
+                  />
+                ) : null}
+
+                {daySlots.length === 0 && !onCreateSlot ? (
                   <p className="py-8 text-center text-xs font-light text-flora-text-subtle">
                     Aucun créneau
                   </p>
                 ) : (
-                  daySlots.map((slot) => (
-                    <TimetableSlotCard
-                      key={slot.id}
-                      slot={slot}
-                      draggable={slot.lockLevel === "none"}
-                      onDragStart={(event) => handleDragStart(event, slot)}
-                      onEdit={onEditSlot ? () => onEditSlot(slot) : undefined}
-                      onLock={() => onLockSlot(slot.id, slot.day)}
-                    />
+                  daySlots.map((slot, index) => (
+                    <div key={slot.id} className="flex flex-col gap-1">
+                      <TimetableSlotCard
+                        slot={slot}
+                        draggable={slot.lockLevel === "none"}
+                        onDragStart={(event) => handleDragStart(event, slot)}
+                        onEdit={onEditSlot ? () => onEditSlot(slot) : undefined}
+                        onLock={() => onLockSlot(slot.id, slot.day)}
+                      />
+                      {onCreateSlot ? (
+                        <InsertSlotButton
+                          visible={hoverInsert === insertKey(day, slot.id)}
+                          onMouseEnter={() => setHoverInsert(insertKey(day, slot.id))}
+                          onMouseLeave={() => setHoverInsert(null)}
+                          onClick={() => onCreateSlot(day, slot.id)}
+                        />
+                      ) : null}
+                      {index === daySlots.length - 1 && daySlots.length === 0 ? null : null}
+                    </div>
                   ))
                 )}
               </div>
@@ -88,6 +115,37 @@ export function TimetableGrid({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function InsertSlotButton({
+  visible,
+  onMouseEnter,
+  onMouseLeave,
+  onClick,
+}: {
+  visible: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      className="group relative flex h-3 items-center justify-center"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex h-6 w-6 items-center justify-center rounded-full border border-white/70 bg-white/70 text-sm text-flora-text-subtle shadow-sm transition duration-200 hover:scale-110 hover:bg-white hover:text-flora-text ${
+          visible ? "scale-100 opacity-100" : "scale-90 opacity-0 group-hover:opacity-100"
+        }`}
+        title="Ajouter un créneau"
+      >
+        +
+      </button>
     </div>
   );
 }

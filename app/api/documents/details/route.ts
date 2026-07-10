@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDocumentDetails } from "@/lib/documents/document-service";
+import { logRouteInfo } from "@/lib/api/route-diagnostics";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 
 export async function GET(request: Request) {
@@ -14,19 +15,18 @@ export async function GET(request: Request) {
       );
     }
 
-    console.info("[/api/documents/details] Requête reçue", { id });
+    logRouteInfo("/api/documents/details", "Requête reçue", { id });
 
     const document = await getDocumentDetails(id);
 
     if (!document) {
-      console.warn("[/api/documents/details] Document introuvable", { id });
       return NextResponse.json(
         { error: "Document introuvable." },
         { status: 404 },
       );
     }
 
-    console.info("[/api/documents/details] Succès", {
+    logRouteInfo("/api/documents/details", "Succès", {
       id,
       chunks: document.document_chunks.length,
       tags: document.document_tags.length,

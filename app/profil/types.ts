@@ -64,6 +64,7 @@ export const initialProfilValues: ProfilFormValues = (() => {
       className: "",
       schoolName: "",
       signature: "",
+      appTheme: "flora",
     },
     exportFormats: ["word", "pdf"],
     exportOrder: ["word", "pdf", "excel"],

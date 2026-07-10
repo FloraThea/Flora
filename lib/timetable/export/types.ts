@@ -24,15 +24,15 @@ export type PrintCustomization = {
 };
 
 export const DEFAULT_PRINT_CUSTOMIZATION: PrintCustomization = {
-  orientation: "portrait",
+  orientation: "landscape",
   pageFormat: "a4",
   styleTheme: "flora",
-  cardScale: "normal",
-  fontScale: "normal",
+  cardScale: "comfortable",
+  fontScale: "large",
   showIcons: true,
   showTimes: true,
-  showCompetencies: true,
-  showObjectives: true,
+  showCompetencies: false,
+  showObjectives: false,
   showComplementaryText: true,
 };
 
@@ -40,6 +40,8 @@ export type SchedulePrintMeta = {
   className: string;
   teacherName: string;
   schoolYear: string;
+  zone?: string;
+  schoolName?: string;
   period?: string;
   scheduleName: string;
   generatedAt: string;

@@ -31,6 +31,24 @@ export const initialUploadState: UploadState = {
   error: null,
 };
 
+export type LibraryFilterValues = {
+  category: string;
+  discipline: string;
+  niveau: string;
+  methode: string;
+  format: string;
+  sort: string;
+};
+
+export const initialLibraryFilterValues: LibraryFilterValues = {
+  category: "Toutes",
+  discipline: "Toutes",
+  niveau: "Tous",
+  methode: "Toutes",
+  format: "Tous",
+  sort: "date",
+};
+
 export type FilterValues = {
   type: string;
   matiere: string;

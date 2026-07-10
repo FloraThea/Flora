@@ -157,7 +157,7 @@ export function applySubjectMapping(
   };
 }
 
-function inferSlotType(subject: string): SlotType {
+export function inferSlotType(subject: string): SlotType {
   const n = normalizeLabel(subject);
   if (n.includes("recreation") || n.includes("recre")) return "recreation";
   if (n.includes("pause") || n.includes("dejeuner")) return "pause_meridienne";

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { devLog, logError } from "@/lib/logger";
 import {
   formatMissingR2EnvMessage,
   getMissingR2EnvVars,
@@ -96,11 +97,11 @@ export function logImportRouteContext(
   const label = `[import${subpath}]`;
 
   if (phase === "start") {
-    console.info(`${label} Contexte storage`, diagnostics);
+    devLog(`${label} Contexte storage`, diagnostics);
     return diagnostics;
   }
 
-  console.error(`${label} Échec storage`, {
+  logError(`${label} Échec storage`, {
     ...diagnostics,
     error,
     errorMessage: error instanceof Error ? error.message : String(error),
@@ -110,5 +111,5 @@ export function logImportRouteContext(
 }
 
 export function logR2Diagnostics(context = "[r2]"): void {
-  console.info(`${context} Diagnostic configuration`, buildR2Diagnostics());
+  devLog(`${context} Diagnostic configuration`, buildR2Diagnostics());
 }
