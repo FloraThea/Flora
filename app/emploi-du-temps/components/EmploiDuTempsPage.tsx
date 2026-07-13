@@ -224,17 +224,15 @@ export function EmploiDuTempsPage() {
           }),
         });
 
-        const data = (await response.json()) as TimetablePayload & { error?: string };
-        if (!response.ok) throw new Error(data.error || "Création impossible.");
+        const data = (await response.json()) as TimetablePayload & {
+          error?: string;
+          details?: string;
+        };
+        if (!response.ok) {
+          throw new Error([data.error || "Création impossible.", data.details].filter(Boolean).join(" — "));
+        }
 
-        const created = data.slots.find(
-          (slot) =>
-            slot.day === (patch.day ?? editingSlot.day) &&
-            slot.start === patch.start &&
-            slot.end === patch.end &&
-            slot.subject === patch.subject,
-        );
-        setEditingSlot(created ?? null);
+        setEditingSlot(null);
         setCreateSlotContext(null);
         await commitChange(data, "Plage créée");
         return;
@@ -261,8 +259,7 @@ export function EmploiDuTempsPage() {
         throw new Error(parts.join(" — "));
       }
 
-      const updatedSlot = data.slots.find((s) => s.id === editingSlot.id) ?? null;
-      setEditingSlot(updatedSlot);
+      setEditingSlot(null);
       await commitChange(data, "Créneau enregistré");
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Mise à jour impossible.");

@@ -65,6 +65,7 @@ function mapSchedule(row: Record<string, unknown>): StoredTimetableSchedule {
 }
 
 function mapSlot(row: Record<string, unknown>): SmartTimetableSlot {
+  const metadata = (row.metadata as Record<string, unknown>) ?? {};
   return enrichSlotFields({
     id: String(row.id),
     scheduleId: String(row.schedule_id),
@@ -73,9 +74,9 @@ function mapSlot(row: Record<string, unknown>): SmartTimetableSlot {
     end: String(row.end_time ?? ""),
     subject: String(row.subject ?? ""),
     subSubject: String(row.sub_subject ?? ""),
-    customText: String(row.custom_text ?? ""),
-    color: String(row.color ?? ""),
-    gradient: String(row.gradient ?? ""),
+    customText: String(row.custom_text ?? metadata.customText ?? ""),
+    color: String(row.color ?? metadata.color ?? ""),
+    gradient: String(row.gradient ?? metadata.gradient ?? ""),
     slotType: row.slot_type as SmartTimetableSlot["slotType"],
     lockLevel: row.lock_level as SmartTimetableSlot["lockLevel"],
     hours: Number(row.hours ?? 1),
@@ -83,8 +84,100 @@ function mapSlot(row: Record<string, unknown>): SmartTimetableSlot {
     intervenant: String(row.intervenant ?? ""),
     label: String(row.label ?? ""),
     sortOrder: Number(row.sort_order ?? 0),
-    metadata: (row.metadata as Record<string, unknown>) ?? {},
+    metadata,
   });
+}
+
+function buildSlotMetadata(slot: SmartTimetableSlot): Record<string, unknown> {
+  return {
+    ...slot.metadata,
+    ...(slot.color ? { color: slot.color } : {}),
+    ...(slot.gradient ? { gradient: slot.gradient } : {}),
+    ...(slot.customText ? { customText: slot.customText } : {}),
+  };
+}
+
+function buildSlotInsertRow(
+  slot: SmartTimetableSlot,
+  scheduleId: string,
+  index: number,
+  includeDisplayColumns: boolean,
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {
+    id: slot.id,
+    schedule_id: scheduleId,
+    day: slot.day,
+    start_time: slot.start,
+    end_time: slot.end,
+    subject: slot.subject,
+    sub_subject: slot.subSubject,
+    slot_type: slot.slotType,
+    lock_level: slot.lockLevel,
+    hours: slot.hours,
+    room: slot.room ?? "",
+    intervenant: slot.intervenant ?? "",
+    label: slot.label ?? slot.subject,
+    sort_order: index,
+    metadata: buildSlotMetadata(slot),
+  };
+
+  if (includeDisplayColumns) {
+    row.custom_text = slot.customText ?? "";
+    row.color = slot.color ?? "";
+    row.gradient = slot.gradient ?? "";
+  }
+
+  return row;
+}
+
+function isMissingDisplayColumnError(error: { message?: string } | null): boolean {
+  if (!error?.message) return false;
+  return /Could not find the '(color|gradient|custom_text)' column/.test(error.message);
+}
+
+async function upsertScheduleSlotRows(
+  scheduleId: string,
+  slots: SmartTimetableSlot[],
+): Promise<void> {
+  if (slots.length === 0) return;
+
+  let rows = slots.map((slot, index) =>
+    buildSlotInsertRow(slot, scheduleId, index, true),
+  );
+
+  let { error } = await supabase.from("timetable_slots").upsert(rows, { onConflict: "id" });
+
+  if (error && isMissingDisplayColumnError(error)) {
+    rows = slots.map((slot, index) =>
+      buildSlotInsertRow(slot, scheduleId, index, false),
+    );
+    const retry = await supabase.from("timetable_slots").upsert(rows, { onConflict: "id" });
+    error = retry.error;
+  }
+
+  if (error) throw error;
+}
+
+async function deleteOrphanScheduleSlots(
+  scheduleId: string,
+  slotIds: string[],
+): Promise<void> {
+  if (slotIds.length === 0) {
+    const { error } = await supabase
+      .from("timetable_slots")
+      .delete()
+      .eq("schedule_id", scheduleId);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from("timetable_slots")
+    .delete()
+    .eq("schedule_id", scheduleId)
+    .not("id", "in", `(${slotIds.join(",")})`);
+
+  if (error) throw error;
 }
 
 function mapVersion(row: Record<string, unknown>): TimetableVersion {
@@ -259,41 +352,9 @@ export async function replaceScheduleSlots(
   slots: SmartTimetableSlot[],
   action: string,
 ): Promise<TimetablePayload> {
-  const { error: deleteError } = await supabase
-    .from("timetable_slots")
-    .delete()
-    .eq("schedule_id", scheduleId);
-
-  if (deleteError) throw deleteError;
-
-  if (slots.length > 0) {
-    const { error: insertError } = await supabase.from("timetable_slots").insert(
-      slots.map((slot, index) => ({
-        id: slot.id,
-        schedule_id: scheduleId,
-        day: slot.day,
-        start_time: slot.start,
-        end_time: slot.end,
-        subject: slot.subject,
-        sub_subject: slot.subSubject,
-        custom_text: slot.customText ?? "",
-        color: slot.color ?? "",
-        gradient: slot.gradient ?? "",
-        slot_type: slot.slotType,
-        lock_level: slot.lockLevel,
-        hours: slot.hours,
-        room: slot.room,
-        intervenant: slot.intervenant,
-        label: slot.label,
-        sort_order: index,
-        metadata: {
-          ...slot.metadata,
-          color: slot.color,
-        },
-      })),
-    );
-    if (insertError) throw insertError;
-  }
+  const slotIds = slots.map((slot) => slot.id);
+  await upsertScheduleSlotRows(scheduleId, slots);
+  await deleteOrphanScheduleSlots(scheduleId, slotIds);
 
   const weeklyHours = timetableValidator.computeWeeklyHours(slots);
   const { error: updateError } = await supabase
