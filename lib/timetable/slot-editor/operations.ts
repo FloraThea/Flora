@@ -214,7 +214,12 @@ export function insertSlotAfter(
   afterSlotId: string | null,
   day: string,
   newSlot: SmartTimetableSlot,
+  options?: { preserveTimes?: boolean },
 ): SmartTimetableSlot[] {
+  if (options?.preserveTimes) {
+    return sortSlots([...slots, { ...newSlot, day }]);
+  }
+
   const daySlots = sortSlots(slots.filter((s) => s.day === day));
   let start = "08:30";
   let end = "09:30";
@@ -240,6 +245,78 @@ export function insertSlotAfter(
   };
 
   return sortSlots([...slots, placed]);
+}
+
+export function isDraftSlotId(id: string): boolean {
+  return id.startsWith("draft-");
+}
+
+export function buildDraftSlot(input: {
+  scheduleId: string;
+  day: string;
+  existingSlots: SmartTimetableSlot[];
+  afterSlotId?: string | null;
+  morningStart?: string;
+}): SmartTimetableSlot {
+  const daySlots = sortSlots(input.existingSlots.filter((slot) => slot.day === input.day));
+  let start = input.morningStart ?? "08:30";
+  let end = addMinutes(start, 60);
+
+  if (input.afterSlotId) {
+    const after = daySlots.find((slot) => slot.id === input.afterSlotId);
+    if (after) {
+      start = after.end;
+      end = addMinutes(start, durationMinutes(after.start, after.end) || 60);
+    }
+  } else if (daySlots.length > 0) {
+    const last = daySlots[daySlots.length - 1];
+    start = last.end;
+    end = addMinutes(start, 60);
+  }
+
+  return {
+    ...createBlankSlot({
+      scheduleId: input.scheduleId,
+      day: input.day,
+      start,
+      end,
+    }),
+    id: `draft-${newSlotId()}`,
+    metadata: { isDraft: true },
+  };
+}
+
+export function rowsToSlots(
+  rows: Array<{
+    day: string;
+    start: string;
+    end: string;
+    subject: string;
+    subSubject?: string;
+    displayText?: string;
+    customText?: string;
+    room?: string;
+  }>,
+  scheduleId: string,
+): SmartTimetableSlot[] {
+  return rows
+    .filter((row) => row.day && row.start && row.end && row.subject)
+    .map((row) => ({
+      ...createBlankSlot({
+        scheduleId,
+        day: row.day,
+        start: row.start,
+        end: row.end,
+      }),
+      subject: row.subject,
+      subSubject: row.subSubject ?? "",
+      customText: row.customText ?? "",
+      label: row.subject,
+      room: row.room ?? "",
+      metadata: {
+        displayText: row.displayText ?? "",
+      },
+    }));
 }
 
 export function removeSlot(

@@ -121,8 +121,8 @@ export function TimetableSlotCard({
       )}
 
       {onEdit ? (
-        <p className="mt-2 text-[10px] font-light opacity-0 transition group-hover:opacity-70">
-          Cliquer pour modifier
+        <p className="mt-2 text-[10px] font-light opacity-60 transition group-hover:opacity-90">
+          Cliquer pour tout modifier
         </p>
       ) : null}
     </article>

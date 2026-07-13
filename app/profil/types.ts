@@ -1,5 +1,6 @@
 import type { SchoolLevel, TimetableInput } from "@/lib/programming/types";
-import { buildSchoolYearOptions, DEFAULT_TIMETABLE } from "@/app/programmation/types";
+import { DEFAULT_TIMETABLE } from "@/app/programmation/types";
+import { getDefaultSchoolYear } from "@/lib/programming/vacation-registry";
 import {
   DEFAULT_TEACHER_WORKING_DAYS,
   detectWorkQuotaPreset,
@@ -35,7 +36,7 @@ export const initialProfilValues: ProfilFormValues = (() => {
     academie: "",
     zoneScolaire: "A",
     pays: "France",
-    schoolYear: buildSchoolYearOptions()[1] ?? "2025-2026",
+    schoolYear: getDefaultSchoolYear(),
     levels: ["CE2"],
     studentCount: 25,
     classType: "simple",

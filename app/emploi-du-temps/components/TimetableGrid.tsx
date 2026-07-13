@@ -14,6 +14,7 @@ type TimetableGridProps = {
   onLockDay: (day: string) => void;
   onEditSlot?: (slot: SmartTimetableSlot) => void;
   onCreateSlot?: (day: string, afterSlotId: string | null) => void;
+  onAddDay?: (day: string) => void;
 };
 
 export function TimetableGrid({
@@ -24,6 +25,7 @@ export function TimetableGrid({
   onLockDay,
   onEditSlot,
   onCreateSlot,
+  onAddDay,
 }: TimetableGridProps) {
   const days = settings.schoolDays.length > 0 ? settings.schoolDays : [...SCHOOL_DAYS];
   const [hoverInsert, setHoverInsert] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export function TimetableGrid({
               </div>
 
               <div className="flex flex-col gap-1">
-                {onCreateSlot ? (
+                {onCreateSlot && daySlots.length > 0 ? (
                   <InsertSlotButton
                     visible={hoverInsert === insertKey(day, null)}
                     onMouseEnter={() => setHoverInsert(insertKey(day, null))}
@@ -84,12 +86,25 @@ export function TimetableGrid({
                   />
                 ) : null}
 
-                {daySlots.length === 0 && !onCreateSlot ? (
-                  <p className="py-8 text-center text-xs font-light text-flora-text-subtle">
-                    Aucun créneau
-                  </p>
+                {daySlots.length === 0 ? (
+                  onAddDay ? (
+                    <button
+                      type="button"
+                      onClick={() => onAddDay(day)}
+                      className="rounded-2xl border border-dashed border-white/70 bg-white/30 px-4 py-10 text-center text-sm font-light text-flora-text-subtle transition hover:border-white hover:bg-white/50 hover:text-flora-text"
+                    >
+                      + Ajouter une plage
+                      <span className="mt-1 block text-xs opacity-80">
+                        Cliquez pour créer le premier créneau
+                      </span>
+                    </button>
+                  ) : (
+                    <p className="py-8 text-center text-xs font-light text-flora-text-subtle">
+                      Aucun créneau
+                    </p>
+                  )
                 ) : (
-                  daySlots.map((slot, index) => (
+                  daySlots.map((slot) => (
                     <div key={slot.id} className="flex flex-col gap-1">
                       <TimetableSlotCard
                         slot={slot}
@@ -106,7 +121,6 @@ export function TimetableGrid({
                           onClick={() => onCreateSlot(day, slot.id)}
                         />
                       ) : null}
-                      {index === daySlots.length - 1 && daySlots.length === 0 ? null : null}
                     </div>
                   ))
                 )}
@@ -132,17 +146,17 @@ function InsertSlotButton({
 }) {
   return (
     <div
-      className="group relative flex h-3 items-center justify-center"
+      className="group relative flex h-4 items-center justify-center"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       <button
         type="button"
         onClick={onClick}
-        className={`flex h-6 w-6 items-center justify-center rounded-full border border-white/70 bg-white/70 text-sm text-flora-text-subtle shadow-sm transition duration-200 hover:scale-110 hover:bg-white hover:text-flora-text ${
+        className={`flex h-7 w-7 items-center justify-center rounded-full border border-white/70 bg-white/80 text-base text-flora-text-subtle shadow-sm transition duration-200 hover:scale-110 hover:bg-white hover:text-flora-text ${
           visible ? "scale-100 opacity-100" : "scale-90 opacity-0 group-hover:opacity-100"
         }`}
-        title="Ajouter un créneau"
+        title="Ajouter une plage ici"
       >
         +
       </button>

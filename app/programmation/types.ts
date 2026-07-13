@@ -5,6 +5,7 @@ import type {
   SchoolLevel,
   TimetableInput,
 } from "@/lib/programming/types";
+import { getDefaultSchoolYear } from "@/lib/programming/vacation-registry";
 
 export type ProgrammationFormValues = {
   schoolYear: string;
@@ -58,19 +59,10 @@ export const DEFAULT_TIMETABLE: TimetableInput = {
   },
 };
 
-export function buildSchoolYearOptions(): string[] {
-  const current = new Date().getFullYear();
-  const month = new Date().getMonth();
-  const startYear = month >= 8 ? current : current - 1;
-
-  return Array.from({ length: 5 }, (_, index) => {
-    const year = startYear - 1 + index;
-    return `${year}-${year + 1}`;
-  });
-}
+export { buildSchoolYearOptions, getDefaultSchoolYear } from "@/lib/programming/vacation-registry";
 
 export const initialFormValues: ProgrammationFormValues = {
-  schoolYear: buildSchoolYearOptions()[1] ?? "2025-2026",
+  schoolYear: getDefaultSchoolYear(),
   academicZone: "A",
   levels: ["CE2"],
   matiere: "Français",

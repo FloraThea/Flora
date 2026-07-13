@@ -37,6 +37,7 @@ function normalizeSubject(value: string): string {
 export type TimetableSlotDrawerProps = {
   slot: SmartTimetableSlot;
   allSlots: SmartTimetableSlot[];
+  isCreate?: boolean;
   onClose: () => void;
   onSave: (patch: TimetableSlotUpdateInput) => Promise<void>;
   onAction: (action: Record<string, unknown>) => Promise<void>;
@@ -49,6 +50,7 @@ const inputClass =
 export function TimetableSlotDrawer({
   slot,
   allSlots,
+  isCreate = false,
   onClose,
   onSave,
   onAction,
@@ -170,9 +172,9 @@ export function TimetableSlotDrawer({
   ]);
 
   const previewConflicts = useMemo(() => {
-    const others = allSlots.filter((s) => s.id !== slot.id);
+    const others = isCreate ? allSlots : allSlots.filter((s) => s.id !== slot.id);
     return detectSlotConflicts([...others, previewSlot]);
-  }, [allSlots, previewSlot, slot.id]);
+  }, [allSlots, previewSlot, slot.id, isCreate]);
 
   function handleSubjectChange(nextSubject: string) {
     setSubject(nextSubject);
@@ -236,10 +238,12 @@ export function TimetableSlotDrawer({
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-white/50 px-5 py-4">
           <div>
             <h2 id="slot-drawer-title" className="font-serif text-xl font-medium text-flora-text">
-              Modifier le créneau
+              {isCreate ? "Nouvelle plage" : "Modifier le créneau"}
             </h2>
             <p className="text-sm font-light text-flora-text-muted">
-              {slot.day} · {slot.start} – {slot.end}
+              {isCreate
+                ? "Renseignez tous les champs puis créez la plage."
+                : `${slot.day} · ${slot.start} – ${slot.end}`}
             </p>
           </div>
           <button
@@ -467,6 +471,8 @@ export function TimetableSlotDrawer({
               )}
             </div>
 
+            {!isCreate ? (
+              <>
             <div className="flex flex-wrap gap-2 border-t border-white/40 pt-4">
               <FloraButton
                 accent="cream"
@@ -608,6 +614,8 @@ export function TimetableSlotDrawer({
                 </div>
               </div>
             )}
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -621,7 +629,7 @@ export function TimetableSlotDrawer({
             disabled={isSaving || previewConflicts.some((c) => c.severity === "error")}
             onClick={() => void handleSave()}
           >
-            {isSaving ? "Enregistrement…" : "Enregistrer"}
+            {isSaving ? "Enregistrement…" : isCreate ? "Créer la plage" : "Enregistrer"}
           </FloraButton>
         </footer>
       </aside>

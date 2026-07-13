@@ -533,13 +533,54 @@ export async function applyTimetableSlotAction(input: TimetableSlotActionInput):
       break;
     }
     case "create": {
+      const hasExplicitTimes = Boolean(input.start && input.end);
+      const start = input.start ?? "08:30";
+      const end = input.end ?? "09:30";
+      const subject = input.subject ?? "Français";
+      const subSubject = input.subSubject ?? "";
+      const slotType = inferSlotType(subject);
+      const useCustomColor = input.useCustomColor ?? false;
+      const appearance = useCustomColor
+        ? {
+            color: input.color ?? "#9caf88",
+            gradient: input.gradient ?? `linear-gradient(145deg, ${input.color ?? "#9caf88"}88 0%, ${input.color ?? "#9caf88"} 100%)`,
+          }
+        : resolveSlotAppearance({ subject, subSubject, slotType });
+
       const blank = createBlankSlot({
         scheduleId: input.scheduleId,
         day: input.day,
-        start: "08:30",
-        end: "09:30",
+        start,
+        end,
       });
-      slots = insertSlotAfter(slots, input.afterSlotId ?? null, input.day, blank);
+
+      const newSlot: SmartTimetableSlot = {
+        ...blank,
+        start: hasExplicitTimes ? start : blank.start,
+        end: hasExplicitTimes ? end : blank.end,
+        subject,
+        subSubject,
+        customText: input.customText ?? "",
+        color: appearance.color,
+        gradient: appearance.gradient,
+        slotType,
+        label: subject,
+        room: input.room ?? "",
+        intervenant: input.intervenant ?? input.teacherName ?? "",
+        hours: hoursFromSlot({ start, end, hours: 1 }),
+        metadata: mergeSlotMeta(blank, {
+          icon: input.icon,
+          levels: input.levels as SlotEditorMetadata["levels"],
+          displayText: input.displayText,
+          notes: input.notes,
+          useCustomColor,
+          teacherName: input.teacherName,
+        }),
+      };
+
+      slots = insertSlotAfter(slots, input.afterSlotId ?? null, input.day, newSlot, {
+        preserveTimes: hasExplicitTimes,
+      });
       break;
     }
     case "move": {

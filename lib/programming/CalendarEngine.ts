@@ -100,7 +100,7 @@ function detectBridgeDays(holidays: PublicHoliday[]): PublicHoliday[] {
 
 function computeRentree(
   schoolYear: string,
-  vacations: VacationEntry[],
+  registry: VacationEntry[],
   zone: AcademicZone,
 ): string {
   const { startYear } = parseSchoolYear(schoolYear);
@@ -112,11 +112,12 @@ function computeRentree(
     return shiftDate(previousSummer.zones[zone].end, 1);
   }
 
-  const summer = vacations.find((entry) => entry.label === "Été");
-  if (!summer) return `${startYear}-09-02`;
+  const summer = registry.find((entry) => entry.label === "Été");
+  if (summer) {
+    return shiftDate(summer.zones[zone].end, 1);
+  }
 
-  // Repli : été de l'année précédente introuvable → lundi suivant le 1er septembre.
-  return `${startYear}-09-02`;
+  return `${startYear}-09-01`;
 }
 
 function computeFinAnnee(vacations: VacationEntry[], zone: AcademicZone): string {

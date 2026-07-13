@@ -1,7 +1,7 @@
 /**
  * Dates officielles des vacances scolaires par zone.
- * Source : https://www.education.gouv.fr/calendrier-scolaire-toutes-les-dates-des-cours-et-des-vacances-100148
- * Les années absentes sont dérivées par interpolation à partir des années voisines.
+ * Source : Bulletin officiel + education.gouv.fr
+ * Format : premier jour de vacances (samedi) → dernier jour inclus (veille de la reprise).
  */
 export type VacationEntry = {
   label: string;
@@ -38,16 +38,16 @@ export const VACATION_REGISTRY: Record<string, VacationEntry[]> = {
       label: "Printemps",
       zones: {
         A: { start: "2024-04-13", end: "2024-04-28" },
-        B: { start: "2024-04-06", end: "2024-04-22" },
+        B: { start: "2024-04-06", end: "2024-04-21" },
         C: { start: "2024-04-20", end: "2024-05-05" },
       },
     },
     {
       label: "Été",
       zones: {
-        A: { start: "2024-07-06", end: "2024-09-01" },
-        B: { start: "2024-07-06", end: "2024-09-01" },
-        C: { start: "2024-07-06", end: "2024-09-01" },
+        A: { start: "2024-07-06", end: "2024-08-31" },
+        B: { start: "2024-07-06", end: "2024-08-31" },
+        C: { start: "2024-07-06", end: "2024-08-31" },
       },
     },
   ],
@@ -87,9 +87,9 @@ export const VACATION_REGISTRY: Record<string, VacationEntry[]> = {
     {
       label: "Été",
       zones: {
-        A: { start: "2025-07-05", end: "2025-09-01" },
-        B: { start: "2025-07-05", end: "2025-09-01" },
-        C: { start: "2025-07-05", end: "2025-09-01" },
+        A: { start: "2025-07-05", end: "2025-08-31" },
+        B: { start: "2025-07-05", end: "2025-08-31" },
+        C: { start: "2025-07-05", end: "2025-08-31" },
       },
     },
   ],
@@ -121,17 +121,17 @@ export const VACATION_REGISTRY: Record<string, VacationEntry[]> = {
     {
       label: "Printemps",
       zones: {
-        A: { start: "2026-04-11", end: "2026-04-26" },
-        B: { start: "2026-04-18", end: "2026-05-03" },
-        C: { start: "2026-04-04", end: "2026-04-19" },
+        A: { start: "2026-04-04", end: "2026-04-19" },
+        B: { start: "2026-04-11", end: "2026-04-26" },
+        C: { start: "2026-04-18", end: "2026-05-03" },
       },
     },
     {
       label: "Été",
       zones: {
-        A: { start: "2026-07-04", end: "2026-09-01" },
-        B: { start: "2026-07-04", end: "2026-09-01" },
-        C: { start: "2026-07-04", end: "2026-09-01" },
+        A: { start: "2026-07-04", end: "2026-08-31" },
+        B: { start: "2026-07-04", end: "2026-08-31" },
+        C: { start: "2026-07-04", end: "2026-08-31" },
       },
     },
   ],
@@ -155,9 +155,9 @@ export const VACATION_REGISTRY: Record<string, VacationEntry[]> = {
     {
       label: "Hiver",
       zones: {
-        A: { start: "2027-02-06", end: "2027-02-21" },
-        B: { start: "2027-02-13", end: "2027-02-28" },
-        C: { start: "2027-02-20", end: "2027-03-07" },
+        A: { start: "2027-02-13", end: "2027-02-28" },
+        B: { start: "2027-02-20", end: "2027-03-07" },
+        C: { start: "2027-02-06", end: "2027-02-21" },
       },
     },
     {
@@ -171,13 +171,15 @@ export const VACATION_REGISTRY: Record<string, VacationEntry[]> = {
     {
       label: "Été",
       zones: {
-        A: { start: "2027-07-03", end: "2027-09-01" },
-        B: { start: "2027-07-03", end: "2027-09-01" },
-        C: { start: "2027-07-03", end: "2027-09-01" },
+        A: { start: "2027-07-03", end: "2027-08-31" },
+        B: { start: "2027-07-03", end: "2027-08-31" },
+        C: { start: "2027-07-03", end: "2027-08-31" },
       },
     },
   ],
 };
+
+export const OFFICIAL_SCHOOL_YEARS = Object.keys(VACATION_REGISTRY).sort();
 
 export function parseSchoolYear(schoolYear: string): { startYear: number; endYear: number } {
   const match = schoolYear.match(/^(\d{4})-(\d{4})$/);
@@ -194,6 +196,36 @@ export function parseSchoolYear(schoolYear: string): { startYear: number; endYea
 
 export function formatSchoolYear(startYear: number): string {
   return `${startYear}-${startYear + 1}`;
+}
+
+/** Année scolaire de référence selon la date du jour (juillet = préparation de la rentrée suivante). */
+export function resolveDefaultSchoolStartYear(reference = new Date()): number {
+  const month = reference.getMonth();
+  const year = reference.getFullYear();
+  return month >= 6 ? year : year - 1;
+}
+
+export function getDefaultSchoolYear(reference = new Date()): string {
+  const candidate = formatSchoolYear(resolveDefaultSchoolStartYear(reference));
+  if (VACATION_REGISTRY[candidate]) return candidate;
+  return OFFICIAL_SCHOOL_YEARS[OFFICIAL_SCHOOL_YEARS.length - 1] ?? "2025-2026";
+}
+
+export function buildSchoolYearOptions(reference = new Date()): string[] {
+  const currentStart = resolveDefaultSchoolStartYear(reference);
+  const years = OFFICIAL_SCHOOL_YEARS.map((year) => parseSchoolYear(year).startYear);
+  const min = years[0] ?? currentStart;
+  const max = years[years.length - 1] ?? currentStart;
+  const start = Math.max(min, currentStart - 1);
+  const end = Math.min(max, currentStart + 2);
+
+  return Array.from({ length: end - start + 1 }, (_, index) =>
+    formatSchoolYear(start + index),
+  ).filter((year) => VACATION_REGISTRY[year]);
+}
+
+export function isOfficialSchoolYear(schoolYear: string): boolean {
+  return Boolean(VACATION_REGISTRY[schoolYear]);
 }
 
 export function shiftDate(date: string, days: number): string {
@@ -213,18 +245,17 @@ export function resolveVacationRegistry(schoolYear: string): VacationEntry[] {
   }
 
   const { startYear } = parseSchoolYear(schoolYear);
-  const knownYears = Object.keys(VACATION_REGISTRY)
-    .map((year) => parseSchoolYear(year).startYear)
-    .sort((a, b) => a - b);
+  const knownYears = OFFICIAL_SCHOOL_YEARS.map((year) => parseSchoolYear(year).startYear).sort(
+    (a, b) => a - b,
+  );
 
-  const nearest =
-    knownYears.reduce((best, year) => {
-      const distance = Math.abs(year - startYear);
-      return distance < Math.abs(best - startYear) ? year : best;
-    }, knownYears[0]) ?? startYear;
+  const nearest = knownYears.reduce((best, year) => {
+    const distance = Math.abs(year - startYear);
+    return distance < Math.abs(best - startYear) ? year : best;
+  }, knownYears[0]);
 
   const baseYear = formatSchoolYear(nearest);
-  const baseEntries = VACATION_REGISTRY[baseYear] ?? VACATION_REGISTRY["2024-2025"];
+  const baseEntries = VACATION_REGISTRY[baseYear] ?? VACATION_REGISTRY["2025-2026"];
   const yearDelta = startYear - nearest;
 
   return baseEntries.map((entry) => ({

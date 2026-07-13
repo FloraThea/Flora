@@ -1,4 +1,5 @@
 import type { CalendarSnapshot, TimetableInput, TimetableSlot } from "@/lib/programming/types";
+import { resolvePeriodAndWeekFromCalendar } from "@/lib/programming/calendar-resolution";
 import { isDateOnWorkingDays } from "@/lib/profile/work-schedule";
 import { getFrenchDayName, minutesBetween, normalizeDayName } from "./date-utils";
 
@@ -17,20 +18,7 @@ export class ScheduleEngine {
     periodNumber: number;
     weekNumber: number;
   } {
-    const target = new Date(`${date}T12:00:00`);
-
-    for (const period of calendar.periods) {
-      const start = new Date(`${period.startDate}T00:00:00`);
-      const end = new Date(`${period.endDate}T23:59:59`);
-      if (target < start || target > end) continue;
-
-      const diffDays = Math.floor((target.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-      const maxWeeks = period.classWeeks ?? period.workingWeeks;
-      const weekNumber = Math.min(Math.max(1, Math.floor(diffDays / 7) + 1), maxWeeks);
-      return { periodNumber: period.periodNumber, weekNumber };
-    }
-
-    return { periodNumber: 1, weekNumber: 1 };
+    return resolvePeriodAndWeekFromCalendar(calendar, date);
   }
 
   isNonWorkingDay(

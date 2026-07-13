@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraCard } from "@/components/ui/FloraCard";
 import type { AcademicZone, CalendarSnapshot } from "@/lib/programming/types";
+import { isOfficialSchoolYear } from "@/lib/programming/vacation-registry";
 import { colors } from "@/lib/theme";
 
 type CalendarPreviewProps = {
@@ -127,6 +128,13 @@ export function CalendarPreview({ schoolYear, academicZone }: CalendarPreviewPro
         semaine(s) partielle(s) · Jours travaillés :{" "}
         {calendar.teacherWorkingDays?.join(", ") ?? "Lun–Ven"}
       </p>
+
+      {!isOfficialSchoolYear(schoolYear) ? (
+        <p className="mb-4 rounded-2xl border border-amber-200/80 bg-amber-50/70 px-4 py-3 text-xs font-light text-[#8a6b38]">
+          Cette année scolaire est estimée à partir des dates officielles les plus proches. Choisissez
+          une année publiée au Bulletin officiel pour un décompte exact.
+        </p>
+      ) : null}
 
       <div className="grid gap-3 md:grid-cols-5">
         {calendar.periods.map((period) => (

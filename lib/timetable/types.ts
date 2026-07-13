@@ -177,6 +177,21 @@ export type TimetableSlotActionInput =
       scheduleId: string;
       day: string;
       afterSlotId?: string | null;
+      start?: string;
+      end?: string;
+      subject?: string;
+      subSubject?: string;
+      customText?: string;
+      displayText?: string;
+      color?: string;
+      gradient?: string;
+      useCustomColor?: boolean;
+      icon?: string;
+      levels?: string[];
+      notes?: string;
+      room?: string;
+      intervenant?: string;
+      teacherName?: string;
     }
   | {
       action: "move";

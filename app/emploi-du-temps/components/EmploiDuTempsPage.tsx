@@ -21,9 +21,11 @@ import { TimetableHistoryPanel } from "./TimetableHistoryPanel";
 import { TimetableVersionsPanel } from "./TimetableVersionsPanel";
 import { TimetableImportWizard } from "./TimetableImportWizard";
 import { TimetableSlotDrawer } from "./TimetableSlotDrawer";
+import { TimetableManualBuilder } from "./TimetableManualBuilder";
 import { ExportToolbar } from "./print/ExportToolbar";
 import type { SmartTimetableSlot } from "@/lib/timetable/types";
 import { useTimetableUndo } from "../hooks/useTimetableUndo";
+import { buildDraftSlot, isDraftSlotId } from "@/lib/timetable/slot-editor/operations";
 
 export function EmploiDuTempsPage() {
   const [payload, setPayload] = useState<TimetablePayload | null>(null);
@@ -38,6 +40,10 @@ export function EmploiDuTempsPage() {
   const [activeTab, setActiveTab] = useState<"grid" | "config" | "versions">("grid");
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [editingSlot, setEditingSlot] = useState<SmartTimetableSlot | null>(null);
+  const [createSlotContext, setCreateSlotContext] = useState<{ afterSlotId: string | null } | null>(
+    null,
+  );
+  const [showManualBuilder, setShowManualBuilder] = useState(false);
   const [isSavingSlot, setIsSavingSlot] = useState(false);
 
   const {
@@ -191,6 +197,49 @@ export function EmploiDuTempsPage() {
     setSuccessMessage(null);
 
     try {
+      if (isDraftSlotId(editingSlot.id)) {
+        const response = await fetch("/api/emploi-du-temps/slots/actions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "create",
+            scheduleId,
+            day: patch.day ?? editingSlot.day,
+            afterSlotId: createSlotContext?.afterSlotId ?? null,
+            start: patch.start,
+            end: patch.end,
+            subject: patch.subject,
+            subSubject: patch.subSubject,
+            customText: patch.customText,
+            displayText: patch.displayText,
+            color: patch.color,
+            gradient: patch.gradient,
+            useCustomColor: patch.useCustomColor,
+            icon: patch.icon,
+            levels: patch.levels,
+            notes: patch.notes,
+            room: patch.room,
+            intervenant: patch.intervenant,
+            teacherName: patch.teacherName,
+          }),
+        });
+
+        const data = (await response.json()) as TimetablePayload & { error?: string };
+        if (!response.ok) throw new Error(data.error || "Création impossible.");
+
+        const created = data.slots.find(
+          (slot) =>
+            slot.day === (patch.day ?? editingSlot.day) &&
+            slot.start === patch.start &&
+            slot.end === patch.end &&
+            slot.subject === patch.subject,
+        );
+        setEditingSlot(created ?? null);
+        setCreateSlotContext(null);
+        await commitChange(data, "Plage créée");
+        return;
+      }
+
       const response = await fetch("/api/emploi-du-temps/slots", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -269,32 +318,70 @@ export function EmploiDuTempsPage() {
     }
   }
 
-  async function handleCreateSlot(day: string, afterSlotId: string | null) {
+  function openCreateDrawer(day: string, afterSlotId: string | null) {
     if (!scheduleId || !payload) return;
-    setError(null);
+    setCreateSlotContext({ afterSlotId });
+    setEditingSlot(
+      buildDraftSlot({
+        scheduleId,
+        day,
+        existingSlots: payload.slots,
+        afterSlotId,
+        morningStart: settings?.morningStart,
+      }),
+    );
+  }
 
-    const previousIds = new Set(payload.slots.map((slot) => slot.id));
+  function closeSlotDrawer() {
+    setEditingSlot(null);
+    setCreateSlotContext(null);
+  }
+
+  async function handleManualBuilderSave(slots: SmartTimetableSlot[]) {
+    if (!scheduleId || !payload) return;
+    setIsSavingSlot(true);
+    setError(null);
 
     try {
       const response = await fetch("/api/emploi-du-temps/slots/actions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "create",
+          action: "restore",
           scheduleId,
-          day,
-          afterSlotId,
+          slots,
         }),
       });
 
       const data = (await response.json()) as TimetablePayload & { error?: string };
-      if (!response.ok) throw new Error(data.error || "Création impossible.");
+      if (!response.ok) throw new Error(data.error || "Sauvegarde impossible.");
 
-      const created = data.slots.find((slot) => slot.day === day && !previousIds.has(slot.id));
-      if (created) setEditingSlot(created);
-      await commitChange(data, "Nouveau créneau ajouté");
-    } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Création impossible.");
+      setShowManualBuilder(false);
+      setEditingSlot(null);
+      setCreateSlotContext(null);
+      await commitChange(data, `${slots.length} plage(s) enregistrée(s)`);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Sauvegarde impossible.");
+    } finally {
+      setIsSavingSlot(false);
+    }
+  }
+
+  async function openManualBuilder() {
+    if (payload && settings) {
+      setShowManualBuilder(true);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/emploi-du-temps");
+      const data = (await response.json()) as TimetablePayload & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Chargement impossible.");
+      setPayload(data);
+      setSettings(data.schedule.settings);
+      setShowManualBuilder(true);
+    } catch (openError) {
+      setError(openError instanceof Error ? openError.message : "Impossible d'ouvrir la saisie.");
     }
   }
 
@@ -446,6 +533,11 @@ export function EmploiDuTempsPage() {
         >
           Importer mon emploi du temps
         </FloraButton>
+        {payload ? (
+          <FloraButton accent="sage" variant="secondary" onClick={() => void openManualBuilder()}>
+            Saisir mon emploi du temps
+          </FloraButton>
+        ) : null}
         <FloraButton
           accent="rose"
           onClick={() => void handleGenerate()}
@@ -521,7 +613,8 @@ export function EmploiDuTempsPage() {
                   onLockSlot={(slotId, day) => void handleLock("session", day, slotId)}
                   onLockDay={(day) => void handleLock("full_day", day)}
                   onEditSlot={setEditingSlot}
-                  onCreateSlot={(day, afterSlotId) => void handleCreateSlot(day, afterSlotId)}
+                  onCreateSlot={(day, afterSlotId) => openCreateDrawer(day, afterSlotId)}
+                  onAddDay={(day) => openCreateDrawer(day, null)}
                 />
               </FloraCard>
             ) : null}
@@ -594,6 +687,9 @@ export function EmploiDuTempsPage() {
             <FloraButton accent="lavender" onClick={() => setShowImportWizard(true)}>
               Importer mon emploi du temps
             </FloraButton>
+            <FloraButton accent="sage" variant="secondary" onClick={() => setShowManualBuilder(true)}>
+              Saisir mon emploi du temps
+            </FloraButton>
             <FloraButton accent="sage" onClick={() => void handleGenerate()}>
               Créer mon emploi du temps
             </FloraButton>
@@ -605,9 +701,21 @@ export function EmploiDuTempsPage() {
         <TimetableSlotDrawer
           slot={editingSlot}
           allSlots={payload.slots}
-          onClose={() => setEditingSlot(null)}
+          isCreate={isDraftSlotId(editingSlot.id)}
+          onClose={closeSlotDrawer}
           onSave={handleUpdateSlot}
           onAction={handleSlotAction}
+          isSaving={isSavingSlot}
+        />
+      ) : null}
+
+      {showManualBuilder && scheduleId && settings ? (
+        <TimetableManualBuilder
+          scheduleId={scheduleId}
+          settings={settings}
+          existingSlots={payload?.slots ?? []}
+          onClose={() => setShowManualBuilder(false)}
+          onSave={handleManualBuilderSave}
           isSaving={isSavingSlot}
         />
       ) : null}
