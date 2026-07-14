@@ -34,6 +34,16 @@ const MAPPING_FIELDS: ProgrammationColumnField[] = [
 ];
 
 const STEPS = [
+  "Importer",
+  "Analyser",
+  "Année scolaire",
+  "Adapter",
+  "Mise en forme",
+  "Valider",
+  "Utiliser",
+] as const;
+
+const STEPS_LONG = [
   "Importer le fichier",
   "Analyser la programmation",
   "Année scolaire et zone",
@@ -239,33 +249,61 @@ export function ProgrammationImportWizard({
   }
 
   return (
-    <FloraCard padding="lg" accent="lavender" className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-serif text-2xl font-medium">Importer une programmation</h3>
-          <p className="mt-1 text-sm font-light text-flora-text-subtle">
-            Étape {step + 1} / {STEPS.length} — {STEPS[step]}
+    <FloraCard
+      padding="lg"
+      accent="lavender"
+      className="programming-import-wizard w-full max-w-full box-border space-y-6 overflow-x-hidden"
+    >
+      <div className="flex w-full max-w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-serif text-xl font-medium leading-snug sm:text-2xl">
+            Importer une programmation
+          </h3>
+          <p className="mt-1 break-words text-sm font-light text-flora-text-subtle">
+            Étape {step + 1} / {STEPS.length} — {STEPS_LONG[step]}
           </p>
         </div>
-        <FloraButton variant="ghost" onClick={onClose}>
+        <FloraButton className="!w-full sm:!w-auto" variant="ghost" onClick={onClose}>
           Fermer
         </FloraButton>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {STEPS.map((label, index) => (
-          <FloraBadge key={label} accent={index === step ? "sage" : "cream"}>
-            {index + 1}. {label}
-          </FloraBadge>
-        ))}
+      <div className="md:hidden">
+        <div className="rounded-2xl bg-white/50 px-4 py-3">
+          <p className="text-xs uppercase tracking-wide text-flora-text-subtle">Étape en cours</p>
+          <p className="mt-1 text-sm font-medium leading-snug break-words">
+            {step + 1}. {STEPS_LONG[step]}
+          </p>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/70">
+            <div
+              className="h-full rounded-full bg-sauge/70 transition-all"
+              style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+            />
+          </div>
+        </div>
       </div>
 
+      <ol className="hidden w-full max-w-full flex-col gap-1 md:flex">
+        {STEPS.map((label, index) => (
+          <li
+            key={label}
+            className={`rounded-xl px-3 py-2 text-sm leading-snug break-words ${
+              index === step ? "bg-sauge/25 font-medium text-flora-text" : "text-flora-text-subtle"
+            }`}
+          >
+            {index + 1}. {STEPS_LONG[index]}
+          </li>
+        ))}
+      </ol>
+
       {error ? (
-        <p className="rounded-2xl bg-rose-soft/35 px-4 py-3 text-sm text-[#b88989]">{error}</p>
+        <div className="w-full max-w-full rounded-2xl bg-rose-soft/35 px-4 py-3 box-border">
+          <p className="break-words text-sm text-[#b88989]">{error}</p>
+        </div>
       ) : null}
 
       {step === 0 ? (
-        <div className="grid gap-4">
+        <div className="grid w-full max-w-full gap-4 overflow-x-hidden">
           <ProgrammationImportBatchPanel
             schoolYear={schoolYear}
             onError={setError}
@@ -411,6 +449,7 @@ export function ProgrammationImportWizard({
           ) : null}
 
           <FloraButton
+            className="!w-full sm:!w-auto"
             onClick={() => setStep(2)}
             disabled={parsed.rowCount === 0 || parsed.needsColumnMapping}
           >
@@ -427,7 +466,7 @@ export function ProgrammationImportWizard({
           <p className="text-sm font-light text-flora-text-subtle">
             Ces paramètres proviennent de votre profil pédagogique et du formulaire programmation.
           </p>
-          <FloraButton onClick={() => void runAdapt()} disabled={isLoading}>
+          <FloraButton className="!w-full sm:!w-auto" onClick={() => void runAdapt()} disabled={isLoading}>
             {isLoading ? "Adaptation…" : "Adapter aux 36 semaines"}
           </FloraButton>
         </div>

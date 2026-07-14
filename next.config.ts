@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
     "pg",
   ],
   experimental: {
-    proxyClientMaxBodySize: "6mb",
+    /** Import programmation : fichiers jusqu'à 25 Mo (fallback si upload direct indisponible). */
+    proxyClientMaxBodySize: "28mb",
   },
 };
 

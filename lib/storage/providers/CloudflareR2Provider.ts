@@ -189,6 +189,22 @@ export class CloudflareR2Provider implements StorageProvider {
     }
   }
 
+  async getSignedUploadUrl(key: string, options?: StorageSignedUrlOptions): Promise<string> {
+    const expiresIn = options?.expiresInSeconds ?? getSignedUrlTtlSeconds();
+
+    try {
+      const command = new PutObjectCommand({
+        Bucket: getBucket(),
+        Key: key,
+        ContentType: options?.contentType ?? "application/octet-stream",
+      });
+
+      return await getSignedUrl(getClient(), command, { expiresIn });
+    } catch (error) {
+      failStorage(buildFailureContext("getSignedUploadUrl", key), error);
+    }
+  }
+
   async getMetadata(key: string, context?: StorageOperationContext): Promise<StorageObjectMetadata> {
     try {
       const response = await getClient().send(

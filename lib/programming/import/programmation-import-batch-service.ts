@@ -3,13 +3,17 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { resolveImportFileName } from "@/lib/import/accepted-formats";
 import { devLog } from "@/lib/logger";
-import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { getOrCreateTeacherProfile } from "@/lib/profile/profile-service";
+import { storageService } from "@/lib/storage";
+import { getStorageProviderName, tryGetR2Config } from "@/lib/storage/config";
 import { supabase } from "@/lib/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 import {
   buildProgrammationBatchStoragePath,
-  getStorageBucketName,
 } from "@/lib/supabase/storage-config";
+import {
+  PROGRAMMING_IMPORT_DIRECT_UPLOAD_THRESHOLD_BYTES,
+} from "./batch-limits";
 import type {
   ImportBatchMergeMode,
   ImportBatchStatus,
@@ -57,15 +61,76 @@ function isMissingProgrammingImportTable(error: unknown): boolean {
   );
 }
 
+function canUseDirectUpload(): boolean {
+  return getStorageProviderName() === "cloudflare_r2" && Boolean(tryGetR2Config());
+}
+
+async function resolveProfileBundle() {
+  try {
+    return await getOrCreateTeacherProfile();
+  } catch (error) {
+    throw new Error(
+      getSupabaseErrorMessage(error, "Impossible d'accéder au profil enseignant."),
+    );
+  }
+}
+
+function buildStoragePath(input: {
+  profileId: string;
+  batchId: string;
+  pageOrder: number;
+  fileId: string;
+  filename: string;
+}): string {
+  return buildProgrammationBatchStoragePath(input);
+}
+
+async function registerUploadedFile(input: {
+  batchId: string;
+  fileId: string;
+  pageOrder: number;
+  filename: string;
+  mimeType: string;
+  storagePath: string;
+  fileSize: number;
+}): Promise<boolean> {
+  const { error: insertError } = await supabase.from("programming_import_files").insert({
+    id: input.fileId,
+    batch_id: input.batchId,
+    page_order: input.pageOrder,
+    filename: input.filename,
+    mime_type: input.mimeType,
+    storage_path: input.storagePath,
+    file_size_bytes: input.fileSize,
+    analysis_status: "uploaded",
+    pdf_page_number: null,
+    source_file_id: null,
+  });
+
+  if (insertError) {
+    if (!isMissingProgrammingImportTable(insertError)) {
+      devLog("[ProgrammingImport] upload-db-warning", {
+        fileId: input.fileId,
+        message: getSupabaseErrorMessage(insertError, "insert failed"),
+      });
+    }
+    return false;
+  }
+
+  await supabase
+    .from("programming_import_batches")
+    .update({ status: "uploading", updated_at: new Date().toISOString() })
+    .eq("id", input.batchId);
+
+  return true;
+}
+
 export async function createProgrammingImportBatch(input?: {
   schoolYear?: string;
   mergeMode?: ImportBatchMergeMode;
   batchId?: string;
 }): Promise<{ batchId: string; persisted: boolean }> {
-  const bundle = await loadTeacherProfileBundle();
-  if (!bundle) {
-    throw new Error("Votre session a expiré. Reconnectez-vous puis réessayez.");
-  }
+  const bundle = await resolveProfileBundle();
 
   const batchId = input?.batchId ?? randomUUID();
 
@@ -94,6 +159,93 @@ export async function createProgrammingImportBatch(input?: {
   return { batchId: String(data.id), persisted: true };
 }
 
+export async function prepareProgrammingImportBatchUpload(input: {
+  batchId: string;
+  pageOrder: number;
+  clientFileId?: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+}): Promise<{
+  fileId: string;
+  storagePath: string;
+  mode: "direct" | "api";
+  uploadUrl?: string;
+}> {
+  const bundle = await resolveProfileBundle();
+  const resolvedName = resolveImportFileName({ name: input.fileName, type: input.mimeType });
+  const validation = validateBatchFiles([
+    {
+      name: resolvedName,
+      type: input.mimeType,
+      size: input.fileSize,
+      lastModified: Date.now(),
+    },
+  ]);
+  if (!validation.ok) throw new Error(validation.error);
+
+  const fileId = input.clientFileId ?? randomUUID();
+  const storagePath = buildStoragePath({
+    profileId: bundle.profile.id,
+    batchId: input.batchId,
+    pageOrder: input.pageOrder,
+    fileId,
+    filename: resolvedName,
+  });
+
+  const useDirect =
+    canUseDirectUpload() && input.fileSize >= PROGRAMMING_IMPORT_DIRECT_UPLOAD_THRESHOLD_BYTES;
+
+  if (useDirect) {
+    try {
+      const uploadUrl = await storageService.getSignedUploadUrl(storagePath, {
+        contentType: input.mimeType || "application/octet-stream",
+      });
+      return { fileId, storagePath, mode: "direct", uploadUrl };
+    } catch (error) {
+      devLog("[ProgrammingImport] direct-upload-unavailable", {
+        message: getSupabaseErrorMessage(error, "signed upload failed"),
+      });
+    }
+  }
+
+  return { fileId, storagePath, mode: "api" };
+}
+
+export async function confirmProgrammingImportBatchUpload(input: {
+  batchId: string;
+  fileId: string;
+  storagePath: string;
+  pageOrder: number;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+}): Promise<{
+  entries: Array<{ fileId: string; pageOrder: number; pdfPageNumber?: number; storagePath: string }>;
+  persisted: boolean;
+}> {
+  const resolvedName = resolveImportFileName({ name: input.fileName, type: input.mimeType });
+  const exists = await storageService.exists(input.storagePath);
+  if (!exists) {
+    throw new Error(`La page ${input.pageOrder} n'a pas pu être téléversée (fichier introuvable).`);
+  }
+
+  const persisted = await registerUploadedFile({
+    batchId: input.batchId,
+    fileId: input.fileId,
+    pageOrder: input.pageOrder,
+    filename: resolvedName,
+    mimeType: input.mimeType || "application/octet-stream",
+    storagePath: input.storagePath,
+    fileSize: input.fileSize,
+  });
+
+  return {
+    entries: [{ fileId: input.fileId, pageOrder: input.pageOrder, storagePath: input.storagePath }],
+    persisted,
+  };
+}
+
 export async function uploadProgrammingImportBatchFile(input: {
   batchId: string;
   file: File;
@@ -101,13 +253,9 @@ export async function uploadProgrammingImportBatchFile(input: {
   clientFileId?: string;
 }): Promise<{
   entries: Array<{ fileId: string; pageOrder: number; pdfPageNumber?: number; storagePath: string }>;
-  publicUrl: string;
   persisted: boolean;
 }> {
-  const bundle = await loadTeacherProfileBundle();
-  if (!bundle) {
-    throw new Error("Votre session a expiré. Reconnectez-vous puis réessayez.");
-  }
+  const bundle = await resolveProfileBundle();
 
   const resolvedName = resolveImportFileName(input.file);
   const validation = validateBatchFiles([
@@ -120,10 +268,9 @@ export async function uploadProgrammingImportBatchFile(input: {
   ]);
   if (!validation.ok) throw new Error(validation.error);
 
-  const bucket = getStorageBucketName();
   const buffer = Buffer.from(await input.file.arrayBuffer());
   const fileId = input.clientFileId ?? randomUUID();
-  const storagePath = buildProgrammationBatchStoragePath({
+  const storagePath = buildStoragePath({
     profileId: bundle.profile.id,
     batchId: input.batchId,
     pageOrder: input.pageOrder,
@@ -131,63 +278,47 @@ export async function uploadProgrammingImportBatchFile(input: {
     filename: resolvedName,
   });
 
-  const { error: uploadError } = await supabase.storage.from(bucket).upload(storagePath, buffer, {
-    contentType: input.file.type || "application/octet-stream",
-    upsert: false,
-  });
-
-  if (uploadError) {
+  try {
+    await storageService.upload({
+      key: storagePath,
+      body: buffer,
+      contentType: input.file.type || "application/octet-stream",
+      fileName: resolvedName,
+    });
+  } catch (error) {
     throw new Error(
       getSupabaseErrorMessage(
-        uploadError,
-        `La page ${input.pageOrder} n'a pas pu être téléversée.`,
+        error,
+        `La page ${input.pageOrder} n'a pas pu être téléversée vers le stockage.`,
       ),
     );
   }
 
-  let persisted = true;
-  const { error: insertError } = await supabase.from("programming_import_files").insert({
-    id: fileId,
-    batch_id: input.batchId,
-    page_order: input.pageOrder,
+  const persisted = await registerUploadedFile({
+    batchId: input.batchId,
+    fileId,
+    pageOrder: input.pageOrder,
     filename: resolvedName,
-    mime_type: input.file.type || "application/octet-stream",
-    storage_path: storagePath,
-    file_size_bytes: input.file.size,
-    analysis_status: "uploaded",
-    pdf_page_number: null,
-    source_file_id: null,
+    mimeType: input.file.type || "application/octet-stream",
+    storagePath,
+    fileSize: input.file.size,
   });
-
-  if (insertError) {
-    persisted = false;
-    if (!isMissingProgrammingImportTable(insertError)) {
-      devLog("[ProgrammingImport] upload-db-warning", {
-        fileId,
-        message: getSupabaseErrorMessage(insertError, "insert failed"),
-      });
-    }
-  }
-
-  await supabase
-    .from("programming_import_batches")
-    .update({ status: "uploading", updated_at: new Date().toISOString() })
-    .eq("id", input.batchId);
-
-  const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(storagePath);
 
   return {
     entries: [{ fileId, pageOrder: input.pageOrder, storagePath }],
-    publicUrl: publicUrlData.publicUrl,
     persisted,
   };
 }
 
 async function downloadBatchFileBuffer(storagePath: string): Promise<Buffer> {
-  const bucket = getStorageBucketName();
-  const { data, error } = await supabase.storage.from(bucket).download(storagePath);
-  if (error || !data) throw new Error("Fichier source introuvable.");
-  return Buffer.from(await data.arrayBuffer());
+  try {
+    const downloaded = await storageService.download(storagePath);
+    return downloaded.body;
+  } catch (error) {
+    throw new Error(
+      getSupabaseErrorMessage(error, "Fichier source introuvable dans le stockage."),
+    );
+  }
 }
 
 async function analyzeStoredFile(file: Pick<FileRow, "filename" | "mime_type" | "storage_path" | "pdf_page_number">): Promise<ParsedProgrammationImport> {

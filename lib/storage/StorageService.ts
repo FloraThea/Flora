@@ -88,6 +88,18 @@ export class StorageService {
     return resolveProviderForKey(key, providerName).getSignedUrl(key, options);
   }
 
+  getSignedUploadUrl(
+    key: string,
+    options?: StorageSignedUrlOptions,
+    providerName?: StorageProviderName,
+  ): Promise<string> {
+    const provider = resolveProviderForKey(key, providerName);
+    if (!provider.getSignedUploadUrl) {
+      throw new Error("Upload direct non disponible pour ce fournisseur de stockage.");
+    }
+    return provider.getSignedUploadUrl(key, options);
+  }
+
   getMetadata(
     key: string,
     context?: StorageOperationContext,

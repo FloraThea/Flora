@@ -4,8 +4,8 @@ export const SCHEDULE_TIME_FONT_SIZE_PX = 13;
 export const SCHEDULE_SECONDARY_FONT_SIZE_PX = 13;
 
 /** Police principale export PDF / PNG / JPG — ne jamais réduire par hauteur. */
-export const EXPORT_SCHEDULE_FONT_SIZE_PX = 30;
-export const EXPORT_SCHEDULE_TIME_FONT_SIZE_PX = 26;
+export const EXPORT_SCHEDULE_FONT_SIZE_PX = 25;
+export const EXPORT_SCHEDULE_TIME_FONT_SIZE_PX = 22;
 
 export type SlotCardTypography = {
   timePx: number;

@@ -201,14 +201,18 @@ export function ProgrammationPage() {
       />
 
       {showImportWizard ? (
-        <ProgrammationImportWizard
-          formValues={formValues}
-          onComplete={(nextPayload) => {
-            setPayload(nextPayload);
-            setShowImportWizard(false);
-          }}
-          onClose={() => setShowImportWizard(false)}
-        />
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/25 p-0 sm:items-center sm:p-4">
+          <div className="h-[100dvh] w-full max-w-3xl overflow-y-auto overflow-x-hidden sm:h-auto sm:max-h-[90vh]">
+            <ProgrammationImportWizard
+              formValues={formValues}
+              onComplete={(nextPayload) => {
+                setPayload(nextPayload);
+                setShowImportWizard(false);
+              }}
+              onClose={() => setShowImportWizard(false)}
+            />
+          </div>
+        </div>
       ) : null}
 
       {referentielWarning ? (

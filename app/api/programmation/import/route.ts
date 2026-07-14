@@ -8,8 +8,10 @@ import {
 } from "@/lib/programming/import/programmation-import-service";
 import {
   analyzeProgrammingImportBatch,
+  confirmProgrammingImportBatchUpload,
   createProgrammingImportBatch,
   loadProgrammingImportBatchDraft,
+  prepareProgrammingImportBatchUpload,
   updateProgrammingImportBatchOrder,
   uploadProgrammingImportBatchFile,
 } from "@/lib/programming/import/programmation-import-batch-service";
@@ -27,26 +29,23 @@ function mapImportStepError(action: string | undefined, error: unknown): { statu
   if (details.includes("session") || details.includes("profil")) {
     return { status: 401, message: "Votre session a expiré. Reconnectez-vous puis réessayez." };
   }
-  if (action === "batch_create") {
-    return { status: 500, message: "Le lot d'import n'a pas pu être créé." };
+  if (details.includes("stockage") || details.includes("storage") || details.includes("r2") || details.includes("bucket")) {
+    return { status: 500, message: toErrorMessage(error) || "Le téléversement vers le stockage a échoué." };
   }
-  if (action === "batch_upload") {
-    return { status: 500, message: toErrorMessage(error) || "Le téléversement a échoué." };
+  if (action === "batch_create") {
+    return { status: 500, message: toErrorMessage(error) || "Impossible de créer le lot d'import." };
+  }
+  if (action === "batch_upload_prepare" || action === "batch_upload_confirm" || action === "batch_upload") {
+    return { status: 500, message: toErrorMessage(error) || "Le téléversement des fichiers a échoué." };
   }
   if (action === "batch_analyze") {
-    return {
-      status: 500,
-      message: toErrorMessage(error) || "Les images ont été téléversées, mais leur analyse a échoué.",
-    };
+    return { status: 500, message: toErrorMessage(error) || "L'analyse des pages a échoué." };
   }
   if (action === "save") {
-    return {
-      status: 500,
-      message: "La programmation a été analysée, mais son enregistrement a échoué.",
-    };
+    return { status: 500, message: toErrorMessage(error) || "La programmation n'a pas pu être enregistrée." };
   }
 
-  return { status: 500, message: toErrorMessage(error) || "Import programmation impossible." };
+  return { status: 500, message: toErrorMessage(error) || "Une erreur inattendue est survenue pendant l'import." };
 }
 
 export async function POST(request: Request) {
@@ -121,11 +120,47 @@ export async function POST(request: Request) {
       mergeMode?: ImportBatchMergeMode;
       orderedFileIds?: string[];
       uploadedFiles?: ProgrammingImportUploadedFileDescriptor[];
-      pastedText?: string;
+      clientFileId?: string;
       fileName?: string;
+      mimeType?: string;
+      fileSize?: number;
+      storagePath?: string;
+      fileId?: string;
+      pageOrder?: number;
+      pastedText?: string;
     };
 
     action = body.action;
+
+    if (body.action === "batch_upload_prepare" && body.batchId) {
+      const prepared = await prepareProgrammingImportBatchUpload({
+        batchId: body.batchId,
+        pageOrder: Number(body.pageOrder ?? 1),
+        clientFileId: body.clientFileId,
+        fileName: body.fileName ?? "import.png",
+        mimeType: body.mimeType ?? "application/octet-stream",
+        fileSize: Number(body.fileSize ?? 0),
+      });
+      return NextResponse.json({ route: ROUTE_PATH, ...prepared });
+    }
+
+    if (
+      body.action === "batch_upload_confirm" &&
+      body.batchId &&
+      body.fileId &&
+      body.storagePath
+    ) {
+      const confirmed = await confirmProgrammingImportBatchUpload({
+        batchId: body.batchId,
+        fileId: body.fileId,
+        storagePath: body.storagePath,
+        pageOrder: Number(body.pageOrder ?? 1),
+        fileName: body.fileName ?? "import.png",
+        mimeType: body.mimeType ?? "application/octet-stream",
+        fileSize: Number(body.fileSize ?? 0),
+      });
+      return NextResponse.json({ route: ROUTE_PATH, ...confirmed });
+    }
 
     if (body.action === "batch_create") {
       logRouteInfo(ROUTE_PATH, "Création lot programmation", { batchId: body.batchId });

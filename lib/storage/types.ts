@@ -88,6 +88,8 @@ export interface StorageProvider {
   delete(key: string, context?: StorageOperationContext): Promise<void>;
   exists(key: string, context?: StorageOperationContext): Promise<boolean>;
   getSignedUrl(key: string, options?: StorageSignedUrlOptions): Promise<string>;
+  /** URL signée PUT pour upload direct navigateur → R2 (optionnel selon provider). */
+  getSignedUploadUrl?(key: string, options?: StorageSignedUrlOptions): Promise<string>;
   getMetadata(key: string, context?: StorageOperationContext): Promise<StorageObjectMetadata>;
   move(sourceKey: string, destinationKey: string, context?: StorageOperationContext): Promise<void>;
   list(prefix: string, options?: { maxKeys?: number }): Promise<StorageListResult>;
