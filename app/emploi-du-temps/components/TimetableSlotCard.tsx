@@ -4,6 +4,7 @@ import type { SmartTimetableSlot } from "@/lib/timetable/types";
 import { resolveSlotAppearance } from "@/lib/timetable/subject-palette";
 import { readSlotMeta } from "@/lib/timetable/slot-editor/operations";
 import { defaultIconForSlot } from "@/lib/timetable/slot-editor/constants";
+import { computeSlotCardTypography } from "@/lib/timetable/slot-card-typography";
 import { useFloraTheme } from "@/components/theme/ThemeProvider";
 
 type TimetableSlotCardProps = {
@@ -12,10 +13,10 @@ type TimetableSlotCardProps = {
   onLock?: () => void;
   draggable?: boolean;
   onDragStart?: (event: React.DragEvent) => void;
-  /** Mode grille horaire (texte plus grand) vs drawer/preview */
   density?: "grid" | "compact";
-  /** Remplit la hauteur du conteneur parent (grille proportionnelle) */
   fillHeight?: boolean;
+  heightPx?: number;
+  overlapping?: boolean;
 };
 
 export function TimetableSlotCard({
@@ -26,11 +27,14 @@ export function TimetableSlotCard({
   onDragStart,
   density = "compact",
   fillHeight = false,
+  heightPx,
+  overlapping = false,
 }: TimetableSlotCardProps) {
   const { themeId } = useFloraTheme();
   const meta = readSlotMeta(slot);
   const useCustomColor = meta.useCustomColor && slot.color;
   const isGrid = density === "grid";
+  const typography = isGrid ? computeSlotCardTypography(heightPx ?? 72) : null;
 
   const appearance = useCustomColor
     ? {
@@ -57,21 +61,17 @@ export function TimetableSlotCard({
   const teacher = meta.teacherName || slot.intervenant;
   const timeLabel = `${slot.start} – ${slot.end}`;
 
-  const titleClass = isGrid
-    ? "font-serif text-sm font-bold leading-tight md:text-[15px]"
-    : "font-serif text-sm font-medium leading-snug";
+  const titleStyle = isGrid && typography
+    ? { fontSize: typography.titlePx, lineHeight: 1.15 }
+    : undefined;
 
-  const secondaryClass = isGrid
-    ? "text-[11px] font-medium leading-snug opacity-95 md:text-xs"
-    : "text-xs font-light leading-snug opacity-90";
+  const timeStyle = isGrid && typography
+    ? { fontSize: typography.timePx }
+    : undefined;
 
-  const tertiaryClass = isGrid
-    ? "text-[10px] font-light leading-snug opacity-85 md:text-[11px]"
-    : "text-[10px] font-light leading-snug opacity-80";
-
-  const timeClass = isGrid
-    ? "text-[10px] font-semibold tracking-wide md:text-[11px]"
-    : "text-[10px] font-medium tracking-wide";
+  const secondaryStyle = isGrid && typography
+    ? { fontSize: typography.secondaryPx }
+    : undefined;
 
   return (
     <article
@@ -92,26 +92,37 @@ export function TimetableSlotCard({
       className={`group relative flex flex-col overflow-hidden rounded-xl border text-left shadow-[var(--shadow-card)] transition duration-200 ${
         fillHeight ? "h-full min-h-0" : ""
       } ${
-        isGrid ? "px-2 py-1.5 md:px-2.5 md:py-2" : "rounded-[1.25rem] px-3 py-2.5"
+        isGrid ? "px-2 py-1 md:px-2.5 md:py-1.5" : "rounded-[1.25rem] px-3 py-2.5"
       } ${
         isGrid
           ? "hover:brightness-[1.02] hover:shadow-[var(--shadow-hover)]"
           : "hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]"
       } ${
         draggable && !locked ? "cursor-grab active:cursor-grabbing" : onEdit ? "cursor-pointer" : ""
-      } ${locked ? "ring-1 ring-amber-200/70" : ""}`}
+      } ${locked ? "ring-1 ring-amber-200/70" : ""} ${
+        overlapping ? "ring-2 ring-rose-400/80" : ""
+      }`}
       style={{
         background: appearance.gradient,
-        borderColor: appearance.borderColor,
+        borderColor: overlapping ? "#e8a4a4" : appearance.borderColor,
         color: appearance.textColor,
       }}
     >
       <div className={`flex shrink-0 items-start justify-between gap-1 ${isGrid ? "mb-0.5" : "mb-1.5"}`}>
-        <span className={`rounded-full bg-white/55 px-1.5 py-0.5 ${timeClass}`}>{timeLabel}</span>
+        <span
+          className={`rounded-full bg-white/55 px-1.5 py-0.5 font-semibold tracking-wide ${
+            isGrid ? "" : "text-[10px] font-medium"
+          }`}
+          style={timeStyle}
+        >
+          {timeLabel}
+        </span>
         <div className="flex shrink-0 items-center gap-0.5">
-          <span className={`leading-none ${isGrid ? "text-xs" : "text-sm"}`} aria-hidden>
-            {icon}
-          </span>
+          {!typography?.compact ? (
+            <span className={`leading-none ${isGrid ? "text-xs" : "text-sm"}`} aria-hidden>
+              {icon}
+            </span>
+          ) : null}
           {onLock ? (
             <button
               type="button"
@@ -129,33 +140,62 @@ export function TimetableSlotCard({
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <h5 className={`${titleClass} line-clamp-2`}>{displayTitle || slot.subject || "Créneau"}</h5>
+        <h5
+          className={`font-serif font-bold ${
+            isGrid ? "line-clamp-2" : "text-sm font-medium leading-snug"
+          }`}
+          style={{
+            ...titleStyle,
+            WebkitLineClamp: typography?.lineClamp ?? 2,
+          }}
+        >
+          {displayTitle || slot.subject || "Créneau"}
+        </h5>
 
-        {subjectLine || slot.subSubject ? (
-          <p className={`${secondaryClass} mt-0.5 line-clamp-1`}>
+        {(!typography || typography.showSecondary) && (subjectLine || slot.subSubject) ? (
+          <p
+            className={`mt-0.5 line-clamp-1 font-medium leading-snug opacity-95 ${
+              isGrid ? "" : "text-xs font-light opacity-90"
+            }`}
+            style={secondaryStyle}
+          >
             {subjectLine}
             {subjectLine && slot.subSubject ? " · " : null}
             {slot.subSubject}
           </p>
         ) : null}
 
-        {meta.levels?.length ? (
-          <p className={`${tertiaryClass} mt-0.5 line-clamp-1`}>{meta.levels.join(" · ")}</p>
+        {(!typography || typography.showTertiary) && meta.levels?.length ? (
+          <p
+            className={`mt-0.5 line-clamp-1 font-light leading-snug opacity-85 ${
+              isGrid ? "" : "text-[10px]"
+            }`}
+            style={secondaryStyle}
+          >
+            {meta.levels.join(" · ")}
+          </p>
         ) : null}
 
-        {slot.customText ? (
-          <p className={`${tertiaryClass} mt-0.5 line-clamp-2 italic`}>{slot.customText}</p>
+        {(!typography || typography.showTertiary) && slot.customText ? (
+          <p
+            className={`mt-0.5 line-clamp-2 font-light italic opacity-85 ${
+              isGrid ? "" : "text-[10px]"
+            }`}
+            style={secondaryStyle}
+          >
+            {slot.customText}
+          </p>
         ) : null}
 
         {(slot.room || teacher) && !isGrid ? (
-          <div className={`${tertiaryClass} mt-1 space-y-0.5`}>
+          <div className="mt-1 space-y-0.5 text-[10px] font-light leading-snug opacity-80">
             {slot.room ? <p className="line-clamp-1">{slot.room}</p> : null}
             {teacher ? <p className="line-clamp-1">{teacher}</p> : null}
           </div>
         ) : null}
 
-        {isGrid && (slot.room || teacher) ? (
-          <p className={`${tertiaryClass} mt-0.5 line-clamp-1`}>
+        {isGrid && typography?.showTertiary && (slot.room || teacher) ? (
+          <p className="mt-0.5 line-clamp-1 text-[11px] font-light opacity-85">
             {[slot.room, teacher].filter(Boolean).join(" · ")}
           </p>
         ) : null}

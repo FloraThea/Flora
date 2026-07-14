@@ -1,6 +1,6 @@
 import type { AcademicZone, CalendarSnapshot, ProgrammingTable, SchoolLevel } from "../types";
 
-export type ProgrammationImportFormat = "pdf" | "word" | "excel" | "csv" | "text";
+export type ProgrammationImportFormat = "pdf" | "word" | "excel" | "csv" | "text" | "image";
 
 export type ProgrammationColumnField =
   | "period"

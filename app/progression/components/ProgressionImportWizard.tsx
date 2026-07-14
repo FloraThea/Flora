@@ -127,7 +127,7 @@ export function ProgressionImportWizard({
         body: JSON.stringify({
           action: "preview",
           parsed,
-          programmationId,
+          programmationId: programmationId || null,
           methode,
           title,
         }),
@@ -163,7 +163,7 @@ export function ProgressionImportWizard({
         body: JSON.stringify({
           action: "save",
           parsed,
-          programmationId,
+          programmationId: programmationId || null,
           methode,
           title,
           sourceStoragePath: storagePath,
@@ -351,19 +351,14 @@ export function ProgressionImportWizard({
         <div className="space-y-4">
           <label className="block text-sm">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
-              Programmation validée
+              Programmation associée (facultatif)
             </span>
             <select
               value={programmationId}
               onChange={(event) => setProgrammationId(event.target.value)}
-              disabled={programmations.length === 0}
               className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
             >
-              <option value="">
-                {programmations.length === 0
-                  ? "Aucune programmation validée"
-                  : "Choisir une programmation"}
-              </option>
+              <option value="">Aucune — progression indépendante</option>
               {programmations.map((programmation) => (
                 <option key={programmation.id} value={programmation.id}>
                   {programmation.title} — {programmation.school_year} ({programmation.matiere})
@@ -372,9 +367,9 @@ export function ProgressionImportWizard({
             </select>
           </label>
 
-          {selectedProgrammation ? (
+          {!programmationId ? (
             <p className="text-sm font-light text-flora-text-muted">
-              {selectedProgrammation.levels.join(", ")} · {selectedProgrammation.matiere}
+              Programmation associée : aucune. Vous pourrez lier ce document plus tard.
             </p>
           ) : null}
 
@@ -413,7 +408,7 @@ export function ProgressionImportWizard({
             </FloraButton>
             <FloraButton
               onClick={() => void runPreview()}
-              disabled={isLoading || !programmationId}
+              disabled={isLoading}
             >
               {isLoading ? "Préparation…" : "Prévisualiser"}
             </FloraButton>
@@ -425,8 +420,8 @@ export function ProgressionImportWizard({
         <div className="space-y-4">
           <p className="text-sm font-light text-flora-text-muted">
             {totalRows} séances réparties sur {session.tabs.length} onglet
-            {session.tabs.length > 1 ? "s" : ""} seront importées et liées à la programmation
-            sélectionnée.
+            {session.tabs.length > 1 ? "s" : ""} seront importées
+            {session.programmationId ? " et liées à la programmation sélectionnée" : " comme progression indépendante"}.
           </p>
 
           <ul className="space-y-2 text-sm font-light text-flora-text-muted">

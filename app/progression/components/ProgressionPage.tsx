@@ -11,7 +11,10 @@ import {
 } from "@/lib/progression/ProgressionValidator";
 import { progressionExporter } from "@/lib/progression/ProgressionExporter";
 import type { ProgressionPayload, ProgressionRow, ProgressionTab } from "@/lib/progression/types";
-import { colors } from "@/lib/theme";
+import {
+  PedagogicalLinkBadge,
+  PedagogicalStartMenu,
+} from "@/components/pedagogical/PedagogicalStartMenu";
 import { ProgressionForm } from "./ProgressionForm";
 import { ProgressionImportWizard } from "./ProgressionImportWizard";
 import { ProgressionTableView } from "./ProgressionTableView";
@@ -21,7 +24,10 @@ import {
   type ValidatedProgrammationOption,
 } from "../types";
 
+type ProgressionPageMode = null | "menu" | "generate" | "import" | "manual";
+
 export function ProgressionPage() {
+  const [mode, setMode] = useState<ProgressionPageMode>("menu");
   const [formValues, setFormValues] = useState<ProgressionFormValues>(
     initialProgressionFormValues,
   );
@@ -150,7 +156,7 @@ export function ProgressionPage() {
     <div className="flex flex-col gap-8">
       <FloraPageTitle
         title="Progression annuelle"
-        subtitle="Transformez automatiquement votre programmation validée en progression détaillée, sans ressaisie."
+        subtitle="Créez, importez ou générez votre progression — avec ou sans programmation associée."
         meta={payload ? payload.progression.title : undefined}
         action={
           <Link
@@ -162,17 +168,56 @@ export function ProgressionPage() {
         }
       />
 
-      <ProgressionForm
-        values={formValues}
-        programmations={programmations}
-        isLoadingProgrammations={isLoadingProgrammations}
-        onChange={(key, value) => setFormValues((current) => ({ ...current, [key]: value }))}
-        onGenerate={() => void handleGenerate()}
-        onImport={() => setShowImportWizard(true)}
-        isGenerating={isGenerating}
-      />
+      {mode === "menu" && !payload ? (
+        <PedagogicalStartMenu
+          moduleTitle="Que souhaitez-vous faire ?"
+          moduleSubtitle="Une progression peut exister seule ou être liée à une programmation existante."
+          options={[
+            {
+              id: "manual",
+              title: "Créer une progression manuellement",
+              description: "Définir titre, matière et semaines sans document source.",
+              badge: "Indépendante",
+              onSelect: () => setMode("manual"),
+            },
+            {
+              id: "import",
+              title: "Importer une progression existante",
+              description: "Excel, PDF ou JPG — programmation associée facultative.",
+              onSelect: () => setMode("import"),
+            },
+            {
+              id: "generate",
+              title: "Générer depuis une programmation",
+              description: "À partir d'une programmation validée, avec enrichissement Flora.",
+              badge: "Liée",
+              onSelect: () => setMode("generate"),
+              disabled: programmations.length === 0 && !isLoadingProgrammations,
+            },
+            {
+              id: "link",
+              title: "Associer à une programmation",
+              description: "Créer ou importer d'abord, puis lier depuis la progression ouverte.",
+              onSelect: () => setMode("generate"),
+              disabled: programmations.length === 0,
+            },
+          ]}
+        />
+      ) : null}
 
-      {showImportWizard ? (
+      {mode === "generate" ? (
+        <ProgressionForm
+          values={formValues}
+          programmations={programmations}
+          isLoadingProgrammations={isLoadingProgrammations}
+          onChange={(key, value) => setFormValues((current) => ({ ...current, [key]: value }))}
+          onGenerate={() => void handleGenerate()}
+          onImport={() => setMode("import")}
+          isGenerating={isGenerating}
+        />
+      ) : null}
+
+      {mode === "import" ? (
         <ProgressionImportWizard
           programmations={programmations}
           defaultProgrammationId={formValues.programmationId}
@@ -181,10 +226,35 @@ export function ProgressionPage() {
             setPayload(imported);
             setActiveTabKey(imported.tabs[0]?.subjectKey ?? "");
             setShowImportWizard(false);
+            setMode(null);
             setError(null);
           }}
-          onClose={() => setShowImportWizard(false)}
+          onClose={() => {
+            setShowImportWizard(false);
+            setMode("menu");
+          }}
         />
+      ) : null}
+
+      {mode === "manual" ? (
+        <FloraCard padding="lg" accent="rose">
+          <p className="text-sm font-light text-flora-text-muted">
+            Création manuelle : importez un fichier Excel/PDF/JPG ou utilisez l&apos;import sans
+            programmation pour démarrer rapidement.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <FloraButton onClick={() => setMode("import")}>Importer une progression</FloraButton>
+            <FloraButton variant="secondary" onClick={() => setMode("menu")}>
+              Retour
+            </FloraButton>
+          </div>
+        </FloraCard>
+      ) : null}
+
+      {mode !== "menu" && mode !== null && !payload ? (
+        <FloraButton variant="ghost" onClick={() => setMode("menu")}>
+          ← Retour au menu
+        </FloraButton>
       ) : null}
 
       {error && (
@@ -200,6 +270,14 @@ export function ProgressionPage() {
               <FloraBadge accent={payload.validation.valid ? "sage" : "peach"}>
                 {payload.validation.valid ? "Validée" : "À corriger"}
               </FloraBadge>
+              <PedagogicalLinkBadge
+                mode={payload.programmation ? "linked" : "independent"}
+                label={
+                  payload.programmation
+                    ? "Liée à une programmation"
+                    : "Indépendante"
+                }
+              />
               <FloraBadge accent="cream">
                 {Math.round(payload.validation.summary.completionRate * 100)} % complété
               </FloraBadge>
@@ -262,13 +340,15 @@ export function ProgressionPage() {
         </>
       )}
 
-      {!payload && !isGenerating && (
+      {!payload && !isGenerating && mode === "menu" ? null : !payload && !isGenerating && mode !== "import" && mode !== "manual" ? (
         <FloraCard padding="lg">
-          <p className="text-sm font-light" style={{ color: colors.charcoal.faint }}>
-            Sélectionnez une programmation validée puis cliquez sur « Générer ma progression ».
+          <p className="text-sm font-light text-flora-text-muted">
+            {mode === "generate"
+              ? "Sélectionnez une programmation validée puis cliquez sur « Générer ma progression »."
+              : "Choisissez une action ci-dessus pour commencer."}
           </p>
         </FloraCard>
-      )}
+      ) : null}
     </div>
   );
 }

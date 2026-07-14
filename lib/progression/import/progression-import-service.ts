@@ -5,12 +5,16 @@ import {
   matchImportedCompetencies,
 } from "@/lib/programming/import/competency-match";
 import { loadProgrammation } from "@/lib/programming/programmation-service";
-import { progressionGenerator } from "../ProgressionGenerator";
 import { progressionValidator } from "../ProgressionValidator";
 import { saveProgressionWithSync } from "../progression-service";
 import type { ProgressionPayload } from "../types";
-import { mapImportedRowsToTabs } from "./map-import-to-tabs";
+import { mapImportedRowsToStandaloneTabs, mapImportedRowsToTabs } from "./map-import-to-tabs";
 import { parseProgressionFile } from "./parse-progression";
+import {
+  buildStandaloneProgressionContext,
+  emptyCalendarSnapshot,
+  sessionLinkMode,
+} from "./standalone-context";
 import type { ParsedProgressionImport, ProgressionImportSession } from "./types";
 import {
   buildProgressionStoragePath,
@@ -28,33 +32,49 @@ export async function analyzeProgressionImport(input: {
 
 export async function buildProgressionImportSession(input: {
   parsed: ParsedProgressionImport;
-  programmationId: string;
+  programmationId?: string | null;
   methode?: string;
   title?: string;
+  schoolYear?: string;
 }): Promise<ProgressionImportSession> {
-  const programmation = await loadProgrammation(input.programmationId);
-
-  if (!programmation) {
-    throw new Error("Programmation introuvable.");
-  }
-
-  if (programmation.programmation.status !== "validated") {
-    throw new Error("Seule une programmation validée peut recevoir une progression importée.");
-  }
-
-  const methode = input.methode || programmation.programmation.methode;
   const competencyMatches = await matchImportedCompetencies(input.parsed.rows);
   const correctedRows = applyCompetencyMatchesToRows(input.parsed.rows, competencyMatches);
-  const tabs = mapImportedRowsToTabs(correctedRows, programmation);
+
+  if (input.programmationId) {
+    const programmation = await loadProgrammation(input.programmationId);
+
+    if (!programmation) {
+      throw new Error("Programmation introuvable.");
+    }
+
+    if (programmation.programmation.status !== "validated") {
+      throw new Error("Seule une programmation validée peut recevoir une progression importée.");
+    }
+
+    const methode = input.methode || programmation.programmation.methode;
+    const tabs = mapImportedRowsToTabs(correctedRows, programmation);
+
+    return {
+      parsed: input.parsed,
+      tabs,
+      programmationId: input.programmationId,
+      methode,
+      title:
+        input.title ??
+        `Import progression — ${programmation.programmation.title}`,
+      competencyMatches: competencyMatches as unknown as Record<string, unknown>,
+    };
+  }
+
+  const methode = input.methode ?? "";
+  const tabs = mapImportedRowsToStandaloneTabs(correctedRows, input.parsed.discipline);
 
   return {
     parsed: input.parsed,
     tabs,
-    programmationId: input.programmationId,
+    programmationId: null,
     methode,
-    title:
-      input.title ??
-      `Import progression — ${programmation.programmation.title}`,
+    title: input.title ?? `Import progression — ${input.parsed.discipline || "Flora"}`,
     competencyMatches: competencyMatches as unknown as Record<string, unknown>,
   };
 }
@@ -63,11 +83,20 @@ export async function saveImportedProgression(input: {
   session: ProgressionImportSession;
   sourceFileName?: string;
   sourceStoragePath?: string;
+  schoolYear?: string;
 }): Promise<ProgressionPayload> {
-  const context = await progressionGenerator.buildContext({
-    programmationId: input.session.programmationId,
-    methode: input.session.methode,
-  });
+  const context = input.session.programmationId
+    ? await (async () => {
+        const { progressionGenerator } = await import("../ProgressionGenerator");
+        return progressionGenerator.buildContext({
+          programmationId: input.session.programmationId!,
+          methode: input.session.methode,
+        });
+      })()
+    : buildStandaloneProgressionContext({
+        methode: input.session.methode,
+        schoolYear: input.schoolYear,
+      });
 
   const validation = progressionValidator.validate(input.session.tabs, context);
 
@@ -75,9 +104,10 @@ export async function saveImportedProgression(input: {
     title: input.session.title,
     programmationId: input.session.programmationId,
     methode: input.session.methode,
-    calendarSnapshot: context.calendar,
+    calendarSnapshot: context.calendar ?? emptyCalendarSnapshot(input.schoolYear),
     validation,
     tabs: input.session.tabs,
+    linkMode: sessionLinkMode(input.session),
     importMeta: {
       sourceType: "imported",
       sourceFileName: input.sourceFileName ?? input.session.parsed.fileName,

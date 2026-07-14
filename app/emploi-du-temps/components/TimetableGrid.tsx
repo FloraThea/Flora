@@ -6,6 +6,7 @@ import { SCHOOL_DAYS } from "@/lib/timetable/types";
 import { colors } from "@/lib/theme";
 import {
   buildScheduleGridModel,
+  collectOverlappingSlotIds,
   SLOT_GAP_PX,
   type PositionedSlot,
 } from "@/lib/timetable/schedule-grid-layout";
@@ -38,6 +39,8 @@ export function TimetableGrid({
     () => buildScheduleGridModel(slots, days, settings),
     [slots, days, settings],
   );
+
+  const overlappingIds = useMemo(() => collectOverlappingSlotIds(slots), [slots]);
 
   const slotsByDay = useMemo(() => {
     const map = new Map<string, PositionedSlot[]>();
@@ -99,26 +102,28 @@ export function TimetableGrid({
           </div>
         ))}
 
-        {/* Colonne horaires */}
+        {/* Colonne horaires — segments alignés sur les plages réelles */}
         <div
           className="relative shrink-0 border-r border-white/50 pr-1"
           style={{ height: grid.scale.totalHeightPx }}
         >
-          {grid.timeLabels.map((tick) => (
+          {grid.timeSegments.map((segment) => (
             <div
-              key={tick.minutes}
-              className="absolute left-0 right-0 border-t border-white/40"
-              style={{ top: tick.topPx }}
+              key={`${segment.startMinutes}-${segment.endMinutes}`}
+              className="absolute left-0 right-0 flex items-center justify-end border-t border-white/40 pr-1"
+              style={{
+                top: segment.topPx,
+                height: segment.heightPx,
+              }}
             >
               <span
-                className={`block pr-1 text-right leading-none ${
-                  tick.kind === "major"
-                    ? "text-[11px] font-semibold text-flora-text"
-                    : "text-[9px] font-light text-flora-text-subtle"
+                className={`text-right leading-tight ${
+                  segment.durationMinutes >= 45
+                    ? "text-[10px] font-semibold text-flora-text md:text-[11px]"
+                    : "text-[9px] font-medium text-flora-text-subtle md:text-[10px]"
                 }`}
-                style={{ transform: "translateY(-50%)" }}
               >
-                {tick.kind === "major" ? tick.label : ""}
+                {segment.label}
               </span>
             </div>
           ))}
@@ -172,6 +177,8 @@ export function TimetableGrid({
                     slot={slot}
                     density="grid"
                     fillHeight
+                    heightPx={heightPx}
+                    overlapping={overlappingIds.has(slot.id)}
                     draggable={slot.lockLevel === "none"}
                     onDragStart={(event) => handleDragStart(event, slot)}
                     onEdit={onEditSlot ? () => onEditSlot(slot) : undefined}

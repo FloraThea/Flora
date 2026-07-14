@@ -13,11 +13,12 @@ import type {
 
 export async function saveProgression(input: {
   title: string;
-  programmationId: string;
+  programmationId?: string | null;
   methode: string;
   calendarSnapshot: StoredProgression["calendar_snapshot"];
   validation: ProgressionValidationResult;
   tabs: ProgressionTab[];
+  linkMode?: "linked" | "independent";
   importMeta?: {
     sourceType?: string;
     sourceFileName?: string;
@@ -30,12 +31,13 @@ export async function saveProgression(input: {
   const { data: progression, error } = await supabase
     .from("progressions")
     .insert({
-      programmation_id: input.programmationId,
+      programmation_id: input.programmationId ?? null,
       title: input.title,
       methode: input.methode,
       validation: input.validation,
       calendar_snapshot: input.calendarSnapshot,
       status: input.validation.valid ? "validated" : "draft",
+      link_mode: input.linkMode ?? (input.programmationId ? "linked" : "independent"),
       metadata: {
         generated_at: new Date().toISOString(),
         source_type: input.importMeta?.sourceType ?? "generated",
@@ -80,7 +82,7 @@ export async function saveProgression(input: {
     const rowPayloads = tab.rows.map((row, index) => ({
       progression_id: progression.id,
       tab_id: savedTab.id,
-      programmation_id: input.programmationId,
+      programmation_id: input.programmationId ?? null,
       programming_table_id: row.programmingTableId ?? null,
       programming_period_id: row.programmingPeriodId ?? null,
       programming_cell_id: row.programmingCellId ?? null,
@@ -146,11 +148,13 @@ export async function saveProgression(input: {
     });
   }
 
-  const { data: programmation } = await supabase
-    .from("programmations")
-    .select("*")
-    .eq("id", input.programmationId)
-    .single();
+  const { data: programmation } = input.programmationId
+    ? await supabase
+        .from("programmations")
+        .select("*")
+        .eq("id", input.programmationId)
+        .single()
+    : { data: null };
 
   return {
     progression: progression as StoredProgression,
@@ -165,7 +169,7 @@ export async function saveProgressionWithSync(input: Parameters<typeof saveProgr
   void pedagogicalEngine.emit({
     type: "progression.creee",
     progressionId: payload.progression.id,
-    programmationId: input.programmationId,
+    programmationId: input.programmationId ?? "",
   });
   return payload;
 }

@@ -15,7 +15,7 @@ export type ParsedProgressionImport = Omit<ParsedProgrammationImport, "format"> 
 export type ProgressionImportSession = {
   parsed: ParsedProgressionImport;
   tabs: ProgressionTab[];
-  programmationId: string;
+  programmationId: string | null;
   methode: string;
   title: string;
   competencyMatches: Record<string, unknown>;

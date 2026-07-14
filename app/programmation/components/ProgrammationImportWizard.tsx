@@ -260,11 +260,11 @@ export function ProgrammationImportWizard({
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block text-sm">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
-              Fichier (PDF, CSV, Word, Excel)
+              Fichier (PDF, CSV, Word, Excel, JPG)
             </span>
             <input
               type="file"
-              accept=".pdf,.csv,.txt,.doc,.docx,.xls,.xlsx"
+              accept=".pdf,.csv,.txt,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
             />

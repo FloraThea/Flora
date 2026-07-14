@@ -3,11 +3,11 @@ import type { SmartTimetableSlot } from "./types";
 import {
   buildScheduleGridModel,
   buildScheduleTimeScale,
+  buildTimeAxisSegments,
   findOverlappingSlots,
   layoutSlotsOnScale,
   parseTimeToMinutes,
   durationToHeightPx,
-  MIN_SLOT_HEIGHT_PX,
 } from "./schedule-grid-layout";
 import { duplicateSlot } from "./slot-editor/operations";
 
@@ -72,10 +72,24 @@ test("height is proportional to duration", () => {
     slot("1", "Lundi", "08:30", "09:00"),
     slot("2", "Lundi", "09:00", "10:00"),
   ]);
+  const h15 = durationToHeightPx(15, scale);
   const h30 = durationToHeightPx(30, scale);
   const h60 = durationToHeightPx(60, scale);
   assert.ok(h60 > h30);
-  assert.ok(h30 >= MIN_SLOT_HEIGHT_PX);
+  assert.ok(h30 > h15);
+  assert.ok(h15 < 25, "15 min slot should not be inflated to 52px");
+});
+
+test("short adjacent slots do not overlap in layout", () => {
+  const slots = [
+    slot("1", "Lundi", "08:30", "08:45"),
+    slot("2", "Lundi", "08:45", "09:10"),
+    slot("3", "Lundi", "09:10", "10:00"),
+  ];
+  const positioned = layoutSlotsOnScale(slots, buildScheduleTimeScale(slots));
+  const first = positioned[0];
+  const second = positioned[1];
+  assert.ok(first.topPx + first.heightPx <= second.topPx + 1);
 });
 
 test("supports irregular time boundaries", () => {
@@ -89,6 +103,21 @@ test("supports irregular time boundaries", () => {
   assert.equal(positioned.length, 4);
   const gap = positioned[3].topPx - (positioned[2].topPx + positioned[2].heightPx);
   assert.ok(gap > 0, "gap between 10:00 and 10:15 should be visible");
+});
+
+test("time axis segments cover lunch as single block", () => {
+  const slots = [
+    slot("1", "Lundi", "11:30", "13:30", "Déjeuner"),
+    slot("2", "Lundi", "08:30", "09:00"),
+  ];
+  const scale = buildScheduleTimeScale(slots);
+  const segments = buildTimeAxisSegments(slots, scale);
+  const lunchSegment = segments.find(
+    (segment) => segment.startMinutes === parseTimeToMinutes("11:30"),
+  );
+  assert.ok(lunchSegment);
+  assert.equal(lunchSegment.endMinutes, parseTimeToMinutes("13:30"));
+  assert.ok(lunchSegment.heightPx > 100);
 });
 
 test("detects overlapping slots on same day", () => {

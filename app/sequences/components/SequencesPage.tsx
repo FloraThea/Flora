@@ -8,6 +8,7 @@ import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
 import type { SequencePayload } from "@/lib/sequences/types";
 import { colors } from "@/lib/theme";
+import { PedagogicalStartMenu } from "@/components/pedagogical/PedagogicalStartMenu";
 import { SequenceCard } from "./SequenceCard";
 import { SequenceDetailModal } from "./SequenceDetailModal";
 import {
@@ -27,6 +28,7 @@ export function SequencesPage() {
   const [generatingRowId, setGeneratingRowId] = useState<string | null>(null);
   const [isLoadingProgressions, setIsLoadingProgressions] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [flowMode, setFlowMode] = useState<null | "linked" | "independent">(null);
 
   const loadSequences = useCallback(async (progressionId: string) => {
     const response = await fetch(`/api/sequences/list?progressionId=${progressionId}`);
@@ -186,7 +188,7 @@ export function SequencesPage() {
     <div className="flex flex-col gap-8">
       <FloraPageTitle
         title="Séquences pédagogiques"
-        subtitle="Transformez chaque ligne de progression validée en séquence complète, sans ressaisie."
+        subtitle="Créez une séquence depuis une progression ou de façon indépendante."
         meta={selectedProgression?.title}
         action={
           <Link
@@ -198,6 +200,51 @@ export function SequencesPage() {
         }
       />
 
+      {!flowMode ? (
+        <PedagogicalStartMenu
+          moduleTitle="Que souhaitez-vous faire ?"
+          moduleSubtitle="Une séquence peut exister seule ou être générée depuis une progression."
+          options={[
+            {
+              id: "independent",
+              title: "Créer une séquence indépendante",
+              description: "Titre, matière, compétences et séances sans progression préalable.",
+              badge: "Indépendante",
+              onSelect: () => setFlowMode("independent"),
+            },
+            {
+              id: "import",
+              title: "Importer une séquence",
+              description: "Excel, PDF ou JPG — bientôt disponible dans l'assistant d'import.",
+              disabled: true,
+              onSelect: () => setFlowMode("independent"),
+            },
+            {
+              id: "from-progression",
+              title: "Créer depuis une progression",
+              description: "Générer automatiquement à partir d'une ligne de progression validée.",
+              badge: "Liée",
+              onSelect: () => setFlowMode("linked"),
+              disabled: progressions.length === 0 && !isLoadingProgressions,
+            },
+          ]}
+        />
+      ) : null}
+
+      {flowMode === "independent" ? (
+        <FloraCard padding="lg" accent="rose">
+          <p className="text-sm font-light text-flora-text-muted">
+            Les séquences indépendantes seront créables après application de la migration
+            Supabase. En attendant, importez via progression ou générez depuis une progression liée.
+          </p>
+          <FloraButton variant="secondary" className="mt-4" onClick={() => setFlowMode(null)}>
+            Retour
+          </FloraButton>
+        </FloraCard>
+      ) : null}
+
+      {flowMode === "linked" ? (
+      <>
       <FloraCard padding="lg" accent="rose">
         <label className="block">
           <span className="mb-2 block text-[11px] font-medium tracking-[0.12em] text-flora-text-subtle uppercase">
@@ -282,6 +329,12 @@ export function SequencesPage() {
           </p>
         </FloraCard>
       )}
+
+      <FloraButton variant="ghost" onClick={() => setFlowMode(null)}>
+        ← Retour au menu
+      </FloraButton>
+      </>
+      ) : null}
 
       {selectedPayload && (
         <SequenceDetailModal

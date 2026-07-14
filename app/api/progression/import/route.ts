@@ -68,27 +68,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ route: ROUTE_PATH, parsed });
     }
 
-    if (body.action === "preview" && body.parsed && body.programmationId) {
+    if (body.action === "preview" && body.parsed) {
       const session = await buildProgressionImportSession({
         parsed: body.parsed,
-        programmationId: body.programmationId,
+        programmationId: body.programmationId || null,
         methode: body.methode,
         title: body.title,
       });
       return NextResponse.json({ route: ROUTE_PATH, session });
     }
 
-    if (body.action === "save" && body.parsed && body.programmationId) {
+    if (body.action === "save" && body.parsed) {
       const session = await buildProgressionImportSession({
         parsed: body.parsed,
-        programmationId: body.programmationId,
+        programmationId: body.programmationId || null,
         methode: body.methode,
         title: body.title,
       });
 
       logRouteInfo(ROUTE_PATH, "Sauvegarde progression importée", {
         title: session.title,
-        programmationId: body.programmationId,
+        programmationId: body.programmationId ?? null,
+        independent: !body.programmationId,
       });
 
       const payload = await saveImportedProgression({

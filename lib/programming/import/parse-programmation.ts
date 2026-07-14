@@ -1,5 +1,6 @@
 import "server-only";
 
+import { recognizeImageBuffer } from "@/lib/documents/extraction/ocr-extractor";
 import { extractTextFromBuffer } from "@/lib/documents/extract-text";
 import {
   buildDetectedFields,
@@ -18,7 +19,14 @@ import type {
   ProgrammationImportFormat,
 } from "./types";
 
-function detectFormat(fileName: string, mimeType?: string): ProgrammationImportFormat | "unsupported" {
+function isImageFormat(fileName: string, mimeType?: string): boolean {
+  const lower = fileName.toLowerCase();
+  if ([".jpg", ".jpeg", ".png", ".webp"].some((ext) => lower.endsWith(ext))) return true;
+  return mimeType?.startsWith("image/") ?? false;
+}
+
+function detectFormat(fileName: string, mimeType?: string): ProgrammationImportFormat | "image" | "unsupported" {
+  if (isImageFormat(fileName, mimeType)) return "image";
   const lower = fileName.toLowerCase();
   if (lower.endsWith(".pdf") || mimeType === "application/pdf") return "pdf";
   if (lower.endsWith(".csv") || mimeType === "text/csv") return "csv";
@@ -66,7 +74,7 @@ export async function parseProgrammationFile(input: {
       niveau: "",
       rows: [],
       warnings: [
-        `Format non supporté (${input.fileName}). Formats acceptés : Excel (.xlsx, .xls), CSV, PDF, Word (.docx), texte.`,
+        `Format non supporté (${input.fileName}). Formats acceptés : Excel (.xlsx, .xls), CSV, PDF, Word (.docx), JPG, PNG, texte.`,
       ],
       columns: [],
       previewRows: [],
@@ -176,6 +184,38 @@ export async function parseProgrammationFile(input: {
     );
     extractedTextPreview =
       "Extraction Word limitée. Flora ne lit pas encore les tableaux Word directement — utilisez Excel ou CSV.";
+  } else if (format === "image") {
+    try {
+      const text = (await recognizeImageBuffer(input.buffer)).trim();
+      extractedTextPreview = text.slice(0, 1200);
+
+      if (!text) {
+        warnings.push(
+          "OCR : aucun texte détecté sur l'image. Utilisez une photo nette, bien éclairée, ou exportez en Excel.",
+        );
+      } else {
+        rows = parseStructuredText(text);
+        if (rows.length === 0) {
+          const gridAttempt = rowsFromGrid(
+            text.split(/\r?\n/).map((line) => line.split(/\t| {2,}|;/)),
+          );
+          rows = gridAttempt.rows;
+          columns = gridAttempt.headers;
+          previewRows = gridAttempt.dataRows.slice(0, 8);
+          headerIndex = gridAttempt.headerIndex;
+        }
+        if (rows.length === 0) {
+          warnings.push(
+            "Image analysée, mais aucun tableau structuré détecté. Corrigez manuellement après import.",
+          );
+        }
+      }
+    } catch {
+      warnings.push(
+        "Analyse de l'image impossible. Réessayez avec une photo plus nette ou exportez en Excel (.xlsx).",
+      );
+      extractedTextPreview = "Extraction image limitée.";
+    }
   } else {
     const text = input.buffer.toString("utf8");
     rows = parseStructuredText(text);
@@ -184,7 +224,7 @@ export async function parseProgrammationFile(input: {
 
   const needsColumnMapping =
     Object.keys(headerIndex).length < 2 &&
-    (format === "excel" || format === "csv" || format === "text");
+    (format === "excel" || format === "csv" || format === "text" || format === "image");
 
   if (rows.length === 0 && format !== "word") {
     warnings.push("Aucune ligne structurée détectée. Vérifiez le format (colonnes période, semaine, séance…).");

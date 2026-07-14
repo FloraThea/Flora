@@ -184,3 +184,11 @@ export function mapImportedRowsToTabs(
 
   return tabs;
 }
+
+export function mapImportedRowsToStandaloneTabs(
+  rows: ImportedProgrammationRow[],
+  discipline?: string,
+): ProgressionTab[] {
+  const label = discipline || rows[0]?.discipline || "Progression importée";
+  return [buildTabFromRows("import", label, "", "lavender", 0, rows)];
+}
