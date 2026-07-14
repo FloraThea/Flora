@@ -494,6 +494,7 @@ export function TimetableSlotDrawer({
                 accent="lavender"
                 variant="secondary"
                 size="sm"
+                disabled={isSaving}
                 onClick={() => void onAction({ action: "duplicate" })}
               >
                 📄 Dupliquer

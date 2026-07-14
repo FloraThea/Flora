@@ -38,6 +38,7 @@ import type {
   TimetableSettings,
   TimetableSlotActionInput,
   TimetableSlotUpdateInput,
+  TimetableActionPayload,
   TimetableVariant,
   TimetableVersion,
 } from "./types";
@@ -554,17 +555,21 @@ export async function updateTimetableSlot(input: TimetableSlotUpdateInput): Prom
   return updated;
 }
 
-export async function applyTimetableSlotAction(input: TimetableSlotActionInput): Promise<TimetablePayload> {
+export async function applyTimetableSlotAction(
+  input: TimetableSlotActionInput,
+): Promise<TimetableActionPayload> {
   const payload = await loadTimetablePayload(input.scheduleId);
   if (!payload) throw new Error("Emploi du temps introuvable.");
 
   let slots = payload.slots;
+  let createdSlotId: string | undefined;
 
   switch (input.action) {
     case "duplicate": {
       const source = slots.find((s) => s.id === input.slotId);
       if (!source) throw new Error("Créneau introuvable.");
       const copy = duplicateSlot(source, input.scheduleId);
+      createdSlotId = copy.id;
       slots = insertSlotAfter(slots, source.id, source.day, copy);
       break;
     }
@@ -642,6 +647,7 @@ export async function applyTimetableSlotAction(input: TimetableSlotActionInput):
       slots = insertSlotAfter(slots, input.afterSlotId ?? null, input.day, newSlot, {
         preserveTimes: hasExplicitTimes,
       });
+      createdSlotId = newSlot.id;
       break;
     }
     case "move": {
@@ -663,7 +669,7 @@ export async function applyTimetableSlotAction(input: TimetableSlotActionInput):
 
   const updated = await replaceScheduleSlots(input.scheduleId, sortSlots(slots), input.action);
   void pedagogicalEngine.emit({ type: "emploi_du_temps.modifie", scheduleId: input.scheduleId, scope: "slot" });
-  return updated;
+  return { ...updated, ...(createdSlotId ? { createdSlotId } : {}) };
 }
 
 export async function applyTimetableLock(input: TimetableLockInput): Promise<TimetablePayload> {

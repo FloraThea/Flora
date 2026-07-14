@@ -227,6 +227,11 @@ export type TimetablePayload = {
   validation: TimetableValidationResult;
 };
 
+/** Réponse API après une action sur un créneau (create, duplicate…). */
+export type TimetableActionPayload = TimetablePayload & {
+  createdSlotId?: string;
+};
+
 export type TimetableConflict = {
   code: string;
   severity: "error" | "warning";

@@ -13,6 +13,7 @@ type ProgressionFormProps = {
     value: ProgressionFormValues[K],
   ) => void;
   onGenerate: () => void;
+  onImport: () => void;
   isGenerating: boolean;
 };
 
@@ -22,6 +23,7 @@ export function ProgressionForm({
   isLoadingProgrammations,
   onChange,
   onGenerate,
+  onImport,
   isGenerating,
 }: ProgressionFormProps) {
   const selected = programmations.find((item) => item.id === values.programmationId);
@@ -77,12 +79,19 @@ export function ProgressionForm({
         </label>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 flex flex-wrap gap-3">
         <FloraButton
           onClick={onGenerate}
           disabled={isGenerating || !values.programmationId}
         >
           {isGenerating ? "Génération en cours…" : "Générer ma progression"}
+        </FloraButton>
+        <FloraButton
+          variant="secondary"
+          onClick={onImport}
+          disabled={isGenerating || programmations.length === 0}
+        >
+          Importer une progression
         </FloraButton>
       </div>
     </FloraCard>

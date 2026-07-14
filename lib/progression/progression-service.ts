@@ -18,6 +18,14 @@ export async function saveProgression(input: {
   calendarSnapshot: StoredProgression["calendar_snapshot"];
   validation: ProgressionValidationResult;
   tabs: ProgressionTab[];
+  importMeta?: {
+    sourceType?: string;
+    sourceFileName?: string;
+    sourceStoragePath?: string;
+    importFormat?: string;
+    originalImport?: Record<string, unknown>;
+    competencyMatches?: Record<string, unknown>;
+  };
 }): Promise<ProgressionPayload> {
   const { data: progression, error } = await supabase
     .from("progressions")
@@ -30,6 +38,15 @@ export async function saveProgression(input: {
       status: input.validation.valid ? "validated" : "draft",
       metadata: {
         generated_at: new Date().toISOString(),
+        source_type: input.importMeta?.sourceType ?? "generated",
+        source_file_name: input.importMeta?.sourceFileName ?? "",
+        source_storage_path: input.importMeta?.sourceStoragePath ?? "",
+        import_format: input.importMeta?.importFormat ?? "",
+        original_import: input.importMeta?.originalImport ?? {},
+        competency_matches: input.importMeta?.competencyMatches ?? {},
+        ...(input.importMeta?.sourceType === "imported"
+          ? { imported_at: new Date().toISOString() }
+          : {}),
       },
     })
     .select("*")

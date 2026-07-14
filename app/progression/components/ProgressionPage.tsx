@@ -13,6 +13,7 @@ import { progressionExporter } from "@/lib/progression/ProgressionExporter";
 import type { ProgressionPayload, ProgressionRow, ProgressionTab } from "@/lib/progression/types";
 import { colors } from "@/lib/theme";
 import { ProgressionForm } from "./ProgressionForm";
+import { ProgressionImportWizard } from "./ProgressionImportWizard";
 import { ProgressionTableView } from "./ProgressionTableView";
 import {
   initialProgressionFormValues,
@@ -29,6 +30,7 @@ export function ProgressionPage() {
   const [payload, setPayload] = useState<ProgressionPayload | null>(null);
   const [activeTabKey, setActiveTabKey] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showImportWizard, setShowImportWizard] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -166,8 +168,24 @@ export function ProgressionPage() {
         isLoadingProgrammations={isLoadingProgrammations}
         onChange={(key, value) => setFormValues((current) => ({ ...current, [key]: value }))}
         onGenerate={() => void handleGenerate()}
+        onImport={() => setShowImportWizard(true)}
         isGenerating={isGenerating}
       />
+
+      {showImportWizard ? (
+        <ProgressionImportWizard
+          programmations={programmations}
+          defaultProgrammationId={formValues.programmationId}
+          defaultMethode={formValues.methode}
+          onComplete={(imported) => {
+            setPayload(imported);
+            setActiveTabKey(imported.tabs[0]?.subjectKey ?? "");
+            setShowImportWizard(false);
+            setError(null);
+          }}
+          onClose={() => setShowImportWizard(false)}
+        />
+      ) : null}
 
       {error && (
         <p className="rounded-2xl bg-rose-soft/35 px-4 py-3 text-sm font-light text-[#b88989]">

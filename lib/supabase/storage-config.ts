@@ -38,3 +38,8 @@ export function buildProgrammationStoragePath(profileId: string, filename: strin
   const safeName = filename.replace(/[^\w.\- ]+/g, "_");
   return `programmations/${profileId}/${Date.now()}-${safeName}`;
 }
+
+export function buildProgressionStoragePath(profileId: string, filename: string): string {
+  const safeName = filename.replace(/[^\w.\- ]+/g, "_");
+  return `progressions/${profileId}/${Date.now()}-${safeName}`;
+}

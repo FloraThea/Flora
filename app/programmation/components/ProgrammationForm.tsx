@@ -19,6 +19,8 @@ type ProgrammationFormProps = {
   onGenerate: () => void;
   onImport?: () => void;
   isGenerating: boolean;
+  generationPhase?: string | null;
+  profileComplete?: boolean;
 };
 
 const LEVELS: SchoolLevel[] = ["CP", "CE1", "CE2", "CM1", "CM2"];
@@ -29,6 +31,8 @@ export function ProgrammationForm({
   onGenerate,
   onImport,
   isGenerating,
+  generationPhase,
+  profileComplete = true,
 }: ProgrammationFormProps) {
   const toggleLevel = (level: SchoolLevel) => {
     const next = values.levels.includes(level)
@@ -165,14 +169,27 @@ export function ProgrammationForm({
         </label>
       </div>
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <FloraButton onClick={onGenerate} disabled={isGenerating || values.levels.length === 0}>
-          {isGenerating ? "Génération en cours…" : "Générer ma programmation"}
-        </FloraButton>
-        {onImport ? (
-          <FloraButton variant="outline" accent="sage" onClick={onImport}>
-            Importer une programmation
+      <div className="mt-8 flex flex-col gap-3">
+        <div className="flex flex-wrap gap-3">
+          <FloraButton
+            onClick={onGenerate}
+            disabled={isGenerating || values.levels.length === 0 || !profileComplete}
+          >
+            {isGenerating ? "Génération en cours…" : "Générer ma programmation"}
           </FloraButton>
+          {onImport ? (
+            <FloraButton variant="outline" accent="sage" onClick={onImport} disabled={isGenerating}>
+              Importer une programmation
+            </FloraButton>
+          ) : null}
+        </div>
+        {isGenerating && generationPhase ? (
+          <p className="text-sm font-light text-flora-text-muted">{generationPhase}</p>
+        ) : null}
+        {!profileComplete ? (
+          <p className="text-xs font-light text-flora-text-subtle">
+            Complétez votre profil pédagogique pour activer la génération.
+          </p>
         ) : null}
       </div>
     </FloraCard>

@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
-import { programmingGenerator } from "@/lib/programming/ProgrammingGenerator";
+import {
+  ProgrammingGenerationError,
+  programmingGenerator,
+} from "@/lib/programming/ProgrammingGenerator";
 import { programmingValidator } from "@/lib/programming/ProgrammingValidator";
 import { saveProgrammation } from "@/lib/programming/programmation-service";
 import type { ProgrammingGenerationInput } from "@/lib/programming/types";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
+import {
+  logProgrammingGeneration,
+  logProgrammingGenerationError,
+  userMessageForGenerationError,
+} from "@/lib/programming/generation-diagnostics";
 
 const ROUTE_PATH = "/api/programmation/generate";
 
@@ -12,12 +20,23 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as ProgrammingGenerationInput;
 
+    logProgrammingGeneration("form-validation", {
+      schoolYear: body.schoolYear,
+      academicZone: body.academicZone,
+      levels: body.levels,
+      matiere: body.matiere,
+    });
+
     if (!body.schoolYear || !body.academicZone || body.levels.length === 0) {
       return jsonRouteError(
         ROUTE_PATH,
         400,
         "Année scolaire, zone académique et niveau(x) requis.",
       );
+    }
+
+    if (!body.matiere?.trim()) {
+      return jsonRouteError(ROUTE_PATH, 400, "La matière est obligatoire pour générer une programmation.");
     }
 
     logRouteInfo(ROUTE_PATH, "Génération programmation", {
@@ -36,12 +55,9 @@ export async function POST(request: Request) {
           ? "Le référentiel BO actif ne contient aucune compétence pour ces niveaux. Vérifiez l'analyse et la validation dans la Bibliothèque documentaire."
           : null;
 
-    logRouteInfo(ROUTE_PATH, "Contexte référentiel utilisé", {
-      referentielRows: generated.context.referentiel.length,
-      resourceRows: generated.context.resources.length,
-      disciplines: [
-        ...new Set(generated.context.referentiel.map((row) => row.discipline).filter(Boolean)),
-      ],
+    logProgrammingGeneration("database-save-start", {
+      tableCount: generated.tables.length,
+      title: generated.title,
     });
 
     const payload = await saveProgrammation({
@@ -52,7 +68,18 @@ export async function POST(request: Request) {
       tables: generated.tables,
     });
 
-    void pedagogicalEngine.genererCahierJournal(payload.programmation.id);
+    logProgrammingGeneration("database-save-done", {
+      programmationId: payload.programmation.id,
+    });
+
+    void pedagogicalEngine.genererCahierJournal(payload.programmation.id).catch((journalError) => {
+      logProgrammingGenerationError("completed", journalError, {
+        phase: "journal-sync",
+        programmationId: payload.programmation.id,
+      });
+    });
+
+    logProgrammingGeneration("completed", { programmingId: payload.programmation.id });
 
     return NextResponse.json({
       route: ROUTE_PATH,
@@ -60,11 +87,20 @@ export async function POST(request: Request) {
       ...payload,
     });
   } catch (error) {
+    const step =
+      error instanceof ProgrammingGenerationError ? error.step : "database-save-start";
+    logProgrammingGenerationError(step as "ai-parse", error, { route: ROUTE_PATH });
+
+    const status = error instanceof ProgrammingGenerationError ? 422 : 500;
+    const userMessage = userMessageForGenerationError(error, step);
+
     return jsonRouteError(
       ROUTE_PATH,
-      500,
-      "Impossible de générer la programmation.",
+      status,
+      userMessage,
       toErrorMessage(error),
+      { failedStep: step },
+      error,
     );
   }
 }

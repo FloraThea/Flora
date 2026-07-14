@@ -102,7 +102,8 @@ export function duplicateSlot(slot: SmartTimetableSlot, scheduleId: string): Sma
     id: newSlotId(),
     scheduleId,
     lockLevel: "none",
-    metadata: { ...slot.metadata },
+    label: slot.label || slot.subject,
+    metadata: { ...(slot.metadata ?? {}), duplicatedFrom: slot.id },
   };
 }
 

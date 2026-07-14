@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import type { SmartTimetableSlot, TimetableSettings } from "@/lib/timetable/types";
 import { SCHOOL_DAYS } from "@/lib/timetable/types";
 import { colors } from "@/lib/theme";
+import {
+  buildScheduleGridModel,
+  SLOT_GAP_PX,
+  type PositionedSlot,
+} from "@/lib/timetable/schedule-grid-layout";
 import { TimetableSlotCard } from "./TimetableSlotCard";
 
 type TimetableGridProps = {
@@ -28,7 +33,24 @@ export function TimetableGrid({
   onAddDay,
 }: TimetableGridProps) {
   const days = settings.schoolDays.length > 0 ? settings.schoolDays : [...SCHOOL_DAYS];
-  const [hoverInsert, setHoverInsert] = useState<string | null>(null);
+
+  const grid = useMemo(
+    () => buildScheduleGridModel(slots, days, settings),
+    [slots, days, settings],
+  );
+
+  const slotsByDay = useMemo(() => {
+    const map = new Map<string, PositionedSlot[]>();
+    for (const day of days) map.set(day, []);
+    for (const positioned of grid.positioned) {
+      const list = map.get(positioned.day);
+      if (list) list.push(positioned);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.topPx - b.topPx);
+    }
+    return map;
+  }, [grid.positioned, days]);
 
   function handleDragStart(event: React.DragEvent, slot: SmartTimetableSlot) {
     event.dataTransfer.setData("slotId", slot.id);
@@ -43,88 +65,124 @@ export function TimetableGrid({
     onMoveSlot(slotId, day, slot.start, slot.end);
   }
 
-  function insertKey(day: string, afterSlotId: string | null) {
-    return `${day}:${afterSlotId ?? "start"}`;
-  }
+  const timeColumnWidth = 72;
+  const gridTemplateColumns = `${timeColumnWidth}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
     <div className="overflow-x-auto">
-      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+      <div
+        className="min-w-[640px] rounded-3xl border border-white/60 bg-white/35 p-3 md:p-4"
+        style={{
+          display: "grid",
+          gridTemplateColumns,
+          columnGap: 8,
+        }}
+      >
+        {/* En-têtes */}
+        <div className="sticky top-0 z-10 bg-white/50 pb-2 backdrop-blur-sm" />
+        {days.map((day) => (
+          <div
+            key={`head-${day}`}
+            className="sticky top-0 z-10 flex items-center justify-between border-b border-white/50 bg-white/50 pb-2 backdrop-blur-sm"
+          >
+            <h4 className="font-serif text-base font-medium md:text-lg" style={{ color: colors.charcoal.DEFAULT }}>
+              {day}
+            </h4>
+            <button
+              type="button"
+              onClick={() => onLockDay(day)}
+              className="text-[10px] font-light text-flora-text-subtle hover:text-flora-text"
+              title="Verrouiller la journée"
+            >
+              🔒
+            </button>
+          </div>
+        ))}
+
+        {/* Colonne horaires */}
+        <div
+          className="relative shrink-0 border-r border-white/50 pr-1"
+          style={{ height: grid.scale.totalHeightPx }}
+        >
+          {grid.timeLabels.map((tick) => (
+            <div
+              key={tick.minutes}
+              className="absolute left-0 right-0 border-t border-white/40"
+              style={{ top: tick.topPx }}
+            >
+              <span
+                className={`block pr-1 text-right leading-none ${
+                  tick.kind === "major"
+                    ? "text-[11px] font-semibold text-flora-text"
+                    : "text-[9px] font-light text-flora-text-subtle"
+                }`}
+                style={{ transform: "translateY(-50%)" }}
+              >
+                {tick.kind === "major" ? tick.label : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Colonnes journées */}
         {days.map((day) => {
-          const daySlots = slots
-            .filter((slot) => slot.day === day)
-            .sort((a, b) => a.start.localeCompare(b.start));
+          const dayPositions = slotsByDay.get(day) ?? [];
+          const isEmpty = dayPositions.length === 0;
 
           return (
             <div
               key={day}
-              className="min-w-[220px] rounded-3xl border border-white/60 bg-white/35 p-3 md:p-4"
+              className="relative min-w-0"
+              style={{ height: grid.scale.totalHeightPx }}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => handleDrop(event, day)}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <h4 className="font-serif text-lg font-medium" style={{ color: colors.charcoal.DEFAULT }}>
-                  {day}
-                </h4>
+              {/* Lignes horizontales de référence */}
+              {grid.timeLabels
+                .filter((tick) => tick.kind === "major")
+                .map((tick) => (
+                  <div
+                    key={`${day}-grid-${tick.minutes}`}
+                    className="pointer-events-none absolute inset-x-0 border-t border-white/30"
+                    style={{ top: tick.topPx }}
+                  />
+                ))}
+
+              {isEmpty && onAddDay ? (
                 <button
                   type="button"
-                  onClick={() => onLockDay(day)}
-                  className="text-[10px] font-light text-flora-text-subtle hover:text-flora-text"
-                  title="Verrouiller la journée"
+                  onClick={() => onAddDay(day)}
+                  className="absolute inset-x-1 top-4 rounded-2xl border border-dashed border-white/70 bg-white/30 px-3 py-8 text-center text-sm font-light text-flora-text-subtle transition hover:border-white hover:bg-white/50 hover:text-flora-text"
                 >
-                  🔒 Journée
+                  + Ajouter une plage
                 </button>
-              </div>
+              ) : null}
 
-              <div className="flex flex-col gap-1">
-                {onCreateSlot && daySlots.length > 0 ? (
-                  <InsertSlotButton
-                    visible={hoverInsert === insertKey(day, null)}
-                    onMouseEnter={() => setHoverInsert(insertKey(day, null))}
-                    onMouseLeave={() => setHoverInsert(null)}
-                    onClick={() => onCreateSlot(day, null)}
+              {dayPositions.map(({ slot, topPx, heightPx }) => (
+                <div
+                  key={slot.id}
+                  className="absolute inset-x-0.5 overflow-hidden"
+                  style={{
+                    top: topPx,
+                    height: heightPx,
+                    marginBottom: SLOT_GAP_PX,
+                  }}
+                >
+                  <TimetableSlotCard
+                    slot={slot}
+                    density="grid"
+                    fillHeight
+                    draggable={slot.lockLevel === "none"}
+                    onDragStart={(event) => handleDragStart(event, slot)}
+                    onEdit={onEditSlot ? () => onEditSlot(slot) : undefined}
+                    onLock={() => onLockSlot(slot.id, slot.day)}
                   />
-                ) : null}
+                </div>
+              ))}
 
-                {daySlots.length === 0 ? (
-                  onAddDay ? (
-                    <button
-                      type="button"
-                      onClick={() => onAddDay(day)}
-                      className="rounded-2xl border border-dashed border-white/70 bg-white/30 px-4 py-10 text-center text-sm font-light text-flora-text-subtle transition hover:border-white hover:bg-white/50 hover:text-flora-text"
-                    >
-                      + Ajouter une plage
-                      <span className="mt-1 block text-xs opacity-80">
-                        Cliquez pour créer le premier créneau
-                      </span>
-                    </button>
-                  ) : (
-                    <p className="py-8 text-center text-xs font-light text-flora-text-subtle">
-                      Aucun créneau
-                    </p>
-                  )
-                ) : (
-                  daySlots.map((slot) => (
-                    <div key={slot.id} className="flex flex-col gap-1">
-                      <TimetableSlotCard
-                        slot={slot}
-                        draggable={slot.lockLevel === "none"}
-                        onDragStart={(event) => handleDragStart(event, slot)}
-                        onEdit={onEditSlot ? () => onEditSlot(slot) : undefined}
-                        onLock={() => onLockSlot(slot.id, slot.day)}
-                      />
-                      {onCreateSlot ? (
-                        <InsertSlotButton
-                          visible={hoverInsert === insertKey(day, slot.id)}
-                          onMouseEnter={() => setHoverInsert(insertKey(day, slot.id))}
-                          onMouseLeave={() => setHoverInsert(null)}
-                          onClick={() => onCreateSlot(day, slot.id)}
-                        />
-                      ) : null}
-                    </div>
-                  ))
-                )}
-              </div>
+              {onCreateSlot && !isEmpty ? (
+                <AddSlotFab day={day} onCreate={() => onCreateSlot(day, lastSlotId(dayPositions))} />
+              ) : null}
             </div>
           );
         })}
@@ -133,33 +191,21 @@ export function TimetableGrid({
   );
 }
 
-function InsertSlotButton({
-  visible,
-  onMouseEnter,
-  onMouseLeave,
-  onClick,
-}: {
-  visible: boolean;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-  onClick: () => void;
-}) {
+function lastSlotId(positions: PositionedSlot[]): string | null {
+  if (positions.length === 0) return null;
+  const sorted = [...positions].sort((a, b) => a.topPx - b.topPx);
+  return sorted[sorted.length - 1]?.slot.id ?? null;
+}
+
+function AddSlotFab({ day, onCreate }: { day: string; onCreate: () => void }) {
   return (
-    <div
-      className="group relative flex h-4 items-center justify-center"
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+    <button
+      type="button"
+      onClick={onCreate}
+      className="absolute bottom-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white/90 text-lg text-flora-text-subtle shadow-sm transition hover:scale-105 hover:text-flora-text"
+      title={`Ajouter une plage — ${day}`}
     >
-      <button
-        type="button"
-        onClick={onClick}
-        className={`flex h-7 w-7 items-center justify-center rounded-full border border-white/70 bg-white/80 text-base text-flora-text-subtle shadow-sm transition duration-200 hover:scale-110 hover:bg-white hover:text-flora-text ${
-          visible ? "scale-100 opacity-100" : "scale-90 opacity-0 group-hover:opacity-100"
-        }`}
-        title="Ajouter une plage ici"
-      >
-        +
-      </button>
-    </div>
+      +
+    </button>
   );
 }

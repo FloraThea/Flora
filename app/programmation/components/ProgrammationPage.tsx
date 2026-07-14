@@ -49,7 +49,9 @@ export function ProgrammationPage() {
   const [formValues, setFormValues] = useState<ProgrammationFormValues>(initialFormValues);
   const [payload, setPayload] = useState<ProgrammationPayload | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationPhase, setGenerationPhase] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [failedStep, setFailedStep] = useState<string | null>(null);
   const [referentielWarning, setReferentielWarning] = useState<string | null>(null);
   const [profileComplete, setProfileComplete] = useState(true);
   const [showImportWizard, setShowImportWizard] = useState(false);
@@ -73,9 +75,12 @@ export function ProgrammationPage() {
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
     setError(null);
+    setFailedStep(null);
     setReferentielWarning(null);
+    setGenerationPhase("Préparation des données…");
 
     try {
+      setGenerationPhase("Analyse du référentiel et génération par l'IA…");
       const response = await fetch("/api/programmation/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,23 +95,34 @@ export function ProgrammationPage() {
         }),
       });
 
+      setGenerationPhase("Enregistrement de la programmation…");
+
       const data = (await response.json()) as ProgrammationPayload & {
         error?: string;
+        details?: string;
         referentielWarning?: string | null;
+        failedStep?: string;
       };
 
       if (!response.ok) {
-        throw new Error(data.error || "Impossible de générer la programmation.");
+        setFailedStep(data.failedStep ?? null);
+        throw new Error(
+          [data.error || "Impossible de générer la programmation.", data.details]
+            .filter(Boolean)
+            .join(" — "),
+        );
       }
 
       setReferentielWarning(data.referentielWarning ?? null);
       setPayload(data);
+      setGenerationPhase(null);
     } catch (generateError) {
       setError(
         generateError instanceof Error
           ? generateError.message
           : "Impossible de générer la programmation.",
       );
+      setGenerationPhase(null);
     } finally {
       setIsGenerating(false);
     }
@@ -116,6 +132,7 @@ export function ProgrammationPage() {
     async (tableKey: string, periodNumber: number, cell: ProgrammingCellContent) => {
       if (!payload) return;
 
+      const previousPayload = payload;
       const nextTables = payload.tables.map((table) => {
         if (table.subjectKey !== tableKey) return table;
 
@@ -130,11 +147,24 @@ export function ProgrammationPage() {
       setPayload({ ...payload, tables: nextTables });
 
       if (cell.id) {
-        await fetch("/api/programmation/cell", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cellId: cell.id, cell }),
-        });
+        try {
+          const response = await fetch("/api/programmation/cell", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cellId: cell.id, cell }),
+          });
+          if (!response.ok) {
+            const data = (await response.json()) as { error?: string };
+            throw new Error(data.error || "Enregistrement de la cellule impossible.");
+          }
+        } catch (cellError) {
+          setPayload(previousPayload);
+          setError(
+            cellError instanceof Error
+              ? cellError.message
+              : "Enregistrement de la cellule impossible.",
+          );
+        }
       }
     },
     [payload],
@@ -165,6 +195,8 @@ export function ProgrammationPage() {
         onChange={(key, value) => setFormValues((current) => ({ ...current, [key]: value }))}
         onGenerate={() => void handleGenerate()}
         isGenerating={isGenerating}
+        generationPhase={generationPhase}
+        profileComplete={profileComplete}
         onImport={() => setShowImportWizard(true)}
       />
 
@@ -200,9 +232,25 @@ export function ProgrammationPage() {
       />
 
       {error && (
-        <p className="rounded-2xl bg-rose-soft/35 px-4 py-3 text-sm font-light text-[#b88989]">
-          {error}
-        </p>
+        <FloraCard padding="md" accent="rose">
+          <p className="text-sm font-light text-[#b88989]">{error}</p>
+          {failedStep ? (
+            <p className="mt-2 text-xs font-light text-flora-text-subtle">
+              Étape en échec : {failedStep}
+            </p>
+          ) : null}
+          <div className="mt-3">
+            <FloraButton
+              accent="cream"
+              variant="secondary"
+              size="sm"
+              disabled={isGenerating}
+              onClick={() => void handleGenerate()}
+            >
+              Réessayer
+            </FloraButton>
+          </div>
+        </FloraCard>
       )}
 
       {payload && (

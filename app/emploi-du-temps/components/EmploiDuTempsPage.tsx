@@ -224,15 +224,19 @@ export function EmploiDuTempsPage() {
           }),
         });
 
-        const data = (await response.json()) as TimetablePayload & {
+      const data = (await response.json()) as TimetablePayload & {
           error?: string;
           details?: string;
+          createdSlotId?: string;
         };
         if (!response.ok) {
           throw new Error([data.error || "Création impossible.", data.details].filter(Boolean).join(" — "));
         }
 
-        setEditingSlot(null);
+        const created = data.createdSlotId
+          ? data.slots.find((slot) => slot.id === data.createdSlotId) ?? null
+          : null;
+        setEditingSlot(created);
         setCreateSlotContext(null);
         await commitChange(data, "Plage créée");
         return;
@@ -284,18 +288,26 @@ export function EmploiDuTempsPage() {
         }),
       });
 
-      const data = (await response.json()) as TimetablePayload & { error?: string };
-      if (!response.ok) throw new Error(data.error || "Action impossible.");
+      const data = (await response.json()) as TimetablePayload & {
+        error?: string;
+        details?: string;
+        createdSlotId?: string;
+      };
+      if (!response.ok) {
+        throw new Error([data.error || "Action impossible.", data.details].filter(Boolean).join(" — "));
+      }
 
       if (actionBody.action === "delete") {
         setEditingSlot(null);
       } else if (actionBody.action === "duplicate") {
-        const daySlots = data.slots
-          .filter((s) => s.day === editingSlot.day)
-          .sort((a, b) => a.start.localeCompare(b.start));
-        const sourceIndex = daySlots.findIndex((s) => s.id === editingSlot.id);
-        const duplicate = sourceIndex >= 0 ? daySlots[sourceIndex + 1] : null;
-        if (duplicate) setEditingSlot(duplicate);
+        const duplicate = data.createdSlotId
+          ? data.slots.find((s) => s.id === data.createdSlotId) ?? null
+          : null;
+        if (duplicate) {
+          setEditingSlot(duplicate);
+        } else {
+          setEditingSlot(null);
+        }
       } else if (actionBody.action === "split") {
         const daySlots = data.slots
           .filter((s) => s.day === editingSlot.day)
