@@ -1,8 +1,14 @@
 import { supabase } from "@/lib/supabase";
+import {
+  buildIndependentSeanceDraft,
+  resolveSeanceLinkMode,
+} from "./independent-seance-factory";
 import type {
+  IndependentSeanceCreateInput,
   SeanceActivity,
   SeanceDraft,
   SeanceEditAction,
+  SeanceLinkInput,
   SeanceMaterial,
   SeancePayload,
   SeancePhase,
@@ -13,12 +19,13 @@ import type {
 function mapStoredSeance(row: Record<string, unknown>): StoredSeance {
   return {
     id: String(row.id),
-    sequenceSessionId: String(row.sequence_session_id),
-    sequenceId: String(row.sequence_id),
-    progressionId: String(row.progression_id),
-    progressionRowId: String(row.progression_row_id),
-    programmationId: String(row.programmation_id),
+    sequenceSessionId: row.sequence_session_id ? String(row.sequence_session_id) : null,
+    sequenceId: row.sequence_id ? String(row.sequence_id) : null,
+    progressionId: row.progression_id ? String(row.progression_id) : null,
+    progressionRowId: row.progression_row_id ? String(row.progression_row_id) : null,
+    programmationId: row.programmation_id ? String(row.programmation_id) : null,
     teacherProfileId: row.teacher_profile_id ? String(row.teacher_profile_id) : null,
+    link_mode: (row.link_mode as StoredSeance["link_mode"]) ?? "linked",
     title: String(row.title ?? ""),
     matiere: String(row.matiere ?? ""),
     sousMatiere: String(row.sous_matiere ?? ""),
@@ -128,14 +135,16 @@ async function recordHistory(input: {
   });
 }
 
-export async function saveSeance(input: {
+async function insertSeanceRecord(input: {
   draft: SeanceDraft;
-  sequenceSessionId: string;
-  sequenceId: string;
-  progressionId: string;
-  progressionRowId: string;
-  programmationId: string;
-  teacherProfileId?: string;
+  sequenceSessionId: string | null;
+  sequenceId: string | null;
+  progressionId: string | null;
+  progressionRowId: string | null;
+  programmationId: string | null;
+  teacherProfileId?: string | null;
+  linkMode: "linked" | "independent";
+  metadata?: Record<string, unknown>;
 }): Promise<SeancePayload> {
   const { data: seance, error } = await supabase
     .from("seances")
@@ -146,6 +155,7 @@ export async function saveSeance(input: {
       progression_row_id: input.progressionRowId,
       programmation_id: input.programmationId,
       teacher_profile_id: input.teacherProfileId ?? null,
+      link_mode: input.linkMode,
       title: input.draft.title,
       matiere: input.draft.matiere,
       sous_matiere: input.draft.sousMatiere,
@@ -169,7 +179,10 @@ export async function saveSeance(input: {
       trace_ecrite: input.draft.traceEcrite,
       pedagogical_choices: input.draft.pedagogicalChoices,
       status: "validated",
-      metadata: { generated_at: new Date().toISOString() },
+      metadata: {
+        generated_at: new Date().toISOString(),
+        ...input.metadata,
+      },
     })
     .select("*")
     .single();
@@ -178,7 +191,6 @@ export async function saveSeance(input: {
     throw error ?? new Error("Impossible d'enregistrer la séance.");
   }
 
-  const phaseRows = [];
   for (const phase of input.draft.phases) {
     const { data: phaseRow, error: phaseError } = await supabase
       .from("seance_phases")
@@ -194,8 +206,6 @@ export async function saveSeance(input: {
       .single();
 
     if (phaseError || !phaseRow) throw phaseError;
-
-    phaseRows.push({ phase, phaseRow });
 
     for (const activity of phase.activities) {
       const { error: activityError } = await supabase.from("seance_activities").insert({
@@ -219,6 +229,140 @@ export async function saveSeance(input: {
   }
 
   return loadSeance(String(seance.id)) as Promise<SeancePayload>;
+}
+
+export async function saveSeance(input: {
+  draft: SeanceDraft;
+  sequenceSessionId: string;
+  sequenceId: string;
+  progressionId: string | null;
+  progressionRowId: string | null;
+  programmationId: string | null;
+  teacherProfileId?: string;
+}): Promise<SeancePayload> {
+  return insertSeanceRecord({
+    draft: input.draft,
+    sequenceSessionId: input.sequenceSessionId,
+    sequenceId: input.sequenceId,
+    progressionId: input.progressionId,
+    progressionRowId: input.progressionRowId,
+    programmationId: input.programmationId,
+    teacherProfileId: input.teacherProfileId ?? null,
+    linkMode: "linked",
+    metadata: { source_type: "generated" },
+  });
+}
+
+export async function createIndependentSeance(
+  input: IndependentSeanceCreateInput,
+): Promise<SeancePayload> {
+  if (!input.title?.trim()) {
+    throw new Error("Le titre de la séance est requis.");
+  }
+  if (!input.matiere?.trim()) {
+    throw new Error("La matière est requise.");
+  }
+
+  const linkMode = resolveSeanceLinkMode(input);
+  const draft = buildIndependentSeanceDraft(input);
+
+  if (linkMode === "linked" && input.sequenceSessionId) {
+    const { data: existing } = await supabase
+      .from("seances")
+      .select("id")
+      .eq("sequence_session_id", input.sequenceSessionId)
+      .maybeSingle();
+
+    if (existing?.id) {
+      throw new Error("Une séance existe déjà pour cette session de séquence.");
+    }
+  }
+
+  return insertSeanceRecord({
+    draft,
+    sequenceSessionId: input.sequenceSessionId ?? null,
+    sequenceId: input.sequenceId ?? null,
+    progressionId: input.progressionId ?? null,
+    progressionRowId: input.progressionRowId ?? null,
+    programmationId: input.programmationId ?? null,
+    teacherProfileId: input.teacherProfileId ?? null,
+    linkMode,
+    metadata: {
+      source_type: linkMode === "independent" ? "manual_independent" : "manual_linked",
+      created_independently: linkMode === "independent",
+    },
+  });
+}
+
+export async function linkSeanceToSequence(input: SeanceLinkInput): Promise<SeancePayload> {
+  const { error } = await supabase
+    .from("seances")
+    .update({
+      sequence_id: input.sequenceId,
+      sequence_session_id: input.sequenceSessionId,
+      progression_id: input.progressionId ?? null,
+      progression_row_id: input.progressionRowId ?? null,
+      programmation_id: input.programmationId ?? null,
+      link_mode: "linked",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.seanceId);
+
+  if (error) throw error;
+
+  const payload = await loadSeance(input.seanceId);
+  if (!payload) throw new Error("Séance introuvable après association.");
+  return payload;
+}
+
+export async function dissociateSeance(seanceId: string): Promise<SeancePayload> {
+  const { error } = await supabase
+    .from("seances")
+    .update({
+      sequence_id: null,
+      sequence_session_id: null,
+      progression_id: null,
+      progression_row_id: null,
+      programmation_id: null,
+      link_mode: "independent",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", seanceId);
+
+  if (error) throw error;
+
+  const payload = await loadSeance(seanceId);
+  if (!payload) throw new Error("Séance introuvable après dissociation.");
+  return payload;
+}
+
+export async function listIndependentSeances() {
+  const { data, error } = await supabase
+    .from("seances")
+    .select(
+      "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, sequence_id, sequence_session_id, status, link_mode",
+    )
+    .or("link_mode.eq.independent,sequence_id.is.null")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    title: String(row.title ?? ""),
+    matiere: String(row.matiere ?? ""),
+    sousMatiere: String(row.sous_matiere ?? ""),
+    niveau: String(row.niveau ?? ""),
+    periodNumber: Number(row.period_number ?? 0),
+    weekNumber: Number(row.week_number ?? 0),
+    sessionDate: row.session_date ? String(row.session_date) : null,
+    dureeMinutes: Number(row.duree_minutes ?? 0),
+    sequenceId: row.sequence_id ? String(row.sequence_id) : null,
+    sequenceSessionId: row.sequence_session_id ? String(row.sequence_session_id) : null,
+    sessionNumber: 0,
+    status: String(row.status ?? ""),
+    linkMode: (row.link_mode as "linked" | "independent") ?? "independent",
+  }));
 }
 
 export async function loadSeance(id: string): Promise<SeancePayload | null> {
@@ -279,8 +423,8 @@ export async function listSeancesBySequence(sequenceId: string) {
     weekNumber: Number(row.week_number ?? 0),
     sessionDate: row.session_date ? String(row.session_date) : null,
     dureeMinutes: Number(row.duree_minutes ?? 0),
-    sequenceId: String(row.sequence_id),
-    sequenceSessionId: String(row.sequence_session_id),
+    sequenceId: row.sequence_id ? String(row.sequence_id) : null,
+    sequenceSessionId: row.sequence_session_id ? String(row.sequence_session_id) : null,
     sessionNumber: sessionNumbers.get(String(row.sequence_session_id)) ?? 0,
     status: String(row.status ?? ""),
   }));

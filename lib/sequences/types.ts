@@ -64,14 +64,51 @@ export type SequenceDraft = {
 
 export type StoredSequence = Omit<SequenceDraft, "sessions" | "evaluations"> & {
   id: string;
-  progression_id: string;
-  progression_row_id: string;
-  programmation_id: string;
+  progression_id: string | null;
+  progression_row_id: string | null;
+  programmation_id: string | null;
   progression_tab_id: string | null;
+  link_mode?: "linked" | "independent";
   status: string;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+};
+
+export type IndependentSequenceCreateInput = {
+  title: string;
+  matiere: string;
+  sousMatiere?: string;
+  niveau?: string;
+  cycle?: string;
+  periodNumber?: number;
+  weekNumbers?: number[];
+  competenceBo?: string;
+  objectifs?: string[];
+  attendus?: string[];
+  prerequis?: string[];
+  notions?: string[];
+  sessionCount?: number;
+  dureeEstimeeMinutes?: number;
+  methode?: string;
+  materiel?: string[];
+  resources?: string[];
+  sessions?: Array<{
+    title: string;
+    objectif?: string;
+    dureeMinutes?: number;
+  }>;
+  progressionId?: string | null;
+  progressionRowId?: string | null;
+  programmationId?: string | null;
+};
+
+export type SequenceLinkInput = {
+  sequenceId: string;
+  progressionId: string;
+  progressionRowId: string;
+  programmationId?: string | null;
+  progressionTabId?: string | null;
 };
 
 export type SequenceGenerationInput = {

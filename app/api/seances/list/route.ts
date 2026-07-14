@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { listSeancesBySequence } from "@/lib/seances/seance-service";
+import { listIndependentSeances, listSeancesBySequence } from "@/lib/seances/seance-service";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const sequenceId = searchParams.get("sequenceId");
+    const independent = searchParams.get("independent") === "true";
+
+    if (independent) {
+      const seances = await listIndependentSeances();
+      return NextResponse.json({ seances });
+    }
 
     if (!sequenceId) {
       return NextResponse.json({ error: "sequenceId requis." }, { status: 400 });

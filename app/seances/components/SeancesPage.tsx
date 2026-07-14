@@ -8,6 +8,8 @@ import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
 import type { SeanceCardSummary, SeancePayload, SeanceViewMode } from "@/lib/seances/types";
 import { colors } from "@/lib/theme";
+import { PedagogicalStartMenu } from "@/components/pedagogical/PedagogicalStartMenu";
+import { IndependentSeanceForm } from "./IndependentSeanceForm";
 import { SeanceCard } from "./SeanceCard";
 import { SeanceDetailModal } from "./SeanceDetailModal";
 import {
@@ -28,6 +30,8 @@ export function SeancesPage() {
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [isLoadingSequences, setIsLoadingSequences] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [flowMode, setFlowMode] = useState<null | "menu" | "linked" | "independent">("menu");
+  const [independentSeances, setIndependentSeances] = useState<SeanceCardSummary[]>([]);
 
   const loadSessions = useCallback(async (sequenceId: string) => {
     const response = await fetch(`/api/seances/sessions?sequenceId=${sequenceId}`);
@@ -57,7 +61,27 @@ export function SeancesPage() {
     setSeances(data.seances ?? []);
   }, []);
 
+  const loadIndependentSeances = useCallback(async () => {
+    const response = await fetch("/api/seances/list?independent=true");
+    const data = (await response.json()) as {
+      seances?: SeanceCardSummary[];
+      error?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(data.error || "Impossible de charger les séances indépendantes.");
+    }
+
+    setIndependentSeances(data.seances ?? []);
+  }, []);
+
   useEffect(() => {
+    void loadIndependentSeances().catch(() => undefined);
+  }, [loadIndependentSeances]);
+
+  useEffect(() => {
+    if (flowMode !== "linked") return;
+
     let cancelled = false;
 
     async function bootstrap() {
@@ -97,7 +121,7 @@ export function SeancesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [flowMode]);
 
   useEffect(() => {
     if (!formValues.sequenceId) return;
@@ -237,7 +261,7 @@ export function SeancesPage() {
     <div className="flex flex-col gap-8">
       <FloraPageTitle
         title="Séances pédagogiques"
-        subtitle="Transformez chaque session de séquence en séance détaillée, prête pour le cahier journal."
+        subtitle="Créez une séance seule ou générez-la depuis une séquence existante."
         meta={selectedSequence?.title}
         action={
           <Link
@@ -249,6 +273,83 @@ export function SeancesPage() {
         }
       />
 
+      {flowMode === "menu" ? (
+        <PedagogicalStartMenu
+          moduleTitle="Que souhaitez-vous faire ?"
+          moduleSubtitle="Une séance peut exister seule ou être générée depuis une séquence."
+          options={[
+            {
+              id: "independent",
+              title: "Créer une séance indépendante",
+              description: "Date, matière, objectif et déroulement sans séquence préalable.",
+              badge: "Indépendante",
+              onSelect: () => setFlowMode("independent"),
+            },
+            {
+              id: "import",
+              title: "Importer une séance",
+              description: "Excel, PDF ou JPG — bientôt disponible.",
+              disabled: true,
+              onSelect: () => undefined,
+            },
+            {
+              id: "from-sequence",
+              title: "Créer depuis une séquence",
+              description: "Générer automatiquement à partir d'une session de séquence.",
+              badge: "Liée",
+              onSelect: () => setFlowMode("linked"),
+            },
+            {
+              id: "journal",
+              title: "Ajouter au cahier journal",
+              description: "Créez une séance indépendante puis ouvrez le cahier journal.",
+              onSelect: () => setFlowMode("independent"),
+            },
+          ]}
+        />
+      ) : null}
+
+      {flowMode === "independent" ? (
+        <IndependentSeanceForm
+          onCreated={(payload) => {
+            setSelectedPayload(payload);
+            setFlowMode("menu");
+            void loadIndependentSeances();
+            setError(null);
+          }}
+          onCancel={() => setFlowMode("menu")}
+        />
+      ) : null}
+
+      {flowMode === "linked" ? (
+        <FloraButton variant="ghost" onClick={() => setFlowMode("menu")}>
+          ← Retour au menu
+        </FloraButton>
+      ) : null}
+
+      {independentSeances.length > 0 && flowMode === "menu" ? (
+        <FloraCard padding="lg" accent="lavender">
+          <h3 className="mb-4 font-serif text-xl text-flora-text">Séances indépendantes</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {independentSeances.map((seance) => (
+              <button
+                key={seance.id}
+                type="button"
+                onClick={() => void openSeance(seance.id)}
+                className="rounded-2xl border border-white/70 bg-white/55 p-4 text-left hover:bg-white/75"
+              >
+                <p className="font-medium text-flora-text">{seance.title}</p>
+                <p className="mt-1 text-sm font-light text-flora-text-muted">
+                  {seance.matiere} · {seance.dureeMinutes} min
+                </p>
+              </button>
+            ))}
+          </div>
+        </FloraCard>
+      ) : null}
+
+      {flowMode === "linked" ? (
+      <>
       <FloraCard padding="lg" accent="rose">
         <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <label className="block">
@@ -386,6 +487,9 @@ export function SeancesPage() {
           </p>
         </FloraCard>
       )}
+
+      </>
+      ) : null}
 
       {selectedPayload && (
         <SeanceDetailModal

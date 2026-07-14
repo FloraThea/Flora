@@ -1,18 +1,26 @@
 import { supabase } from "@/lib/supabase";
+import {
+  buildIndependentSequenceDraft,
+  resolveSequenceLinkMode,
+} from "./independent-sequence-factory";
 import type {
+  IndependentSequenceCreateInput,
   SequenceDraft,
   SequenceEvaluation,
+  SequenceLinkInput,
   SequencePayload,
   SequenceSession,
   StoredSequence,
 } from "./types";
 
-export async function saveSequence(input: {
+async function insertSequenceRecord(input: {
   draft: SequenceDraft;
-  progressionId: string;
-  progressionRowId: string;
-  programmationId: string;
-  progressionTabId?: string;
+  progressionId: string | null;
+  progressionRowId: string | null;
+  programmationId: string | null;
+  progressionTabId?: string | null;
+  linkMode: "linked" | "independent";
+  metadata?: Record<string, unknown>;
 }): Promise<SequencePayload> {
   const { data: sequence, error } = await supabase
     .from("sequences")
@@ -21,6 +29,7 @@ export async function saveSequence(input: {
       progression_row_id: input.progressionRowId,
       programmation_id: input.programmationId,
       progression_tab_id: input.progressionTabId ?? null,
+      link_mode: input.linkMode,
       title: input.draft.title,
       matiere: input.draft.matiere,
       sous_matiere: input.draft.sousMatiere,
@@ -47,6 +56,7 @@ export async function saveSequence(input: {
       status: "validated",
       metadata: {
         generated_at: new Date().toISOString(),
+        ...input.metadata,
       },
     })
     .select("*")
@@ -88,7 +98,7 @@ export async function saveSequence(input: {
   if (evaluationsError) throw evaluationsError;
 
   return mapSequencePayload(
-    sequence as StoredSequence,
+    mapStoredSequence(sequence),
     (sessions ?? []).map(
       (session): SequenceSession => ({
         id: session.id,
@@ -111,13 +121,114 @@ export async function saveSequence(input: {
   );
 }
 
+export async function saveSequence(input: {
+  draft: SequenceDraft;
+  progressionId: string;
+  progressionRowId: string;
+  programmationId: string;
+  progressionTabId?: string;
+}): Promise<SequencePayload> {
+  return insertSequenceRecord({
+    draft: input.draft,
+    progressionId: input.progressionId,
+    progressionRowId: input.progressionRowId,
+    programmationId: input.programmationId,
+    progressionTabId: input.progressionTabId ?? null,
+    linkMode: "linked",
+    metadata: { source_type: "generated" },
+  });
+}
+
+export async function createIndependentSequence(
+  input: IndependentSequenceCreateInput,
+): Promise<SequencePayload> {
+  if (!input.title?.trim()) {
+    throw new Error("Le titre de la séquence est requis.");
+  }
+  if (!input.matiere?.trim()) {
+    throw new Error("La matière est requise.");
+  }
+
+  const linkMode = resolveSequenceLinkMode(input);
+  const draft = buildIndependentSequenceDraft(input);
+
+  if (linkMode === "linked" && input.progressionRowId) {
+    const { data: existing } = await supabase
+      .from("sequences")
+      .select("id")
+      .eq("progression_row_id", input.progressionRowId)
+      .maybeSingle();
+
+    if (existing?.id) {
+      throw new Error("Une séquence existe déjà pour cette ligne de progression.");
+    }
+  }
+
+  return insertSequenceRecord({
+    draft,
+    progressionId: input.progressionId ?? null,
+    progressionRowId: input.progressionRowId ?? null,
+    programmationId: input.programmationId ?? null,
+    linkMode,
+    metadata: {
+      source_type: linkMode === "independent" ? "manual_independent" : "manual_linked",
+      created_independently: linkMode === "independent",
+    },
+  });
+}
+
+export async function linkSequenceToProgression(input: SequenceLinkInput): Promise<SequencePayload> {
+  const { data: sequence, error } = await supabase
+    .from("sequences")
+    .update({
+      progression_id: input.progressionId,
+      progression_row_id: input.progressionRowId,
+      programmation_id: input.programmationId ?? null,
+      progression_tab_id: input.progressionTabId ?? null,
+      link_mode: "linked",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.sequenceId)
+    .select("*")
+    .single();
+
+  if (error || !sequence) {
+    throw error ?? new Error("Impossible d'associer la séquence.");
+  }
+
+  const payload = await loadSequence(input.sequenceId);
+  if (!payload) throw new Error("Séquence introuvable après association.");
+  return payload;
+}
+
+export async function dissociateSequence(sequenceId: string): Promise<SequencePayload> {
+  const { error } = await supabase
+    .from("sequences")
+    .update({
+      progression_id: null,
+      progression_row_id: null,
+      programmation_id: null,
+      progression_tab_id: null,
+      link_mode: "independent",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sequenceId);
+
+  if (error) throw error;
+
+  const payload = await loadSequence(sequenceId);
+  if (!payload) throw new Error("Séquence introuvable après dissociation.");
+  return payload;
+}
+
 function mapStoredSequence(row: Record<string, unknown>): StoredSequence {
   return {
     id: String(row.id),
-    progression_id: String(row.progression_id),
-    progression_row_id: String(row.progression_row_id),
-    programmation_id: String(row.programmation_id),
+    progression_id: row.progression_id ? String(row.progression_id) : null,
+    progression_row_id: row.progression_row_id ? String(row.progression_row_id) : null,
+    programmation_id: row.programmation_id ? String(row.programmation_id) : null,
     progression_tab_id: row.progression_tab_id ? String(row.progression_tab_id) : null,
+    link_mode: (row.link_mode as StoredSequence["link_mode"]) ?? "linked",
     title: String(row.title ?? ""),
     matiere: String(row.matiere ?? ""),
     sousMatiere: String(row.sous_matiere ?? ""),
@@ -209,12 +320,32 @@ export async function loadSequence(id: string): Promise<SequencePayload | null> 
 export async function listSequencesByProgression(progressionId: string) {
   const { data, error } = await supabase
     .from("sequences")
-    .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, progression_row_id, status")
+    .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, progression_row_id, status, link_mode")
     .eq("progression_id", progressionId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
   return data ?? [];
+}
+
+export async function listIndependentSequences() {
+  const { data, error } = await supabase
+    .from("sequences")
+    .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, status, link_mode, created_at")
+    .or("link_mode.eq.independent,progression_id.is.null")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    title: String(row.title ?? ""),
+    matiere: String(row.matiere ?? ""),
+    sousMatiere: String(row.sous_matiere ?? ""),
+    periodNumber: Number(row.period_number ?? 0),
+    sessionCount: Number(row.session_count ?? 0),
+    status: String(row.status ?? ""),
+    linkMode: (row.link_mode as "linked" | "independent") ?? "independent",
+  }));
 }
 
 export async function getSequenceByRowId(progressionRowId: string) {

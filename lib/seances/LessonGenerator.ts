@@ -108,12 +108,20 @@ export class LessonGenerator {
       throw new Error("Séquence introuvable.");
     }
 
-    const progressionRow = await loadProgressionRow(sequencePayload.sequence.progression_row_id);
+    const progressionRowId = sequencePayload.sequence.progression_row_id;
+    if (!progressionRowId) {
+      throw new Error(
+        "Cette séquence est indépendante : générez la séance via la création manuelle ou associez-la à une progression.",
+      );
+    }
+
+    const progressionRow = await loadProgressionRow(progressionRowId);
     if (!progressionRow) {
       throw new Error("Ligne de progression introuvable.");
     }
 
-    const programmation = await loadProgrammation(sequencePayload.sequence.programmation_id);
+    const programmationId = sequencePayload.sequence.programmation_id;
+    const programmation = programmationId ? await loadProgrammation(programmationId) : null;
     const methode = sequencePayload.sequence.methode || teacherProfile.methods[0]?.methodName || "";
 
     const sequenceSession = sequencePayload.sessions.find((session) => session.id === sequenceSessionId);

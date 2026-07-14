@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { listSequencesByProgression } from "@/lib/sequences/sequence-service";
+import { listIndependentSequences, listSequencesByProgression } from "@/lib/sequences/sequence-service";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const progressionId = searchParams.get("progressionId");
+    const independent = searchParams.get("independent") === "true";
+
+    if (independent) {
+      const sequences = await listIndependentSequences();
+      return NextResponse.json({ sequences });
+    }
 
     if (!progressionId) {
       return NextResponse.json({ error: "progressionId requis." }, { status: 400 });

@@ -11,6 +11,7 @@ import { colors } from "@/lib/theme";
 import { PedagogicalStartMenu } from "@/components/pedagogical/PedagogicalStartMenu";
 import { SequenceCard } from "./SequenceCard";
 import { SequenceDetailModal } from "./SequenceDetailModal";
+import { IndependentSequenceForm } from "./IndependentSequenceForm";
 import {
   initialSequencesFormValues,
   type ProgressionRowOption,
@@ -232,15 +233,14 @@ export function SequencesPage() {
       ) : null}
 
       {flowMode === "independent" ? (
-        <FloraCard padding="lg" accent="rose">
-          <p className="text-sm font-light text-flora-text-muted">
-            Les séquences indépendantes seront créables après application de la migration
-            Supabase. En attendant, importez via progression ou générez depuis une progression liée.
-          </p>
-          <FloraButton variant="secondary" className="mt-4" onClick={() => setFlowMode(null)}>
-            Retour
-          </FloraButton>
-        </FloraCard>
+        <IndependentSequenceForm
+          onCreated={(payload) => {
+            setSelectedPayload(payload);
+            setFlowMode(null);
+            setError(null);
+          }}
+          onCancel={() => setFlowMode(null)}
+        />
       ) : null}
 
       {flowMode === "linked" ? (

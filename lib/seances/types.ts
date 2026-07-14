@@ -114,16 +114,51 @@ export type SeanceDraft = {
 
 export type StoredSeance = Omit<SeanceDraft, "phases"> & {
   id: string;
-  sequenceSessionId: string;
-  sequenceId: string;
-  progressionId: string;
-  progressionRowId: string;
-  programmationId: string;
+  sequenceSessionId: string | null;
+  sequenceId: string | null;
+  progressionId: string | null;
+  progressionRowId: string | null;
+  programmationId: string | null;
   teacherProfileId: string | null;
+  link_mode?: "linked" | "independent";
   status: string;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+};
+
+export type IndependentSeanceCreateInput = {
+  title: string;
+  matiere: string;
+  sousMatiere?: string;
+  niveau?: string;
+  cycle?: string;
+  periodNumber?: number;
+  weekNumber?: number;
+  sessionDate?: string | null;
+  dureeMinutes?: number;
+  competenceBo?: string;
+  objectif?: string;
+  prerequis?: string[];
+  methode?: string;
+  materiel?: string[];
+  resources?: string[];
+  evaluation?: string;
+  sequenceId?: string | null;
+  sequenceSessionId?: string | null;
+  progressionId?: string | null;
+  progressionRowId?: string | null;
+  programmationId?: string | null;
+  teacherProfileId?: string | null;
+};
+
+export type SeanceLinkInput = {
+  seanceId: string;
+  sequenceId: string;
+  sequenceSessionId: string;
+  progressionId?: string | null;
+  progressionRowId?: string | null;
+  programmationId?: string | null;
 };
 
 export type SeancePayload = {
@@ -157,10 +192,11 @@ export type SeanceCardSummary = {
   weekNumber: number;
   sessionDate: string | null;
   dureeMinutes: number;
-  sequenceId: string;
-  sequenceSessionId: string;
+  sequenceId: string | null;
+  sequenceSessionId: string | null;
   sessionNumber: number;
   status: string;
+  linkMode?: "linked" | "independent";
 };
 
 export type SequenceSessionOption = {
