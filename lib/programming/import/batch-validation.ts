@@ -1,6 +1,7 @@
 import {
-  getFileExtension,
   isAcceptedForModule,
+  resolveFileExtension,
+  resolveImportFileName,
   validateImportFile,
 } from "@/lib/import/accepted-formats";
 import { PROGRAMMATION_IMPORT_BATCH_LIMITS } from "./batch-limits";
@@ -32,14 +33,15 @@ export function validateBatchFiles(
   const seen = new Set<string>();
 
   for (const file of files) {
+    const resolvedName = resolveImportFileName(file);
     const validation = validateImportFile(
       "programmation",
-      file,
+      { ...file, name: resolvedName },
       PROGRAMMATION_IMPORT_BATCH_LIMITS.maxFileBytes,
     );
     if (!validation.ok) return validation;
 
-    if (!isAcceptedForModule("programmation", file.name, file.type)) {
+    if (!isAcceptedForModule("programmation", resolvedName, file.type)) {
       return {
         ok: false,
         error: `Format non supporté : ${file.name}`,
@@ -47,8 +49,8 @@ export function validateBatchFiles(
       };
     }
 
-    const ext = getFileExtension(file.name);
-    if (!ext) {
+    const ext = resolveFileExtension(resolvedName, file.type);
+    if (!ext && !file.type.startsWith("image/")) {
       return { ok: false, error: `Extension manquante : ${file.name}`, code: "no_extension" };
     }
 

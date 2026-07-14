@@ -1,22 +1,25 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { resolveImportFileName } from "@/lib/import/accepted-formats";
+import { devLog } from "@/lib/logger";
+import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { supabase } from "@/lib/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
-import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import {
   buildProgrammationBatchStoragePath,
   getStorageBucketName,
 } from "@/lib/supabase/storage-config";
-import { validateBatchFiles } from "./batch-validation";
-import { extractPdfPageTexts } from "./extract-pdf-pages";
-import { mergeProgrammationPages, type PageParseResult } from "./merge-programmation-pages";
-import { parseProgrammationFile } from "./parse-programmation";
 import type {
   ImportBatchMergeMode,
   ImportBatchStatus,
   ImportedFileStatus,
+  ProgrammingImportUploadedFileDescriptor,
 } from "./batch-types";
+import { validateBatchFiles } from "./batch-validation";
+import { extractPdfPageTexts } from "./extract-pdf-pages";
+import { mergeProgrammationPages, type PageParseResult } from "./merge-programmation-pages";
+import { parseProgrammationFile } from "./parse-programmation";
 import type { ParsedProgrammationImport } from "./types";
 
 type BatchRow = {
@@ -43,16 +46,33 @@ type FileRow = {
   source_file_id: string | null;
 };
 
+function isMissingProgrammingImportTable(error: unknown): boolean {
+  const message = getSupabaseErrorMessage(error, "").toLowerCase();
+  return (
+    message.includes("programming_import") ||
+    message.includes("does not exist") ||
+    message.includes("relation") ||
+    message.includes("pgrst205") ||
+    message.includes("42p01")
+  );
+}
+
 export async function createProgrammingImportBatch(input?: {
   schoolYear?: string;
   mergeMode?: ImportBatchMergeMode;
-}): Promise<{ batchId: string }> {
+  batchId?: string;
+}): Promise<{ batchId: string; persisted: boolean }> {
   const bundle = await loadTeacherProfileBundle();
-  if (!bundle) throw new Error("Profil enseignant requis.");
+  if (!bundle) {
+    throw new Error("Votre session a expiré. Reconnectez-vous puis réessayez.");
+  }
+
+  const batchId = input?.batchId ?? randomUUID();
 
   const { data, error } = await supabase
     .from("programming_import_batches")
     .insert({
+      id: batchId,
       teacher_profile_id: bundle.profile.id,
       school_year: input?.schoolYear ?? bundle.profile.schoolYear,
       status: "draft",
@@ -62,51 +82,53 @@ export async function createProgrammingImportBatch(input?: {
     .single();
 
   if (error || !data) {
-    throw new Error(getSupabaseErrorMessage(error, "Impossible de créer le lot d'import."));
+    if (isMissingProgrammingImportTable(error)) {
+      devLog("[ProgrammingImport] batch-create-fallback", { batchId });
+      return { batchId, persisted: false };
+    }
+    throw new Error(
+      getSupabaseErrorMessage(error, "Le lot d'import n'a pas pu être créé."),
+    );
   }
 
-  return { batchId: String(data.id) };
+  return { batchId: String(data.id), persisted: true };
 }
 
 export async function uploadProgrammingImportBatchFile(input: {
   batchId: string;
   file: File;
   pageOrder: number;
+  clientFileId?: string;
 }): Promise<{
   entries: Array<{ fileId: string; pageOrder: number; pdfPageNumber?: number; storagePath: string }>;
   publicUrl: string;
+  persisted: boolean;
 }> {
   const bundle = await loadTeacherProfileBundle();
-  if (!bundle) throw new Error("Profil enseignant requis.");
+  if (!bundle) {
+    throw new Error("Votre session a expiré. Reconnectez-vous puis réessayez.");
+  }
 
-  const validation = validateBatchFiles([input.file]);
+  const resolvedName = resolveImportFileName(input.file);
+  const validation = validateBatchFiles([
+    {
+      name: resolvedName,
+      type: input.file.type,
+      size: input.file.size,
+      lastModified: input.file.lastModified,
+    },
+  ]);
   if (!validation.ok) throw new Error(validation.error);
 
   const bucket = getStorageBucketName();
   const buffer = Buffer.from(await input.file.arrayBuffer());
-  const lower = input.file.name.toLowerCase();
-  const sourceFileId = randomUUID();
-
-  let pageUnits: Array<{ pageOrder: number; pdfPageNumber?: number }> = [
-    { pageOrder: input.pageOrder, pdfPageNumber: lower.endsWith(".pdf") ? 1 : undefined },
-  ];
-
-  if (lower.endsWith(".pdf")) {
-    const pages = await extractPdfPageTexts(buffer);
-    if (pages.length > 1) {
-      pageUnits = pages.map((_, index) => ({
-        pageOrder: input.pageOrder + index,
-        pdfPageNumber: index + 1,
-      }));
-    }
-  }
-
+  const fileId = input.clientFileId ?? randomUUID();
   const storagePath = buildProgrammationBatchStoragePath({
     profileId: bundle.profile.id,
     batchId: input.batchId,
     pageOrder: input.pageOrder,
-    fileId: sourceFileId,
-    filename: input.file.name,
+    fileId,
+    filename: resolvedName,
   });
 
   const { error: uploadError } = await supabase.storage.from(bucket).upload(storagePath, buffer, {
@@ -115,37 +137,36 @@ export async function uploadProgrammingImportBatchFile(input: {
   });
 
   if (uploadError) {
-    throw new Error(getSupabaseErrorMessage(uploadError, "Téléversement impossible."));
+    throw new Error(
+      getSupabaseErrorMessage(
+        uploadError,
+        `La page ${input.pageOrder} n'a pas pu être téléversée.`,
+      ),
+    );
   }
 
-  const entries: Array<{ fileId: string; pageOrder: number; pdfPageNumber?: number; storagePath: string }> =
-    [];
+  let persisted = true;
+  const { error: insertError } = await supabase.from("programming_import_files").insert({
+    id: fileId,
+    batch_id: input.batchId,
+    page_order: input.pageOrder,
+    filename: resolvedName,
+    mime_type: input.file.type || "application/octet-stream",
+    storage_path: storagePath,
+    file_size_bytes: input.file.size,
+    analysis_status: "uploaded",
+    pdf_page_number: null,
+    source_file_id: null,
+  });
 
-  for (const unit of pageUnits) {
-    const fileId = randomUUID();
-    const { error: insertError } = await supabase.from("programming_import_files").insert({
-      id: fileId,
-      batch_id: input.batchId,
-      page_order: unit.pageOrder,
-      filename: input.file.name,
-      mime_type: input.file.type || "application/octet-stream",
-      storage_path: storagePath,
-      file_size_bytes: input.file.size,
-      analysis_status: "uploaded",
-      pdf_page_number: unit.pdfPageNumber ?? null,
-      source_file_id: pageUnits.length > 1 ? sourceFileId : null,
-    });
-
-    if (insertError) {
-      throw new Error(getSupabaseErrorMessage(insertError, "Enregistrement fichier impossible."));
+  if (insertError) {
+    persisted = false;
+    if (!isMissingProgrammingImportTable(insertError)) {
+      devLog("[ProgrammingImport] upload-db-warning", {
+        fileId,
+        message: getSupabaseErrorMessage(insertError, "insert failed"),
+      });
     }
-
-    entries.push({
-      fileId,
-      pageOrder: unit.pageOrder,
-      pdfPageNumber: unit.pdfPageNumber,
-      storagePath,
-    });
   }
 
   await supabase
@@ -155,7 +176,11 @@ export async function uploadProgrammingImportBatchFile(input: {
 
   const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(storagePath);
 
-  return { entries, publicUrl: publicUrlData.publicUrl };
+  return {
+    entries: [{ fileId, pageOrder: input.pageOrder, storagePath }],
+    publicUrl: publicUrlData.publicUrl,
+    persisted,
+  };
 }
 
 async function downloadBatchFileBuffer(storagePath: string): Promise<Buffer> {
@@ -165,7 +190,7 @@ async function downloadBatchFileBuffer(storagePath: string): Promise<Buffer> {
   return Buffer.from(await data.arrayBuffer());
 }
 
-async function analyzeStoredFile(file: FileRow): Promise<ParsedProgrammationImport> {
+async function analyzeStoredFile(file: Pick<FileRow, "filename" | "mime_type" | "storage_path" | "pdf_page_number">): Promise<ParsedProgrammationImport> {
   const buffer = await downloadBatchFileBuffer(file.storage_path);
   const lower = file.filename.toLowerCase();
 
@@ -180,7 +205,7 @@ async function analyzeStoredFile(file: FileRow): Promise<ParsedProgrammationImpo
     });
   }
 
-  if (lower.endsWith(".pdf") && !file.pdf_page_number) {
+  if (lower.endsWith(".pdf")) {
     const pages = await extractPdfPageTexts(buffer);
     if (pages.length > 1) {
       const mergedText = pages.join("\n\n");
@@ -199,7 +224,33 @@ async function analyzeStoredFile(file: FileRow): Promise<ParsedProgrammationImpo
   });
 }
 
-export async function analyzeProgrammingImportBatch(batchId: string): Promise<{
+function toFileRows(
+  descriptors: ProgrammingImportUploadedFileDescriptor[],
+  batchId: string,
+): FileRow[] {
+  return descriptors.map((file) => ({
+    id: file.fileId,
+    batch_id: batchId,
+    page_order: file.pageOrder,
+    filename: file.filename,
+    mime_type: file.mimeType,
+    storage_path: file.storagePath,
+    file_size_bytes: 0,
+    analysis_status: "uploaded" as ImportedFileStatus,
+    analysis_error: "",
+    parsed_snapshot: null,
+    pdf_page_number: file.pdfPageNumber ?? null,
+    source_file_id: null,
+  }));
+}
+
+export async function analyzeProgrammingImportBatch(
+  batchId: string,
+  options?: {
+    mergeMode?: ImportBatchMergeMode;
+    files?: ProgrammingImportUploadedFileDescriptor[];
+  },
+): Promise<{
   parsed: ParsedProgrammationImport;
   files: Array<{
     fileId: string;
@@ -208,27 +259,42 @@ export async function analyzeProgrammingImportBatch(batchId: string): Promise<{
     error?: string;
   }>;
 }> {
+  let mergeMode: ImportBatchMergeMode = options?.mergeMode ?? "single_document";
+  let files: FileRow[] = [];
+
   const { data: batch, error: batchError } = await supabase
     .from("programming_import_batches")
     .select("*")
     .eq("id", batchId)
-    .single();
+    .maybeSingle();
 
-  if (batchError || !batch) throw new Error("Lot d'import introuvable.");
+  if (batch && !batchError) {
+    mergeMode = (batch as BatchRow).merge_mode ?? mergeMode;
+    await supabase
+      .from("programming_import_batches")
+      .update({ status: "analyzing", updated_at: new Date().toISOString() })
+      .eq("id", batchId);
+  }
 
-  await supabase
-    .from("programming_import_batches")
-    .update({ status: "analyzing", updated_at: new Date().toISOString() })
-    .eq("id", batchId);
+  if (options?.files?.length) {
+    files = toFileRows(options.files, batchId);
+  } else {
+    const { data: fileRows, error: filesError } = await supabase
+      .from("programming_import_files")
+      .select("*")
+      .eq("batch_id", batchId)
+      .order("page_order", { ascending: true });
 
-  const { data: fileRows, error: filesError } = await supabase
-    .from("programming_import_files")
-    .select("*")
-    .eq("batch_id", batchId)
-    .order("page_order", { ascending: true });
+    if (filesError && !isMissingProgrammingImportTable(filesError)) {
+      throw new Error(getSupabaseErrorMessage(filesError, "Impossible de charger les fichiers du lot."));
+    }
 
-  if (filesError) throw new Error(filesError.message);
-  const files = (fileRows ?? []) as FileRow[];
+    files = (fileRows ?? []) as FileRow[];
+  }
+
+  if (files.length === 0) {
+    throw new Error("Aucun fichier téléversé dans ce lot.");
+  }
 
   const pageResults: PageParseResult[] = [];
   const statuses: Array<{
@@ -290,19 +356,19 @@ export async function analyzeProgrammingImportBatch(batchId: string): Promise<{
     }
   }
 
-  const mergeMode = (batch as BatchRow).merge_mode ?? "single_document";
-  let parsed: ParsedProgrammationImport;
-
-  if (mergeMode === "multiple_programmations") {
-    parsed = mergeProgrammationPages(batchId, pageResults);
-  } else {
-    parsed = mergeProgrammationPages(batchId, pageResults);
+  const parsed = mergeProgrammationPages(batchId, pageResults);
+  if (parsed.batchMeta) {
+    parsed.batchMeta.mergeMode = mergeMode;
   }
 
   if (statuses.some((item) => item.status === "error")) {
     parsed.warnings.push(
       "Certaines pages n'ont pas pu être analysées. Vous pouvez les remplacer ou continuer sans elles.",
     );
+  }
+
+  if (pageResults.length === 0) {
+    throw new Error("Les images ont été téléversées, mais leur analyse a échoué.");
   }
 
   await supabase
@@ -340,7 +406,7 @@ export async function updateProgrammingImportBatchOrder(
   orderedFileIds: string[],
 ): Promise<void> {
   for (let index = 0; index < orderedFileIds.length; index += 1) {
-    await supabase
+    const { error } = await supabase
       .from("programming_import_files")
       .update({
         page_order: index + 1,
@@ -348,5 +414,9 @@ export async function updateProgrammingImportBatchOrder(
       })
       .eq("id", orderedFileIds[index])
       .eq("batch_id", batchId);
+
+    if (error && !isMissingProgrammingImportTable(error)) {
+      throw new Error(getSupabaseErrorMessage(error, "Réorganisation impossible."));
+    }
   }
 }

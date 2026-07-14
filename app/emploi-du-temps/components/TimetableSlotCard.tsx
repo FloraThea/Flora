@@ -4,6 +4,7 @@ import type { SmartTimetableSlot } from "@/lib/timetable/types";
 import { resolveSlotAppearance } from "@/lib/timetable/subject-palette";
 import { readSlotMeta } from "@/lib/timetable/slot-editor/operations";
 import { defaultIconForSlot } from "@/lib/timetable/slot-editor/constants";
+import { resolveSlotCardDisplay } from "@/lib/timetable/slot-display";
 import { computeSlotCardTypography } from "@/lib/timetable/slot-card-typography";
 import { useFloraTheme } from "@/components/theme/ThemeProvider";
 
@@ -55,11 +56,9 @@ export function TimetableSlotCard({
       );
 
   const icon = meta.icon ?? defaultIconForSlot(slot.subject, slot.subSubject, slot.slotType);
-  const displayTitle = meta.displayText?.trim();
-  const subjectLine = displayTitle && displayTitle !== slot.subject ? slot.subject : null;
+  const display = resolveSlotCardDisplay(slot);
   const locked = slot.lockLevel !== "none";
   const teacher = meta.teacherName || slot.intervenant;
-  const timeLabel = `${slot.start} – ${slot.end}`;
 
   return (
     <article
@@ -74,9 +73,7 @@ export function TimetableSlotCard({
       }}
       role={onEdit ? "button" : undefined}
       tabIndex={onEdit ? 0 : undefined}
-      title={[timeLabel, displayTitle || slot.subject, slot.subSubject, slot.customText]
-        .filter(Boolean)
-        .join(" · ")}
+      title={display.tooltip}
       className={`group relative flex flex-col overflow-hidden rounded-xl border text-left shadow-[var(--shadow-card)] transition duration-200 ${
         fillHeight ? "h-full min-h-0" : ""
       } ${
@@ -102,7 +99,7 @@ export function TimetableSlotCard({
             isGrid ? "" : "text-[10px] font-medium"
           }`}
         >
-          {timeLabel}
+          {display.timeLabel}
         </span>
         <div className="flex shrink-0 items-center gap-0.5">
           {typography?.showTertiary ? (
@@ -133,35 +130,34 @@ export function TimetableSlotCard({
           }`}
           style={{ WebkitLineClamp: typography?.lineClamp ?? 2 }}
         >
-          {displayTitle || slot.subject || "Créneau"}
+          {display.subject}
         </h5>
 
-        {typography?.showSecondary && (subjectLine || slot.subSubject) ? (
+        {display.subSubject ? (
           <p
             className={`schedule-card-secondary mt-0.5 opacity-95 ${
               isGrid ? "" : "text-xs font-light opacity-90"
             }`}
+            style={{ WebkitLineClamp: typography?.lineClamp ?? 2 }}
           >
-            {subjectLine}
-            {subjectLine && slot.subSubject ? " · " : null}
-            {slot.subSubject}
+            {display.subSubject}
           </p>
         ) : null}
 
-        {typography?.showTertiary && meta.levels?.length ? (
-          <p className={`schedule-card-secondary mt-0.5 opacity-85 ${isGrid ? "" : "text-[10px] font-light"}`}>
-            {meta.levels.join(" · ")}
-          </p>
-        ) : null}
-
-        {typography?.showTertiary && slot.customText ? (
+        {display.complementaryText ? (
           <p
-            className={`schedule-card-secondary mt-0.5 italic opacity-85 ${
-              isGrid ? "" : "text-[10px] font-light"
+            className={`schedule-card-secondary mt-0.5 leading-snug opacity-95 ${
+              isGrid ? "" : "text-xs font-light"
             }`}
-            style={{ WebkitLineClamp: 2 }}
+            style={{ WebkitLineClamp: typography?.compact ? 1 : 3 }}
           >
-            {slot.customText}
+            {display.complementaryText}
+          </p>
+        ) : null}
+
+        {(typography?.showTertiary ?? !isGrid) && display.levels.length ? (
+          <p className={`schedule-card-secondary mt-0.5 opacity-85 ${isGrid ? "" : "text-[10px] font-light"}`}>
+            {display.levels.join(" · ")}
           </p>
         ) : null}
 

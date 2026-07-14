@@ -5,6 +5,7 @@ import { resolveSlotAppearance } from "@/lib/timetable/subject-palette";
 import { readSlotMeta } from "@/lib/timetable/slot-editor/operations";
 import { defaultIconForSlot } from "@/lib/timetable/slot-editor/constants";
 import { isMobileBreakSlot } from "@/lib/timetable/mobile-schedule-utils";
+import { resolveSlotCardDisplay } from "@/lib/timetable/slot-display";
 import { useFloraTheme } from "@/components/theme/ThemeProvider";
 
 type Props = {
@@ -38,11 +39,10 @@ export function MobileScheduleSlotCard({ slot, overlapping = false, onOpen }: Pr
       );
 
   const icon = meta.icon ?? defaultIconForSlot(slot.subject, slot.subSubject, slot.slotType);
-  const displayTitle = meta.displayText?.trim();
-  const subjectLine = displayTitle || slot.subject || "Créneau";
+  const display = resolveSlotCardDisplay(slot);
   const locked = slot.lockLevel !== "none";
-  const showLevels = meta.levels?.length && !isBreak;
-  const timeLabel = `${slot.start.replace(":", " h ")} – ${slot.end.replace(":", " h ")}`;
+  const showLevels = display.levels.length > 0 && !isBreak;
+  const timeLabel = display.timeLabel.replace(/:/g, " h ");
 
   return (
     <button
@@ -65,16 +65,24 @@ export function MobileScheduleSlotCard({ slot, overlapping = false, onOpen }: Pr
             {timeLabel}
           </p>
           <p className="mobile-schedule-subject mt-1 font-serif text-[17px] font-semibold leading-snug">
-            {subjectLine}
+            {display.subject}
           </p>
-          {slot.subSubject ? (
+          {display.subSubject ? (
             <p className="mobile-schedule-secondary mt-0.5 text-[14px] font-light leading-snug opacity-95">
-              {slot.subSubject}
+              {display.subSubject}
+            </p>
+          ) : null}
+          {display.complementaryText ? (
+            <p
+              className="mobile-schedule-secondary mt-0.5 text-[14px] font-light leading-snug opacity-95"
+              style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden" }}
+            >
+              {display.complementaryText}
             </p>
           ) : null}
           {showLevels ? (
             <p className="mobile-schedule-secondary mt-0.5 text-[14px] font-light leading-snug opacity-85">
-              {meta.levels!.join(" · ")}
+              {display.levels.join(" · ")}
             </p>
           ) : null}
         </div>

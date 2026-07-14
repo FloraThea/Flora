@@ -184,6 +184,8 @@ test("duplicateSlot creates unique id and preserves content", () => {
   const copy = duplicateSlot(source, "sched-1");
   assert.notEqual(copy.id, source.id);
   assert.equal(copy.subject, source.subject);
+  assert.equal(copy.customText, source.customText);
+  assert.equal(copy.subSubject, source.subSubject);
 });
 
 const failed = results.filter((r) => !r.ok);

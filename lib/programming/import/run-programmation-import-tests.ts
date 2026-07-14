@@ -89,12 +89,34 @@ function testValidateBatchRejectsTooManyFiles() {
   if (!result.ok) assert.match(result.error, /20/);
 }
 
+function testValidateBatchAcceptsIphoneUuidPngWithoutExtension() {
+  const result = validateBatchFiles([
+    {
+      name: "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
+      type: "image/png",
+      size: 2048,
+      lastModified: 1,
+    },
+  ]);
+  assert.equal(result.ok, true);
+}
+
+function testValidateBatchAcceptsMixedPngAndJpeg() {
+  const result = validateBatchFiles([
+    { name: "page-1.png", type: "image/png", size: 1024, lastModified: 1 },
+    { name: "photo.jpeg", type: "image/jpeg", size: 2048, lastModified: 2 },
+  ]);
+  assert.equal(result.ok, true);
+}
+
 function runProgrammationImportTests() {
   testBatchLimits();
   testDuplicateDetection();
   testMergeMultiplePagesIntoSingleProgrammation();
   testValidateBatchRejectsTooManyFiles();
-  console.log("Programmation import tests: 4/4 passed");
+  testValidateBatchAcceptsIphoneUuidPngWithoutExtension();
+  testValidateBatchAcceptsMixedPngAndJpeg();
+  console.log("Programmation import tests: 6/6 passed");
 }
 
 runProgrammationImportTests();

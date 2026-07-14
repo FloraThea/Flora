@@ -26,10 +26,20 @@ export type BatchPanelFile = {
   storagePath?: string;
 };
 
+type ImportUiState =
+  | "idle"
+  | "files_selected"
+  | "uploading"
+  | "analyzing"
+  | "review"
+  | "saving"
+  | "success"
+  | "error";
+
 type Props = {
   schoolYear: string;
   onAnalyzed: (parsed: ParsedProgrammationImport, batchId: string, storagePaths: string[]) => void;
-  onError: (message: string) => void;
+  onError: (message: string | null) => void;
 };
 
 const STATUS_LABELS: Record<ImportedFileStatus, string> = {
@@ -46,6 +56,13 @@ function createClientId(): string {
   return `client-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function createBatchId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `batch-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function buildPreviewUrl(file: File): string | undefined {
   if (isSupportedImageFile(file.name, file.type)) {
     return URL.createObjectURL(file);
@@ -57,20 +74,24 @@ function openFilePicker(input: HTMLInputElement | null) {
   input?.click();
 }
 
+function parseApiError(data: { error?: string; details?: string }, fallback: string): string {
+  return data.error?.trim() || data.details?.trim() || fallback;
+}
+
 export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
-  const [batchId, setBatchId] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string>(() => createBatchId());
   const [files, setFiles] = useState<BatchPanelFile[]>([]);
   const [mergeMode, setMergeMode] = useState<ImportBatchMergeMode>("single_document");
-  const [phase, setPhase] = useState<
-    "idle" | "uploading" | "analyzing" | "merging" | "creating" | "done"
-  >("idle");
+  const [uiState, setUiState] = useState<ImportUiState>("idle");
+  const [failureStep, setFailureStep] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [duplicatePrompt, setDuplicatePrompt] = useState<string[] | null>(null);
   const [pendingAddFiles, setPendingAddFiles] = useState<File[]>([]);
 
   const accept = getModuleAcceptAttribute("programmation");
+  const isBusy = uiState === "uploading" || uiState === "analyzing" || uiState === "saving";
 
   useEffect(() => {
     return () => {
@@ -95,27 +116,43 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
   }, []);
 
   const ensureBatch = useCallback(async (): Promise<string> => {
-    if (batchId) return batchId;
+    console.log("[ProgrammingImport] batch-create-start");
     const response = await fetch("/api/programmation/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "batch_create",
+        batchId,
         schoolYear,
         mergeMode,
       }),
     });
-    const data = (await response.json()) as { batchId?: string; error?: string };
-    if (!response.ok || !data.batchId) {
-      throw new Error(data.error || "Impossible de créer le lot.");
+    const data = (await response.json()) as {
+      batchId?: string;
+      error?: string;
+      details?: string;
+    };
+    if (!response.ok) {
+      throw new Error(parseApiError(data, "Le lot d'import n'a pas pu être créé."));
     }
-    setBatchId(data.batchId);
-    return data.batchId;
+    const resolvedBatchId = data.batchId ?? batchId;
+    setBatchId(resolvedBatchId);
+    console.log("[ProgrammingImport] batch-created", resolvedBatchId);
+    return resolvedBatchId;
   }, [batchId, mergeMode, schoolYear]);
 
   const addLocalFiles = useCallback((incoming: File[]) => {
+    console.log("[ProgrammingImport] files-selected", {
+      count: incoming.length,
+      names: incoming.map((file) => file.name),
+      types: incoming.map((file) => file.type),
+      sizes: incoming.map((file) => file.size),
+    });
+
     const validation = validateBatchFiles([...files.map((f) => f.file).filter(Boolean) as File[], ...incoming]);
     if (!validation.ok) {
+      setUiState("error");
+      setFailureStep("validation");
       onError(validation.error);
       return;
     }
@@ -139,6 +176,8 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       status: "pending",
     }));
     setFiles((current) => [...current, ...nextItems]);
+    setUiState("files_selected");
+    onError(null);
   }, [files, onError]);
 
   const confirmDuplicateAdd = useCallback(() => {
@@ -156,7 +195,9 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
     setFiles((current) => [...current, ...nextItems]);
     setPendingAddFiles([]);
     setDuplicatePrompt(null);
-  }, [files.length, pendingAddFiles]);
+    setUiState("files_selected");
+    onError(null);
+  }, [files.length, onError, pendingAddFiles]);
 
   const moveFile = useCallback(
     (clientId: string, direction: -1 | 1 | "first" | "last") => {
@@ -199,104 +240,126 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         };
       }),
     );
-  }, []);
+    setUiState("files_selected");
+    onError(null);
+  }, [onError]);
 
   const runBatchImport = useCallback(async () => {
-    const localFiles = files.filter((item) => item.file);
+    const localFiles = sortedFiles.filter((item) => item.file);
     if (localFiles.length === 0) {
+      setUiState("error");
+      setFailureStep("validation");
       onError("Ajoutez au moins un fichier.");
       return;
     }
 
-    setPhase("uploading");
-    onError("");
+    setUiState("uploading");
+    setFailureStep(null);
+    onError(null);
+
+    const uploadedDescriptors: Array<{
+      fileId: string;
+      filename: string;
+      mimeType: string;
+      pageOrder: number;
+      storagePath: string;
+      pdfPageNumber?: number;
+    }> = [];
 
     try {
       const currentBatchId = await ensureBatch();
       let pageOrderCursor = 1;
-      const uploadedFileIds: string[] = [];
 
       for (const item of sortedFiles) {
         if (!item.file) continue;
+
         setFiles((current) =>
           current.map((entry) =>
-            entry.clientId === item.clientId ? { ...entry, status: "uploading" } : entry,
+            entry.clientId === item.clientId ? { ...entry, status: "uploading", error: undefined } : entry,
           ),
         );
 
+        console.log("[ProgrammingImport] upload-start", item.clientId);
         const formData = new FormData();
         formData.append("action", "batch_upload");
         formData.append("batchId", currentBatchId);
         formData.append("pageOrder", String(pageOrderCursor));
+        formData.append("clientFileId", item.clientId);
         formData.append("file", item.file);
 
         const response = await fetch("/api/programmation/import", { method: "POST", body: formData });
         const data = (await response.json()) as {
           entries?: Array<{ fileId: string; pageOrder: number; pdfPageNumber?: number; storagePath: string }>;
           error?: string;
+          details?: string;
+          step?: string;
         };
 
         if (!response.ok || !data.entries?.length) {
-          throw new Error(data.error || `Échec téléversement ${item.filename}`);
-        }
-
-        pageOrderCursor += data.entries.length;
-        uploadedFileIds.push(...data.entries.map((entry) => entry.fileId));
-
-        if (data.entries.length === 1) {
           setFiles((current) =>
             current.map((entry) =>
               entry.clientId === item.clientId
                 ? {
                     ...entry,
-                    status: "uploaded",
-                    fileId: data.entries![0]?.fileId,
-                    storagePath: data.entries![0]?.storagePath,
-                    pdfPageNumber: data.entries![0]?.pdfPageNumber,
+                    status: "error",
+                    error: parseApiError(data, `Échec téléversement ${item.filename}`),
                   }
                 : entry,
             ),
           );
-        } else {
-          setFiles((current) => {
-            const without = current.filter((entry) => entry.clientId !== item.clientId);
-            const expanded = data.entries!.map((entry, index) => ({
-              clientId: `${item.clientId}-pdf-${index}`,
-              filename: item.filename,
-              mimeType: item.mimeType,
-              pageOrder: entry.pageOrder,
-              pdfPageNumber: entry.pdfPageNumber,
-              status: "uploaded" as ImportedFileStatus,
-              fileId: entry.fileId,
-              storagePath: entry.storagePath,
-            }));
-            return [...without, ...expanded].map((entry, index) => ({
-              ...entry,
-              pageOrder: index + 1,
-            }));
-          });
+          throw new Error(parseApiError(data, `La page ${item.pageOrder} n'a pas pu être téléversée.`));
         }
+
+        console.log("[ProgrammingImport] upload-success", item.clientId);
+        pageOrderCursor += data.entries.length;
+
+        const entry = data.entries[0]!;
+        uploadedDescriptors.push({
+          fileId: entry.fileId,
+          filename: item.filename,
+          mimeType: item.mimeType,
+          pageOrder: entry.pageOrder,
+          storagePath: entry.storagePath,
+          pdfPageNumber: entry.pdfPageNumber,
+        });
+
+        setFiles((current) =>
+          current.map((entryRow) =>
+            entryRow.clientId === item.clientId
+              ? {
+                  ...entryRow,
+                  status: "uploaded",
+                  fileId: entry.fileId,
+                  storagePath: entry.storagePath,
+                  pdfPageNumber: entry.pdfPageNumber,
+                }
+              : entryRow,
+          ),
+        );
       }
 
-      if (uploadedFileIds.length > 0) {
+      if (uploadedDescriptors.length > 0) {
         await fetch("/api/programmation/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "batch_reorder",
             batchId: currentBatchId,
-            orderedFileIds: uploadedFileIds,
+            orderedFileIds: uploadedDescriptors.map((entry) => entry.fileId),
           }),
         });
       }
 
-      setPhase("analyzing");
+      setUiState("analyzing");
+      console.log("[ProgrammingImport] analysis-start", currentBatchId);
       const analyzeResponse = await fetch("/api/programmation/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "batch_analyze",
           batchId: currentBatchId,
+          mergeMode,
+          uploadedFiles: uploadedDescriptors,
         }),
       });
 
@@ -304,15 +367,19 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         parsed?: ParsedProgrammationImport;
         files?: Array<{ fileId: string; status: ImportedFileStatus; error?: string }>;
         error?: string;
+        details?: string;
       };
 
       if (!analyzeResponse.ok || !analyzeData.parsed) {
-        throw new Error(analyzeData.error || "Analyse du lot impossible.");
+        throw new Error(
+          parseApiError(analyzeData, "Les images ont été téléversées, mais leur analyse a échoué."),
+        );
       }
 
+      console.log("[ProgrammingImport] analysis-success", currentBatchId);
       setFiles((current) =>
         current.map((entry) => {
-          const remote = analyzeData.files?.find((item) => item.fileId === entry.fileId);
+          const remote = analyzeData.files?.find((remoteFile) => remoteFile.fileId === entry.fileId);
           if (!remote) return entry;
           return {
             ...entry,
@@ -322,15 +389,29 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         }),
       );
 
-      setPhase("merging");
-      const storagePaths = sortedFiles.map((item) => item.storagePath).filter(Boolean) as string[];
-      setPhase("done");
+      console.log("[ProgrammingImport] merge-start");
+      const storagePaths = uploadedDescriptors.map((entry) => entry.storagePath);
+      setUiState("review");
+      console.log("[ProgrammingImport] completed", currentBatchId);
       onAnalyzed(analyzeData.parsed, currentBatchId, storagePaths);
     } catch (importError) {
-      setPhase("idle");
-      onError(importError instanceof Error ? importError.message : "Import impossible.");
+      const message =
+        importError instanceof Error ? importError.message : "Import impossible.";
+      console.error("[ProgrammingImport] failed", {
+        step: failureStep ?? "import",
+        error: message,
+      });
+      setUiState("error");
+      setFailureStep("import");
+      onError(message);
     }
-  }, [ensureBatch, files, onAnalyzed, onError, sortedFiles]);
+  }, [ensureBatch, failureStep, mergeMode, onAnalyzed, onError, sortedFiles]);
+
+  const retryImport = useCallback(() => {
+    setUiState(files.some((item) => item.file) ? "files_selected" : "idle");
+    onError(null);
+    void runBatchImport();
+  }, [files, onError, runBatchImport]);
 
   const uploadedCount = files.filter((item) =>
     ["uploaded", "analyzed", "analyzing"].includes(item.status),
@@ -342,7 +423,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
 
       <div className="rounded-2xl bg-white/45 p-4">
         <p className="text-sm font-medium">Ces fichiers constituent-ils :</p>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
           <button
             type="button"
             onClick={() => setMergeMode("single_document")}
@@ -381,12 +462,12 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         }}
       >
         <p className="text-sm font-light">Glissez-déposez vos pages ici ou sélectionnez plusieurs fichiers.</p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          <FloraButton onClick={() => openFilePicker(inputRef.current)} disabled={phase !== "idle" && phase !== "done"}>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-center">
+          <FloraButton onClick={() => openFilePicker(inputRef.current)} disabled={isBusy}>
             Sélectionner des fichiers
           </FloraButton>
           {files.length > 0 ? (
-            <FloraButton variant="secondary" onClick={() => openFilePicker(addInputRef.current)}>
+            <FloraButton variant="secondary" onClick={() => openFilePicker(addInputRef.current)} disabled={isBusy}>
               Ajouter des pages
             </FloraButton>
           ) : null}
@@ -420,7 +501,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       {duplicatePrompt ? (
         <div className="rounded-2xl bg-peach/30 px-4 py-3 text-sm">
           <p>Fichier(s) déjà présent(s) : {duplicatePrompt.join(", ")}. Conserver quand même ?</p>
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <FloraButton size="sm" onClick={confirmDuplicateAdd}>
               Conserver
             </FloraButton>
@@ -457,28 +538,31 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
                   {item.error ? <p className="text-xs text-[#b88989]">{item.error}</p> : null}
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-1">
-                <FloraButton size="sm" variant="secondary" onClick={() => moveFile(item.clientId, "first")}>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <FloraButton size="sm" variant="secondary" onClick={() => moveFile(item.clientId, "first")} disabled={isBusy}>
                   ⏫
                 </FloraButton>
-                <FloraButton size="sm" variant="secondary" onClick={() => moveFile(item.clientId, -1)}>
+                <FloraButton size="sm" variant="secondary" onClick={() => moveFile(item.clientId, -1)} disabled={isBusy}>
                   Monter
                 </FloraButton>
-                <FloraButton size="sm" variant="secondary" onClick={() => moveFile(item.clientId, 1)}>
+                <FloraButton size="sm" variant="secondary" onClick={() => moveFile(item.clientId, 1)} disabled={isBusy}>
                   Descendre
                 </FloraButton>
-                <FloraButton size="sm" variant="secondary" onClick={() => moveFile(item.clientId, "last")}>
+                <FloraButton size="sm" variant="secondary" onClick={() => moveFile(item.clientId, "last")} disabled={isBusy}>
                   ⏬
                 </FloraButton>
-                <FloraButton size="sm" variant="secondary" onClick={() => removeFile(item.clientId)}>
+                <FloraButton size="sm" variant="secondary" onClick={() => removeFile(item.clientId)} disabled={isBusy}>
                   Supprimer
                 </FloraButton>
                 <label className="cursor-pointer">
-                  <span className="inline-flex rounded-full bg-white/70 px-3 py-1 text-xs">Remplacer</span>
+                  <span className="inline-flex w-full justify-center rounded-full bg-white/70 px-3 py-1 text-xs">
+                    Remplacer
+                  </span>
                   <input
                     type="file"
                     accept={accept}
                     className="hidden"
+                    disabled={isBusy}
                     onChange={(event) => {
                       const replacement = event.target.files?.[0];
                       if (replacement) replaceFile(item.clientId, replacement);
@@ -492,26 +576,30 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         </ul>
       ) : null}
 
-      {phase !== "idle" ? (
+      {uiState === "uploading" || uiState === "analyzing" ? (
         <div className="rounded-2xl bg-white/50 px-4 py-3 text-sm">
           <p>
-            {phase === "uploading"
+            {uiState === "uploading"
               ? `Téléversement : ${uploadedCount} / ${files.length}`
-              : phase === "analyzing"
-                ? "Analyse des pages…"
-                : phase === "merging"
-                  ? "Fusion des données…"
-                  : "Analyse terminée"}
+              : "Analyse des pages…"}
           </p>
         </div>
       ) : null}
 
-      <FloraButton
-        onClick={() => void runBatchImport()}
-        disabled={files.length === 0 || (phase !== "idle" && phase !== "done")}
-      >
-        {phase === "uploading" || phase === "analyzing" ? "Traitement…" : "Analyser le lot"}
-      </FloraButton>
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+        <FloraButton
+          type="button"
+          onClick={() => void runBatchImport()}
+          disabled={files.length === 0 || isBusy}
+        >
+          {isBusy ? "Traitement…" : "Analyser le lot"}
+        </FloraButton>
+        {uiState === "error" ? (
+          <FloraButton type="button" variant="secondary" onClick={retryImport}>
+            Réessayer
+          </FloraButton>
+        ) : null}
+      </div>
 
       <p className="text-xs text-flora-text-subtle">
         Maximum {PROGRAMMATION_IMPORT_BATCH_LIMITS.maxFiles} fichiers · mélange PNG, JPG, PDF, DOCX, XLSX accepté.

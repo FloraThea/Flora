@@ -57,3 +57,13 @@ export type ProgrammationImportBatchMeta = {
     pdfPageNumber?: number;
   }>;
 };
+
+/** Descripteur transmis par le client si les tables batch ne sont pas disponibles. */
+export type ProgrammingImportUploadedFileDescriptor = {
+  fileId: string;
+  filename: string;
+  mimeType: string;
+  pageOrder: number;
+  storagePath: string;
+  pdfPageNumber?: number;
+};

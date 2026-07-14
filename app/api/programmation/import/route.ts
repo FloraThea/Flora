@@ -16,18 +16,47 @@ import {
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type { AcademicZone, SchoolLevel } from "@/lib/programming/types";
 import type { ProgrammationFormatConfig } from "@/lib/programming/import/types";
-import type { ImportBatchMergeMode } from "@/lib/programming/import/batch-types";
+import type { ImportBatchMergeMode, ProgrammingImportUploadedFileDescriptor } from "@/lib/programming/import/batch-types";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 
 const ROUTE_PATH = "/api/programmation/import";
 
+function mapImportStepError(action: string | undefined, error: unknown): { status: number; message: string } {
+  const details = toErrorMessage(error).toLowerCase();
+
+  if (details.includes("session") || details.includes("profil")) {
+    return { status: 401, message: "Votre session a expiré. Reconnectez-vous puis réessayez." };
+  }
+  if (action === "batch_create") {
+    return { status: 500, message: "Le lot d'import n'a pas pu être créé." };
+  }
+  if (action === "batch_upload") {
+    return { status: 500, message: toErrorMessage(error) || "Le téléversement a échoué." };
+  }
+  if (action === "batch_analyze") {
+    return {
+      status: 500,
+      message: toErrorMessage(error) || "Les images ont été téléversées, mais leur analyse a échoué.",
+    };
+  }
+  if (action === "save") {
+    return {
+      status: 500,
+      message: "La programmation a été analysée, mais son enregistrement a échoué.",
+    };
+  }
+
+  return { status: 500, message: toErrorMessage(error) || "Import programmation impossible." };
+}
+
 export async function POST(request: Request) {
+  let action: string | undefined;
   try {
     const contentType = request.headers.get("content-type") ?? "";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
-      const action = String(formData.get("action") ?? "analyze");
+      action = String(formData.get("action") ?? "analyze");
       const file = formData.get("file");
 
       if (action === "batch_upload") {
@@ -36,9 +65,16 @@ export async function POST(request: Request) {
         }
         const batchId = String(formData.get("batchId") ?? "");
         const pageOrder = Number(formData.get("pageOrder") ?? 1);
+        const clientFileId = String(formData.get("clientFileId") ?? "") || undefined;
         if (!batchId) return jsonRouteError(ROUTE_PATH, 400, "batchId requis.");
 
-        const uploaded = await uploadProgrammingImportBatchFile({ batchId, file, pageOrder });
+        logRouteInfo(ROUTE_PATH, "Upload lot programmation", { batchId, pageOrder, fileName: file.name });
+        const uploaded = await uploadProgrammingImportBatchFile({
+          batchId,
+          file,
+          pageOrder,
+          clientFileId,
+        });
         return NextResponse.json({ route: ROUTE_PATH, ...uploaded });
       }
 
@@ -84,14 +120,19 @@ export async function POST(request: Request) {
       batchId?: string;
       mergeMode?: ImportBatchMergeMode;
       orderedFileIds?: string[];
+      uploadedFiles?: ProgrammingImportUploadedFileDescriptor[];
       pastedText?: string;
       fileName?: string;
     };
 
+    action = body.action;
+
     if (body.action === "batch_create") {
+      logRouteInfo(ROUTE_PATH, "Création lot programmation", { batchId: body.batchId });
       const created = await createProgrammingImportBatch({
         schoolYear: body.schoolYear,
         mergeMode: body.mergeMode,
+        batchId: body.batchId,
       });
       return NextResponse.json({ route: ROUTE_PATH, ...created });
     }
@@ -102,8 +143,14 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "batch_analyze" && body.batchId) {
-      logRouteInfo(ROUTE_PATH, "Analyse lot programmation", { batchId: body.batchId });
-      const result = await analyzeProgrammingImportBatch(body.batchId);
+      logRouteInfo(ROUTE_PATH, "Analyse lot programmation", {
+        batchId: body.batchId,
+        fileCount: body.uploadedFiles?.length ?? 0,
+      });
+      const result = await analyzeProgrammingImportBatch(body.batchId, {
+        mergeMode: body.mergeMode,
+        files: body.uploadedFiles,
+      });
       return NextResponse.json({ route: ROUTE_PATH, ...result });
     }
 
@@ -172,6 +219,18 @@ export async function POST(request: Request) {
 
     return jsonRouteError(ROUTE_PATH, 400, "Action ou paramètres invalides.");
   } catch (error) {
-    return jsonRouteError(ROUTE_PATH, 500, "Import programmation impossible.", toErrorMessage(error));
+    const mapped = mapImportStepError(action, error);
+    console.error("[ProgrammingImport] failed", {
+      step: action ?? "unknown",
+      error: toErrorMessage(error),
+    });
+    return jsonRouteError(
+      ROUTE_PATH,
+      mapped.status,
+      mapped.message,
+      toErrorMessage(error),
+      { step: action ?? "unknown" },
+      error,
+    );
   }
 }

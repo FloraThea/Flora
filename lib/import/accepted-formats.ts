@@ -113,6 +113,38 @@ export function getFileExtension(filename: string): string {
   return filename.slice(dotIndex).toLowerCase();
 }
 
+export function inferExtensionFromMime(mimeType?: string): string {
+  if (!mimeType) return "";
+  if (mimeType === "image/png") return ".png";
+  if (mimeType === "image/jpeg" || mimeType === "image/jpg") return ".jpg";
+  if (mimeType === "application/pdf") return ".pdf";
+  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    return ".docx";
+  }
+  if (mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+    return ".xlsx";
+  }
+  if (mimeType === "application/vnd.ms-excel") return ".xls";
+  if (mimeType === "text/csv") return ".csv";
+  if (mimeType === "text/plain") return ".txt";
+  return "";
+}
+
+/** Nom de fichier utilisable côté stockage (extension inférée depuis le MIME si besoin). */
+export function resolveImportFileName(file: Pick<File, "name" | "type">): string {
+  const trimmed = file.name.trim();
+  const base = trimmed || "import";
+  if (getFileExtension(base)) return base;
+  const inferred = inferExtensionFromMime(file.type);
+  return inferred ? `${base}${inferred}` : base;
+}
+
+export function resolveFileExtension(fileName: string, mimeType?: string): string {
+  const ext = getFileExtension(fileName);
+  if (ext) return ext;
+  return inferExtensionFromMime(mimeType);
+}
+
 export function isSupportedImageFile(fileName: string, mimeType?: string): boolean {
   const ext = getFileExtension(fileName);
   if (SUPPORTED_IMAGE_EXTENSIONS.includes(ext as SupportedImageExtension)) return true;

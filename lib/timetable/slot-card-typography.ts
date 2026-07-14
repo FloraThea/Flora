@@ -1,7 +1,11 @@
-/** Tailles de police fixes pour toutes les cartes EDT (écran + export). */
+/** Tailles de police fixes pour toutes les cartes EDT (écran). */
 export const SCHEDULE_SUBJECT_FONT_SIZE_PX = 16;
 export const SCHEDULE_TIME_FONT_SIZE_PX = 13;
 export const SCHEDULE_SECONDARY_FONT_SIZE_PX = 13;
+
+/** Police principale export PDF / PNG / JPG — ne jamais réduire par hauteur. */
+export const EXPORT_SCHEDULE_FONT_SIZE_PX = 30;
+export const EXPORT_SCHEDULE_TIME_FONT_SIZE_PX = 26;
 
 export type SlotCardTypography = {
   timePx: number;
@@ -31,7 +35,7 @@ export function computeSlotCardTypography(heightPx: number): SlotCardTypography 
   };
 }
 
-export function computeUniformPrintTypography(isCompact: boolean): {
+export function computeUniformPrintTypography(_isCompact = false): {
   subjectPx: number;
   timePx: number;
   secondaryPx: number;
@@ -39,10 +43,10 @@ export function computeUniformPrintTypography(isCompact: boolean): {
   showTertiary: boolean;
 } {
   return {
-    subjectPx: SCHEDULE_SUBJECT_FONT_SIZE_PX,
-    timePx: SCHEDULE_TIME_FONT_SIZE_PX,
-    secondaryPx: SCHEDULE_SECONDARY_FONT_SIZE_PX,
-    showSecondary: !isCompact,
-    showTertiary: !isCompact,
+    subjectPx: EXPORT_SCHEDULE_FONT_SIZE_PX,
+    timePx: EXPORT_SCHEDULE_TIME_FONT_SIZE_PX,
+    secondaryPx: EXPORT_SCHEDULE_FONT_SIZE_PX,
+    showSecondary: true,
+    showTertiary: true,
   };
 }

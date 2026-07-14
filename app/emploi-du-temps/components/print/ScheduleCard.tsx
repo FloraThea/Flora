@@ -10,7 +10,7 @@ import {
   resolvePrintCardBackground,
 } from "@/lib/timetable/export/print-layout-engine";
 import type { PrintCustomization } from "@/lib/timetable/export/types";
-import { computeUniformPrintTypography } from "@/lib/timetable/slot-card-typography";
+import { computeUniformPrintTypography, EXPORT_SCHEDULE_FONT_SIZE_PX } from "@/lib/timetable/slot-card-typography";
 import { useFloraTheme } from "@/components/theme/ThemeProvider";
 
 type ScheduleCardProps = {
@@ -32,24 +32,24 @@ export function ScheduleCard({
 }: ScheduleCardProps) {
   const { themeId } = useFloraTheme();
   const monochrome = customization.styleTheme === "monochrome";
-  const { objectif, competence, complementaryText, displayTitle } = extractSlotDetails(slot);
+  const { objectif, competence, complementaryText } = extractSlotDetails(slot);
   const card = resolvePrintCardBackground(slot, theme.useGradients, monochrome, themeId);
   const metaIcon =
     typeof slot.metadata?.icon === "string" ? slot.metadata.icon : undefined;
   const icon = metaIcon ?? getSubjectIcon(slot.subject, slot.subSubject, slot.slotType);
   const padding = getCardPadding(customization.cardScale);
   const hasIcon = customization.showIcons;
-  const typography = computeUniformPrintTypography(cellHeight < 44);
+  const typography = computeUniformPrintTypography();
 
   const contentLines = buildCardContentLines({
-    subject: displayTitle,
+    subject: slot.subject,
     subSubject: slot.subSubject,
     complementaryText,
     objectif,
     competence,
-    showComplementaryText: customization.showComplementaryText && typography.showSecondary,
-    showObjectives: customization.showObjectives && typography.showTertiary,
-    showCompetencies: customization.showCompetencies && typography.showTertiary,
+    showComplementaryText: customization.showComplementaryText,
+    showObjectives: customization.showObjectives,
+    showCompetencies: customization.showCompetencies,
   });
 
   const cardStyle = {
@@ -108,7 +108,13 @@ export function ScheduleCard({
   }
 
   return (
-    <div style={cardStyle}>
+    <div
+      style={{
+        ...cardStyle,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ["--schedule-export-font-size" as any]: `${EXPORT_SCHEDULE_FONT_SIZE_PX}px`,
+      }}
+    >
       {hasIcon ? (
         <span
           style={{
@@ -149,13 +155,10 @@ export function ScheduleCard({
             fontWeight: line.role === "primary" ? 700 : line.role === "secondary" ? 600 : 500,
             lineHeight: 1.15,
             wordBreak: "break-word",
+            whiteSpace: "pre-wrap",
             hyphens: "auto",
             width: "100%",
             opacity: line.role === "tertiary" ? 0.88 : 1,
-            display: "-webkit-box",
-            WebkitBoxOrient: "vertical" as const,
-            WebkitLineClamp: 2,
-            overflow: "hidden",
           }}
         >
           {line.text}

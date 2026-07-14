@@ -147,7 +147,7 @@ export type CardContentLine = {
   role: "primary" | "secondary" | "tertiary";
 };
 
-/** Priorité : texte libre > sous-matière > matière. */
+/** Priorité : matière > sous-matière > texte complémentaire > objectifs. */
 export function buildCardContentLines(input: {
   subject: string;
   subSubject?: string;
@@ -159,20 +159,13 @@ export function buildCardContentLines(input: {
   showCompetencies: boolean;
 }): CardContentLine[] {
   const lines: CardContentLine[] = [];
-  const freeText = input.showComplementaryText ? input.complementaryText?.trim() : "";
-  const sub = input.subSubject?.trim() ?? "";
   const subject = input.subject?.trim() ?? "";
+  const sub = input.subSubject?.trim() ?? "";
+  const freeText = input.showComplementaryText ? input.complementaryText?.trim() : "";
 
-  if (freeText) {
-    lines.push({ text: freeText, role: "primary" });
-    if (sub) lines.push({ text: sub, role: "secondary" });
-    if (subject) lines.push({ text: subject, role: "tertiary" });
-  } else if (sub) {
-    lines.push({ text: sub, role: "primary" });
-    if (subject) lines.push({ text: subject, role: "secondary" });
-  } else if (subject) {
-    lines.push({ text: subject, role: "primary" });
-  }
+  if (subject) lines.push({ text: subject, role: "primary" });
+  if (sub) lines.push({ text: sub, role: "secondary" });
+  if (freeText) lines.push({ text: freeText, role: "secondary" });
 
   if (input.showObjectives && input.objectif?.trim()) {
     lines.push({ text: input.objectif.trim(), role: "tertiary" });
