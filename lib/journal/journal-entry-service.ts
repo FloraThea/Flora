@@ -2,6 +2,7 @@ import "server-only";
 
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { supabase } from "@/lib/supabase";
+import { enrichJournalPayload } from "./journal-view-flags";
 import { journalEntryGenerator } from "./JournalEntryGenerator";
 import { journalGenerator } from "./JournalGenerator";
 import {
@@ -179,7 +180,7 @@ export async function completeJournalEntry(input: CompleteJournalEntryInput): Pr
   await refreshJournalDashboard(payload.journal.id);
   const updated = await loadJournalPayload(payload.journal.id);
   if (!updated) throw new Error("Cahier journal introuvable après mise à jour.");
-  return updated;
+  return enrichJournalPayload(updated);
 }
 
 export async function generateJournalEntry(input: GenerateJournalEntryInput): Promise<JournalPayload> {
@@ -231,5 +232,5 @@ export async function generateJournalEntry(input: GenerateJournalEntryInput): Pr
   await refreshJournalDashboard(payload.journal.id);
   const updated = await loadJournalPayload(payload.journal.id);
   if (!updated) throw new Error("Cahier journal introuvable après génération.");
-  return updated;
+  return enrichJournalPayload(updated);
 }

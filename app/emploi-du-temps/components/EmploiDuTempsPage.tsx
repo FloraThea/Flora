@@ -99,6 +99,14 @@ export function EmploiDuTempsPage() {
     void loadTimetable();
   }, [loadTimetable]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("import") === "1") {
+      setShowImportWizard(true);
+    }
+  }, []);
+
   const applyPayload = useCallback(
     async (data: TimetablePayload, message?: string) => {
       setPayload(data);

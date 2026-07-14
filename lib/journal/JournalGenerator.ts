@@ -3,6 +3,7 @@ import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import type { StoredSeance } from "@/lib/seances/types";
 import { adjustmentEngine } from "./AdjustmentEngine";
 import { buildJournalPreviewForDate } from "./journal-preview";
+import { enrichJournalPayload } from "./journal-view-flags";
 import { dailyPlanner } from "./DailyPlanner";
 import { formatDateLabel, getWeekDates, addDays } from "./date-utils";
 import {
@@ -350,7 +351,7 @@ export class JournalGenerator {
       ...progress,
     };
 
-    return payload;
+    return enrichJournalPayload(payload);
   }
 }
 

@@ -4,6 +4,12 @@
  */
 
 import {
+  mapImportFailureMessage,
+  parseImportApiError,
+  type ImportApiErrorBody,
+} from "@/lib/import/import-api-errors";
+import { ImportFileRegistry } from "@/lib/import/file-registry";
+import {
   PROGRAMMING_IMPORT_API_BODY_LIMIT_BYTES,
   PROGRAMMING_IMPORT_DIRECT_UPLOAD_THRESHOLD_BYTES,
 } from "./batch-limits";
@@ -21,38 +27,7 @@ export type ImportWorkflowStep =
   | "success"
   | "error";
 
-export type ImportApiErrorBody = {
-  error?: string;
-  details?: string;
-  step?: string;
-};
-
-export function parseImportApiError(data: ImportApiErrorBody, fallback: string): string {
-  return data.error?.trim() || data.details?.trim() || fallback;
-}
-
-export function mapImportFailureMessage(step: string, rawMessage: string): string {
-  const message = rawMessage.trim();
-  if (message) return message;
-
-  if (step.startsWith("upload")) {
-    return "Le téléversement des fichiers a échoué.";
-  }
-  if (step === "batch_create") {
-    return "Impossible de créer le lot d'import.";
-  }
-  if (step === "analyze") {
-    return "L'analyse des pages a échoué.";
-  }
-  if (step === "merge") {
-    return "Les données ont été analysées, mais la fusion a échoué.";
-  }
-  if (step === "save") {
-    return "La programmation n'a pas pu être enregistrée.";
-  }
-
-  return "Une erreur inattendue est survenue pendant l'import.";
-}
+export { parseImportApiError, mapImportFailureMessage, type ImportApiErrorBody, ImportFileRegistry };
 
 export function shouldUseDirectUpload(fileSize: number): boolean {
   return fileSize >= PROGRAMMING_IMPORT_DIRECT_UPLOAD_THRESHOLD_BYTES;
@@ -215,27 +190,3 @@ export async function uploadBatchFile(input: {
   };
 }
 
-/** Conserve les objets File hors du state React. */
-export class ImportFileRegistry {
-  private readonly files = new Map<string, File>();
-
-  set(clientId: string, file: File): void {
-    this.files.set(clientId, file);
-  }
-
-  get(clientId: string): File | undefined {
-    return this.files.get(clientId);
-  }
-
-  delete(clientId: string): void {
-    this.files.delete(clientId);
-  }
-
-  has(clientId: string): boolean {
-    return this.files.has(clientId);
-  }
-
-  count(): number {
-    return this.files.size;
-  }
-}

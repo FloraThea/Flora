@@ -11,13 +11,42 @@ import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 
 const ROUTE_PATH = "/api/progression/import";
 
+function mapProgressionImportStepError(
+  action: string | undefined,
+  error: unknown,
+): { status: number; message: string } {
+  const details = toErrorMessage(error);
+
+  if (details.toLowerCase().includes("profil")) {
+    return { status: 401, message: "Profil enseignant requis. Complétez votre profil puis réessayez." };
+  }
+  if (details.includes("Programmation introuvable")) {
+    return { status: 404, message: details };
+  }
+  if (details.includes("validée")) {
+    return { status: 400, message: details };
+  }
+  if (action === "upload" || details.toLowerCase().includes("archiver")) {
+    return { status: 500, message: details || "Le téléversement du fichier a échoué." };
+  }
+  if (action === "analyze") {
+    return { status: 500, message: details || "L'analyse du document a échoué." };
+  }
+  if (action === "save") {
+    return { status: 500, message: details || "La progression n'a pas pu être enregistrée." };
+  }
+
+  return { status: 500, message: details || "Import progression impossible." };
+}
+
 export async function POST(request: Request) {
+  let action: string | undefined;
   try {
     const contentType = request.headers.get("content-type") ?? "";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
-      const action = String(formData.get("action") ?? "analyze");
+      action = String(formData.get("action") ?? "analyze");
       const file = formData.get("file");
 
       if (!(file instanceof File)) {
@@ -58,6 +87,8 @@ export async function POST(request: Request) {
       pastedText?: string;
       fileName?: string;
     };
+
+    action = body.action;
 
     if (body.action === "analyze_text") {
       const parsed = await analyzeProgressionImport({
@@ -103,6 +134,7 @@ export async function POST(request: Request) {
 
     return jsonRouteError(ROUTE_PATH, 400, "Action ou paramètres invalides.");
   } catch (error) {
-    return jsonRouteError(ROUTE_PATH, 500, "Import progression impossible.", toErrorMessage(error));
+    const mapped = mapProgressionImportStepError(action, error);
+    return jsonRouteError(ROUTE_PATH, mapped.status, mapped.message, toErrorMessage(error));
   }
 }

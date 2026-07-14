@@ -2,10 +2,11 @@ import { loadTeacherProfileBundle } from "@/lib/profile";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import { formatDateLabel } from "./date-utils";
 import { dailyPlanner } from "./DailyPlanner";
-import { findJournalByDate, loadJournalPayload } from "./journal-service";
+import { findJournalByDate, loadJournalPayload, saveJournalPayload } from "./journal-service";
 import { resolveJournalScheduleSlots } from "./journal-timetable";
 import { scheduleEngine } from "./ScheduleEngine";
 import { computeDashboard } from "./JournalValidator";
+import { enrichJournalPayload } from "./journal-view-flags";
 import type { JournalEntry, JournalPayload } from "./types";
 
 function emptyDashboard() {
@@ -251,4 +252,66 @@ export async function buildJournalPreviewForDate(date: string): Promise<JournalP
     hasTimetable: true,
     noClassDay: false,
   };
+}
+
+/** Crée une journée manuelle sans emploi du temps (entrées vides, saisie libre). */
+export async function createManualJournalDay(date: string) {
+  const profileBundle = await loadTeacherProfileBundle();
+  if (!profileBundle) {
+    throw new Error("Profil enseignant requis.");
+  }
+
+  const profileId = profileBundle.profile.id;
+  const existing = await findJournalByDate(date, profileId);
+  if (existing) {
+    const loaded = await loadJournalPayload(existing.id);
+    if (loaded) {
+      return enrichJournalPayload({
+        ...loaded,
+        preview: false,
+        hasTimetable: false,
+      });
+    }
+  }
+
+  const calendar = schoolWeeksCalculator.calculate(
+    profileBundle.profile.schoolYear,
+    profileBundle.profile.zoneScolaire,
+    { includeBridgeDays: true },
+  );
+
+  const resolvedDay = scheduleEngine.resolveDay(
+    calendar,
+    { slots: [], weeklyHoursBySubject: {} },
+    date,
+    profileBundle.profile.workingDays,
+  );
+
+  const payload = await saveJournalPayload({
+    journal: {
+      teacherProfileId: profileId,
+      schoolYear: profileBundle.profile.schoolYear,
+      journalDate: date,
+      className: profileBundle.profile.personalization.className || "",
+      effectif: profileBundle.profile.studentCount,
+      presents: profileBundle.profile.studentCount,
+      absents: [],
+      dailyProject: "",
+      mainObjectives: [],
+      importantInfo: "",
+      remarks: "",
+      periodNumber: resolvedDay.periodNumber,
+      weekNumber: resolvedDay.weekNumber,
+      status: "draft",
+      dashboard: emptyDashboard(),
+      metadata: {
+        dateLabel: formatDateLabel(date),
+        dayName: resolvedDay.dayName,
+        manualDay: true,
+      },
+    },
+    entries: [],
+  });
+
+  return enrichJournalPayload({ ...payload, preview: false });
 }

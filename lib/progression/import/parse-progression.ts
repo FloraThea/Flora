@@ -1,7 +1,7 @@
 import "server-only";
 
 import { recognizeImageBuffer } from "@/lib/documents/extraction/ocr-extractor";
-import { parseStructuredText } from "@/lib/programming/import/grid-parser";
+import { parseStructuredText, rowsFromGrid } from "@/lib/programming/import/grid-parser";
 import { parseProgrammationFile } from "@/lib/programming/import/parse-programmation";
 import type { ProgrammationColumnField } from "@/lib/programming/import/types";
 import { isSupportedImageFile } from "@/lib/import/accepted-formats";
@@ -39,6 +39,12 @@ export async function parseProgressionFile(input: {
         );
       } else {
         rows = parseStructuredText(text);
+        if (rows.length === 0) {
+          const gridAttempt = rowsFromGrid(
+            text.split(/\r?\n/).map((line) => line.split(/\t| {2,}|;/)),
+          );
+          rows = gridAttempt.rows;
+        }
         if (rows.length === 0) {
           warnings.push(
             "Texte OCR extrait, mais aucun tableau structuré détecté. Vérifiez les colonnes (période, semaine, séance…).",

@@ -108,6 +108,18 @@ export function CahierJournalPage() {
     }
   }, [viewMode, selectedDate, payload, loadRange]);
 
+  const handleCreateManualDay = useCallback(async () => {
+    setError(null);
+    const response = await fetch("/api/cahier-journal/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create_manual", date: selectedDate }),
+    });
+    const data = (await response.json()) as JournalPayload & { error?: string };
+    if (!response.ok) throw new Error(data.error || "Création impossible.");
+    setPayload(data);
+  }, [selectedDate]);
+
   const handleGenerateEntry = useCallback(
     async (entry: JournalPayload["entries"][number]) => {
       setGeneratingEntryId(entry.id);
@@ -423,6 +435,7 @@ export function CahierJournalPage() {
               onSaveObservation={handleObservationSave}
               onCompleteEntry={setEntryToComplete}
               onGenerateEntry={handleGenerateEntry}
+              onCreateManualDay={handleCreateManualDay}
               generatingEntryId={generatingEntryId}
             />
           ) : null}

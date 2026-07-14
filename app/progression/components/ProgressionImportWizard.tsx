@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraBadge } from "@/components/ui/FloraBadge";
+import { ImportBatchPanel } from "@/components/import/ImportBatchPanel";
+import { parseImportApiError } from "@/lib/import/import-api-errors";
 import type { ProgressionPayload } from "@/lib/progression/types";
 import type {
   ParsedProgressionImport,
@@ -14,7 +16,7 @@ import {
   applyProgrammationColumnMapping,
   COLUMN_FIELD_LABELS,
 } from "@/lib/programming/import/grid-parser";
-import { getFormatsAcceptesLabel, getModuleAcceptAttribute } from "@/lib/import/accepted-formats";
+import { mergeProgrammationPages } from "@/lib/programming/import/merge-programmation-pages";
 import { METHODE_OPTIONS, type ValidatedProgrammationOption } from "../types";
 
 const MAPPING_FIELDS: ProgrammationColumnField[] = [
@@ -30,10 +32,10 @@ const MAPPING_FIELDS: ProgrammationColumnField[] = [
 ];
 
 const STEPS = [
-  "Importer le fichier",
-  "Analyser la progression",
-  "Lier la programmation",
-  "Valider et sauvegarder",
+  "Sélection et téléversement",
+  "Analyse IA",
+  "Vérification",
+  "Lier et sauvegarder",
 ] as const;
 
 type ProgressionImportWizardProps = {
@@ -44,6 +46,31 @@ type ProgressionImportWizardProps = {
   onClose: () => void;
 };
 
+async function analyzeProgressionFile(file: File): Promise<ParsedProgressionImport> {
+  const formData = new FormData();
+  formData.append("action", "analyze");
+  formData.append("file", file);
+  const response = await fetch("/api/progression/import", { method: "POST", body: formData });
+  const data = (await response.json()) as { parsed?: ParsedProgressionImport; error?: string; details?: string };
+  if (!response.ok) {
+    throw new Error(parseImportApiError(data, "Analyse impossible."));
+  }
+  if (!data.parsed) throw new Error("Analyse sans résultat.");
+  return data.parsed;
+}
+
+async function uploadProgressionFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("action", "upload");
+  formData.append("file", file);
+  const response = await fetch("/api/progression/import", { method: "POST", body: formData });
+  const data = (await response.json()) as { storagePath?: string; error?: string; details?: string };
+  if (!response.ok) {
+    throw new Error(parseImportApiError(data, "Téléversement impossible."));
+  }
+  return data.storagePath ?? "";
+}
+
 export function ProgressionImportWizard({
   programmations,
   defaultProgrammationId,
@@ -52,71 +79,103 @@ export function ProgressionImportWizard({
   onClose,
 }: ProgressionImportWizardProps) {
   const [step, setStep] = useState(0);
-  const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedProgressionImport | null>(null);
   const [session, setSession] = useState<ProgressionImportSession | null>(null);
   const [programmationId, setProgrammationId] = useState(defaultProgrammationId);
   const [methode, setMethode] = useState(defaultMethode);
   const [title, setTitle] = useState("");
-  const [storagePath, setStoragePath] = useState("");
+  const [storagePaths, setStoragePaths] = useState<string[]>([]);
+  const [sourceFileNames, setSourceFileNames] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [columnMapping, setColumnMapping] = useState<
     Partial<Record<ProgrammationColumnField, number>>
   >({});
 
-  const runAnalyze = useCallback(async () => {
-    if (!file) {
-      setError("Choisissez un fichier Excel, PDF ou JPG.");
-      return;
-    }
+  const handleBatchAnalyze = useCallback(
+    async (input: {
+      items: Array<{ clientId: string; file: File }>;
+      mergeMode: "single_document" | "multiple_documents";
+      setFileStatus: (
+        clientId: string,
+        status: "pending" | "uploading" | "uploaded" | "analyzing" | "analyzed" | "error",
+        error?: string,
+      ) => void;
+    }) => {
+      setError(null);
+      const batchId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `batch-${Date.now()}`;
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const uploadForm = new FormData();
-      uploadForm.append("action", "upload");
-      uploadForm.append("file", file);
-      const uploadResponse = await fetch("/api/progression/import", {
-        method: "POST",
-        body: uploadForm,
-      });
-      const uploadData = (await uploadResponse.json()) as {
+      const pageResults: Array<{
+        pageOrder: number;
+        fileId: string;
+        fileName: string;
         storagePath?: string;
-        error?: string;
-      };
-      if (uploadResponse.ok && uploadData.storagePath) {
-        setStoragePath(uploadData.storagePath);
+        parsed: ParsedProgressionImport;
+      }> = [];
+
+      const paths: string[] = [];
+      const names: string[] = [];
+
+      for (let index = 0; index < input.items.length; index += 1) {
+        const { clientId, file } = input.items[index]!;
+
+        try {
+          input.setFileStatus(clientId, "uploading");
+          const storagePath = await uploadProgressionFile(file).catch(() => "");
+          if (storagePath) paths.push(storagePath);
+          names.push(file.name);
+          input.setFileStatus(clientId, "analyzing");
+
+          const pageParsed = await analyzeProgressionFile(file);
+          pageResults.push({
+            pageOrder: index + 1,
+            fileId: `page-${index + 1}`,
+            fileName: file.name,
+            storagePath: storagePath || undefined,
+            parsed: pageParsed,
+          });
+          input.setFileStatus(clientId, "analyzed");
+        } catch (fileError) {
+          input.setFileStatus(
+            clientId,
+            "error",
+            fileError instanceof Error ? fileError.message : "Erreur",
+          );
+          throw fileError;
+        }
       }
 
-      const analyzeForm = new FormData();
-      analyzeForm.append("action", "analyze");
-      analyzeForm.append("file", file);
-      const response = await fetch("/api/progression/import", {
-        method: "POST",
-        body: analyzeForm,
-      });
-      const data = (await response.json()) as {
-        parsed?: ParsedProgressionImport;
-        error?: string;
-      };
+      let merged: ParsedProgressionImport;
+      if (input.mergeMode === "single_document" || input.items.length === 1) {
+        merged = mergeProgrammationPages(batchId, pageResults) as ParsedProgressionImport;
+      } else {
+        const allRows = pageResults.flatMap((page) => page.parsed.rows);
+        const primary = pageResults[0]?.parsed;
+        merged = {
+          ...(primary ?? pageResults[0]!.parsed),
+          rows: allRows,
+          rowCount: allRows.length,
+          warnings: pageResults.flatMap((page) =>
+            page.parsed.warnings.map((warning) => `[${page.fileName}] ${warning}`),
+          ),
+        };
+      }
 
-      if (!response.ok) throw new Error(data.error || "Analyse impossible.");
-
-      setParsed(data.parsed ?? null);
-      setColumnMapping(data.parsed?.columnMapping ?? {});
-      setTitle(`Import progression — ${data.parsed?.discipline || "Flora"}`);
+      setParsed(merged);
+      setColumnMapping(merged.columnMapping ?? {});
+      setTitle(`Import progression — ${merged.discipline || "Flora"}`);
+      setStoragePaths(paths);
+      setSourceFileNames(names);
       setStep(1);
-    } catch (analyzeError) {
-      setError(analyzeError instanceof Error ? analyzeError.message : "Analyse impossible.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [file]);
+    },
+    [],
+  );
 
   const runPreview = useCallback(async () => {
-    if (!parsed || !programmationId) return;
+    if (!parsed) return;
 
     setIsLoading(true);
     setError(null);
@@ -136,9 +195,12 @@ export function ProgressionImportWizard({
       const data = (await response.json()) as {
         session?: ProgressionImportSession;
         error?: string;
+        details?: string;
       };
 
-      if (!response.ok) throw new Error(data.error || "Prévisualisation impossible.");
+      if (!response.ok) {
+        throw new Error(parseImportApiError(data, "Prévisualisation impossible."));
+      }
 
       setSession(data.session ?? null);
       setStep(3);
@@ -152,7 +214,7 @@ export function ProgressionImportWizard({
   }, [parsed, programmationId, methode, title]);
 
   const runSave = useCallback(async () => {
-    if (!parsed || !programmationId) return;
+    if (!parsed) return;
 
     setIsLoading(true);
     setError(null);
@@ -167,13 +229,18 @@ export function ProgressionImportWizard({
           programmationId: programmationId || null,
           methode,
           title,
-          sourceStoragePath: storagePath,
-          sourceFileName: file?.name,
+          sourceStoragePath: storagePaths[0] ?? "",
+          sourceFileName: sourceFileNames.join(", "),
         }),
       });
-      const data = (await response.json()) as ProgressionPayload & { error?: string };
+      const data = (await response.json()) as ProgressionPayload & {
+        error?: string;
+        details?: string;
+      };
 
-      if (!response.ok) throw new Error(data.error || "Sauvegarde impossible.");
+      if (!response.ok) {
+        throw new Error(parseImportApiError(data, "Sauvegarde impossible."));
+      }
 
       onComplete(data);
     } catch (saveError) {
@@ -181,7 +248,7 @@ export function ProgressionImportWizard({
     } finally {
       setIsLoading(false);
     }
-  }, [parsed, programmationId, methode, title, storagePath, file?.name, onComplete]);
+  }, [parsed, programmationId, methode, title, storagePaths, sourceFileNames, onComplete]);
 
   function applyColumnMapping() {
     if (!parsed) return;
@@ -205,13 +272,12 @@ export function ProgressionImportWizard({
     });
   }
 
-  const selectedProgrammation = programmations.find((item) => item.id === programmationId);
   const totalRows = session?.tabs.reduce((sum, tab) => sum + tab.rows.length, 0) ?? 0;
 
   return (
-    <FloraCard padding="lg" accent="rose" className="space-y-6">
+    <FloraCard padding="lg" accent="rose" className="w-full max-w-full space-y-6 overflow-x-hidden box-border">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h3 className="font-serif text-2xl font-medium">Importer une progression</h3>
           <p className="mt-1 text-sm font-light text-flora-text-subtle">
             Étape {step + 1} / {STEPS.length} — {STEPS[step]}
@@ -231,29 +297,20 @@ export function ProgressionImportWizard({
       </div>
 
       {error ? (
-        <p className="rounded-2xl bg-rose-soft/35 px-4 py-3 text-sm text-[#b88989]">{error}</p>
+        <p className="rounded-2xl bg-rose-soft/35 px-4 py-3 text-sm text-[#b88989] break-words">
+          {error}
+        </p>
       ) : null}
 
       {step === 0 ? (
-        <div className="grid gap-4">
-          <label className="block text-sm">
-            <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
-              Fichier (Excel, PDF, JPG)
-            </span>
-            <input
-              type="file"
-              accept={getModuleAcceptAttribute("progression")}
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
-            />
-          </label>
-          <p className="text-sm font-light text-flora-text-muted">
-            {getFormatsAcceptesLabel("progression")}. Les photos sont analysées par OCR.
-          </p>
-          <FloraButton onClick={() => void runAnalyze()} disabled={isLoading || !file}>
-            {isLoading ? "Analyse en cours…" : "Analyser le fichier"}
-          </FloraButton>
-        </div>
+        <ImportBatchPanel
+          module="progression"
+          analyzeButtonLabel="Analyser la progression"
+          singleDocumentLabel="Plusieurs pages d'une même progression"
+          multipleDocumentsLabel="Plusieurs progressions différentes"
+          onAnalyze={handleBatchAnalyze}
+          onError={setError}
+        />
       ) : null}
 
       {step === 1 && parsed ? (
@@ -266,7 +323,9 @@ export function ProgressionImportWizard({
           {parsed.warnings.length > 0 ? (
             <ul className="space-y-1 text-sm font-light text-flora-text-muted">
               {parsed.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
+                <li key={warning} className="break-words">
+                  {warning}
+                </li>
               ))}
             </ul>
           ) : null}
@@ -341,7 +400,7 @@ export function ProgressionImportWizard({
               Retour
             </FloraButton>
             <FloraButton onClick={() => setStep(2)} disabled={parsed.rowCount === 0}>
-              Continuer
+              Continuer vers la vérification
             </FloraButton>
           </div>
         </div>
@@ -366,12 +425,6 @@ export function ProgressionImportWizard({
               ))}
             </select>
           </label>
-
-          {!programmationId ? (
-            <p className="text-sm font-light text-flora-text-muted">
-              Programmation associée : aucune. Vous pourrez lier ce document plus tard.
-            </p>
-          ) : null}
 
           <label className="block text-sm">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
@@ -406,10 +459,7 @@ export function ProgressionImportWizard({
             <FloraButton variant="secondary" onClick={() => setStep(1)}>
               Retour
             </FloraButton>
-            <FloraButton
-              onClick={() => void runPreview()}
-              disabled={isLoading}
-            >
+            <FloraButton onClick={() => void runPreview()} disabled={isLoading}>
               {isLoading ? "Préparation…" : "Prévisualiser"}
             </FloraButton>
           </div>
@@ -421,7 +471,10 @@ export function ProgressionImportWizard({
           <p className="text-sm font-light text-flora-text-muted">
             {totalRows} séances réparties sur {session.tabs.length} onglet
             {session.tabs.length > 1 ? "s" : ""} seront importées
-            {session.programmationId ? " et liées à la programmation sélectionnée" : " comme progression indépendante"}.
+            {session.programmationId
+              ? " et liées à la programmation sélectionnée"
+              : " comme progression indépendante"}
+            .
           </p>
 
           <ul className="space-y-2 text-sm font-light text-flora-text-muted">

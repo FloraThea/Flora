@@ -12,6 +12,7 @@ type Props = {
   onSaveObservation: (entryId: string, patch: Record<string, unknown>) => Promise<void>;
   onCompleteEntry?: (entry: JournalEntry) => void;
   onGenerateEntry?: (entry: JournalEntry) => Promise<void>;
+  onCreateManualDay?: () => Promise<void>;
   generatingEntryId?: string | null;
 };
 
@@ -29,42 +30,60 @@ export function JournalDayView({
   onSaveObservation,
   onCompleteEntry,
   onGenerateEntry,
+  onCreateManualDay,
   generatingEntryId,
 }: Props) {
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [creatingManual, setCreatingManual] = useState(false);
   const isPreview = payload.preview === true;
   const isBreak = (entry: JournalEntry) => entry.entryType === "break";
+  const hasTimetable = payload.hasTimetable === true;
+  const isManualDay = payload.journal.metadata?.manualDay === true;
+  const showEmptyState = !hasTimetable && !isManualDay;
 
   return (
-    <div className="grid gap-4">
-      {payload.specialDayMessage ? (
+    <div className="grid w-full max-w-full gap-4 overflow-x-hidden">
+      {payload.specialDayMessage && !showEmptyState ? (
         <FloraCard padding="md" accent="cream">
           <p className="text-sm font-light text-flora-text-subtle">{payload.specialDayMessage}</p>
         </FloraCard>
       ) : null}
 
-      {!payload.hasTimetable ? (
+      {showEmptyState ? (
         <FloraCard padding="lg" accent="lavender">
-          <p className="font-serif text-xl font-medium">Aucun emploi du temps disponible</p>
-          <p className="mt-2 text-sm font-light text-flora-text-subtle">
-            Créez ou importez votre emploi du temps pour générer automatiquement les plages
-            horaires de votre cahier journal.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/emploi-du-temps">
-              <FloraButton accent="sage">Créer mon emploi du temps</FloraButton>
+          <p className="font-serif text-xl font-medium">Aucun emploi du temps disponible.</p>
+          <div className="mt-4 flex w-full max-w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Link href="/emploi-du-temps" className="w-full sm:w-auto">
+              <FloraButton accent="sage" className="!w-full sm:!w-auto">
+                Créer mon emploi du temps
+              </FloraButton>
             </Link>
-            <Link href="/emploi-du-temps">
-              <FloraButton accent="lavender" variant="secondary">
+            <Link href="/emploi-du-temps?import=1" className="w-full sm:w-auto">
+              <FloraButton accent="lavender" variant="secondary" className="!w-full sm:!w-auto">
                 Importer un emploi du temps
               </FloraButton>
             </Link>
+            <FloraButton
+              accent="cream"
+              variant="secondary"
+              className="!w-full sm:!w-auto"
+              disabled={creatingManual || !onCreateManualDay}
+              onClick={() => {
+                if (!onCreateManualDay) return;
+                setCreatingManual(true);
+                void onCreateManualDay().finally(() => setCreatingManual(false));
+              }}
+            >
+              {creatingManual ? "Création…" : "Créer une journée manuellement"}
+            </FloraButton>
           </div>
         </FloraCard>
       ) : null}
 
-      {payload.entries.map((entry) => {
+      {!showEmptyState
+        ? payload.entries.map((entry) => {
         const subSubject = String(entry.slotData.subSubject ?? "");
+        const customText = String(entry.slotData.customText ?? "");
         const fillState = fillStateLabel(entry);
 
         if (isBreak(entry)) {
@@ -95,9 +114,13 @@ export function JournalDayView({
                   </FloraBadge>
                   <FloraBadge accent="lavender">{entry.matiere}</FloraBadge>
                   {subSubject ? <FloraBadge accent="sage">{subSubject}</FloraBadge> : null}
+                  {customText ? <FloraBadge accent="cream">{customText}</FloraBadge> : null}
                 </div>
 
                 <h3 className="mt-3 font-serif text-xl font-medium">{entry.matiere}</h3>
+                {customText ? (
+                  <p className="mt-1 text-sm font-light text-flora-text-subtle">{customText}</p>
+                ) : null}
 
                 {fillState ? (
                   <p className="mt-2 text-sm font-light text-flora-text-subtle">{fillState}</p>
@@ -182,7 +205,8 @@ export function JournalDayView({
             ) : null}
           </FloraCard>
         );
-      })}
+      })
+        : null}
     </div>
   );
 }
