@@ -16,7 +16,8 @@ import type {
 import { TIMETABLE_VARIANTS, VARIANT_LABELS } from "@/lib/timetable/types";
 import { colors } from "@/lib/theme";
 import { TimetableConfigPanel } from "./TimetableConfigPanel";
-import { TimetableGrid } from "./TimetableGrid";
+import { DesktopWeeklySchedule } from "./DesktopWeeklySchedule";
+import { MobileScheduleView } from "./MobileScheduleView";
 import { TimetableHistoryPanel } from "./TimetableHistoryPanel";
 import { TimetableVersionsPanel } from "./TimetableVersionsPanel";
 import { TimetableImportWizard } from "./TimetableImportWizard";
@@ -25,6 +26,7 @@ import { TimetableManualBuilder } from "./TimetableManualBuilder";
 import { ExportToolbar } from "./print/ExportToolbar";
 import type { SmartTimetableSlot } from "@/lib/timetable/types";
 import { useTimetableUndo } from "../hooks/useTimetableUndo";
+import { useIsMobile } from "@/lib/hooks/useMediaQuery";
 import { buildDraftSlot, isDraftSlotId } from "@/lib/timetable/slot-editor/operations";
 
 export function EmploiDuTempsPage() {
@@ -45,6 +47,7 @@ export function EmploiDuTempsPage() {
   );
   const [showManualBuilder, setShowManualBuilder] = useState(false);
   const [isSavingSlot, setIsSavingSlot] = useState(false);
+  const isMobile = useIsMobile(768);
 
   const {
     canUndo,
@@ -611,20 +614,30 @@ export function EmploiDuTempsPage() {
       {isLoading ? (
         <p className="text-sm font-light text-flora-text-subtle">Chargement de l&apos;emploi du temps…</p>
       ) : payload && settings ? (
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <div>
+        <div className={`grid gap-6 ${isMobile ? "" : "lg:grid-cols-[1fr_320px]"}`}>
+          <div className="min-w-0 max-w-full overflow-x-hidden">
             {activeTab === "grid" ? (
-              <FloraCard padding="lg">
-                <TimetableGrid
-                  slots={payload.slots}
-                  settings={settings}
-                  onMoveSlot={handleMoveSlot}
-                  onLockSlot={(slotId, day) => void handleLock("session", day, slotId)}
-                  onLockDay={(day) => void handleLock("full_day", day)}
-                  onEditSlot={setEditingSlot}
-                  onCreateSlot={(day, afterSlotId) => openCreateDrawer(day, afterSlotId)}
-                  onAddDay={(day) => openCreateDrawer(day, null)}
-                />
+              <FloraCard padding={isMobile ? "md" : "lg"} className="max-w-full overflow-x-hidden">
+                {isMobile ? (
+                  <MobileScheduleView
+                    slots={payload.slots}
+                    settings={settings}
+                    onLockDay={(day) => void handleLock("full_day", day)}
+                    onEditSlot={setEditingSlot}
+                    onCreateSlot={(day, afterSlotId) => openCreateDrawer(day, afterSlotId)}
+                  />
+                ) : (
+                  <DesktopWeeklySchedule
+                    slots={payload.slots}
+                    settings={settings}
+                    onMoveSlot={handleMoveSlot}
+                    onLockSlot={(slotId, day) => void handleLock("session", day, slotId)}
+                    onLockDay={(day) => void handleLock("full_day", day)}
+                    onEditSlot={setEditingSlot}
+                    onCreateSlot={(day, afterSlotId) => openCreateDrawer(day, afterSlotId)}
+                    onAddDay={(day) => openCreateDrawer(day, null)}
+                  />
+                )}
               </FloraCard>
             ) : null}
 
@@ -668,7 +681,8 @@ export function EmploiDuTempsPage() {
             ) : null}
           </div>
 
-          <aside className="flex flex-col gap-4">
+          {!isMobile ? (
+            <aside className="flex flex-col gap-4">
             <FloraCard padding="md" accent="sage">
               <h4 className="font-serif text-lg font-medium">Heures placées</h4>
               <div className="mt-3 space-y-1 text-xs font-light text-flora-text-muted">
@@ -686,6 +700,7 @@ export function EmploiDuTempsPage() {
 
             <TimetableHistoryPanel history={history} isLoading={false} />
           </aside>
+          ) : null}
         </div>
       ) : (
         <FloraCard padding="lg">

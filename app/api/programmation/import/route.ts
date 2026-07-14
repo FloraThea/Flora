@@ -6,9 +6,17 @@ import {
   saveImportedProgrammation,
   uploadImportSourceFile,
 } from "@/lib/programming/import/programmation-import-service";
+import {
+  analyzeProgrammingImportBatch,
+  createProgrammingImportBatch,
+  loadProgrammingImportBatchDraft,
+  updateProgrammingImportBatchOrder,
+  uploadProgrammingImportBatchFile,
+} from "@/lib/programming/import/programmation-import-batch-service";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type { AcademicZone, SchoolLevel } from "@/lib/programming/types";
 import type { ProgrammationFormatConfig } from "@/lib/programming/import/types";
+import type { ImportBatchMergeMode } from "@/lib/programming/import/batch-types";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 
 const ROUTE_PATH = "/api/programmation/import";
@@ -21,6 +29,18 @@ export async function POST(request: Request) {
       const formData = await request.formData();
       const action = String(formData.get("action") ?? "analyze");
       const file = formData.get("file");
+
+      if (action === "batch_upload") {
+        if (!(file instanceof File)) {
+          return jsonRouteError(ROUTE_PATH, 400, "Fichier requis.");
+        }
+        const batchId = String(formData.get("batchId") ?? "");
+        const pageOrder = Number(formData.get("pageOrder") ?? 1);
+        if (!batchId) return jsonRouteError(ROUTE_PATH, 400, "batchId requis.");
+
+        const uploaded = await uploadProgrammingImportBatchFile({ batchId, file, pageOrder });
+        return NextResponse.json({ route: ROUTE_PATH, ...uploaded });
+      }
 
       if (!(file instanceof File)) {
         return jsonRouteError(ROUTE_PATH, 400, "Fichier requis.");
@@ -60,9 +80,37 @@ export async function POST(request: Request) {
       formatConfig?: ProgrammationFormatConfig;
       sourceStoragePath?: string;
       sourceFileName?: string;
+      sourceStoragePaths?: string[];
+      batchId?: string;
+      mergeMode?: ImportBatchMergeMode;
+      orderedFileIds?: string[];
       pastedText?: string;
       fileName?: string;
     };
+
+    if (body.action === "batch_create") {
+      const created = await createProgrammingImportBatch({
+        schoolYear: body.schoolYear,
+        mergeMode: body.mergeMode,
+      });
+      return NextResponse.json({ route: ROUTE_PATH, ...created });
+    }
+
+    if (body.action === "batch_reorder" && body.batchId && body.orderedFileIds?.length) {
+      await updateProgrammingImportBatchOrder(body.batchId, body.orderedFileIds);
+      return NextResponse.json({ route: ROUTE_PATH, ok: true });
+    }
+
+    if (body.action === "batch_analyze" && body.batchId) {
+      logRouteInfo(ROUTE_PATH, "Analyse lot programmation", { batchId: body.batchId });
+      const result = await analyzeProgrammingImportBatch(body.batchId);
+      return NextResponse.json({ route: ROUTE_PATH, ...result });
+    }
+
+    if (body.action === "batch_load" && body.batchId) {
+      const draft = await loadProgrammingImportBatchDraft(body.batchId);
+      return NextResponse.json({ route: ROUTE_PATH, ...draft });
+    }
 
     if (body.action === "analyze_text") {
       const parsed = await analyzeProgrammationImport({
@@ -99,13 +147,22 @@ export async function POST(request: Request) {
         body.title ??
         `Import ${body.parsed.discipline || body.matiere || "programmation"} ${body.schoolYear}`;
 
-      logRouteInfo(ROUTE_PATH, "Sauvegarde programmation importée", { title });
+      const sourceStoragePath =
+        body.sourceStoragePath ??
+        body.sourceStoragePaths?.[0] ??
+        body.parsed.batchMeta?.sourceFiles[0]?.storagePath ??
+        "";
+
+      logRouteInfo(ROUTE_PATH, "Sauvegarde programmation importée", {
+        title,
+        batchId: body.parsed.batchMeta?.batchId,
+      });
 
       const payload = await saveImportedProgrammation({
         session,
         title,
-        sourceFileName: body.sourceFileName,
-        sourceStoragePath: body.sourceStoragePath,
+        sourceFileName: body.sourceFileName ?? body.parsed.fileName,
+        sourceStoragePath,
       });
 
       void pedagogicalEngine.genererCahierJournal(payload.programmation.id);

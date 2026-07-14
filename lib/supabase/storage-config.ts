@@ -39,6 +39,17 @@ export function buildProgrammationStoragePath(profileId: string, filename: strin
   return `programmations/${profileId}/${Date.now()}-${safeName}`;
 }
 
+export function buildProgrammationBatchStoragePath(input: {
+  profileId: string;
+  batchId: string;
+  pageOrder: number;
+  fileId: string;
+  filename: string;
+}): string {
+  const safeName = input.filename.replace(/[^\w.\- ]+/g, "_");
+  return `${input.profileId}/programming-imports/${input.batchId}/${input.pageOrder}-${input.fileId}-${safeName}`;
+}
+
 export function buildProgressionStoragePath(profileId: string, filename: string): string {
   const safeName = filename.replace(/[^\w.\- ]+/g, "_");
   return `progressions/${profileId}/${Date.now()}-${safeName}`;

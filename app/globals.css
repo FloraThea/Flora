@@ -79,6 +79,22 @@
   --font-serif: var(--font-cormorant);
 }
 
+.mobile-schedule-root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.mobile-schedule-card {
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.mobile-schedule-time,
+.mobile-schedule-subject,
+.mobile-schedule-secondary {
+  overflow-wrap: anywhere;
+}
+
 .schedule-card-time {
   font-size: var(--schedule-time-font-size);
   font-weight: 600;

@@ -99,7 +99,10 @@ export async function saveImportedProgrammation(input: {
       sourceFileName: input.sourceFileName ?? input.session.parsed.fileName,
       sourceStoragePath: input.sourceStoragePath ?? "",
       discipline: input.session.parsed.discipline,
-      originalImport: input.session.parsed as unknown as Record<string, unknown>,
+      originalImport: {
+        ...(input.session.parsed as unknown as Record<string, unknown>),
+        batchMeta: input.session.parsed.batchMeta,
+      },
       adaptedImport: { tables: input.session.tables },
       importAdaptation: input.session.adaptation as unknown as Record<string, unknown>,
       formatConfig: input.session.formatConfig as unknown as Record<string, unknown>,

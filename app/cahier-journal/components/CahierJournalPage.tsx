@@ -8,9 +8,11 @@ import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
 import { FloraStatCard } from "@/components/ui/FloraStatCard";
 import type {
   JournalDaySummary,
+  JournalEntry,
   JournalPayload,
   JournalRangePayload,
   JournalViewMode,
+  TimetableRefreshPreview,
 } from "@/lib/journal/types";
 import {
   formatDateLabel,
@@ -21,6 +23,8 @@ import {
 } from "@/lib/journal/date-utils";
 import { colors } from "@/lib/theme";
 import { JournalDayView } from "./JournalDayView";
+import { JournalEntryCompleteModal } from "./JournalEntryCompleteModal";
+import { JournalTimetableRefreshDialog } from "./JournalTimetableRefreshDialog";
 import { JournalWeekView } from "./JournalWeekView";
 import { JournalSubstituteView } from "./JournalSubstituteView";
 import { JournalPrintView } from "./JournalPrintView";
@@ -42,6 +46,10 @@ export function CahierJournalPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [entryToComplete, setEntryToComplete] = useState<JournalEntry | null>(null);
+  const [generatingEntryId, setGeneratingEntryId] = useState<string | null>(null);
+  const [refreshPreview, setRefreshPreview] = useState<TimetableRefreshPreview | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const calendarDates = useMemo(() => getMonthDates(selectedDate), [selectedDate]);
@@ -100,30 +108,75 @@ export function CahierJournalPage() {
     }
   }, [viewMode, selectedDate, payload, loadRange]);
 
-  const handlePersistJournal = useCallback(async () => {
-    setIsGenerating(true);
+  const handleGenerateEntry = useCallback(
+    async (entry: JournalPayload["entries"][number]) => {
+      setGeneratingEntryId(entry.id);
+      setError(null);
+      try {
+        const response = await fetch("/api/cahier-journal/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "generate",
+            date: selectedDate,
+            entryRef: {
+              entryId: entry.id,
+              sortOrder: entry.sortOrder,
+              startTime: entry.startTime,
+              matiere: entry.matiere,
+            },
+          }),
+        });
+        const data = (await response.json()) as JournalPayload & { error?: string };
+        if (!response.ok) throw new Error(data.error || "Génération impossible.");
+        setPayload(data);
+      } catch (generateError) {
+        setError(generateError instanceof Error ? generateError.message : "Erreur de génération.");
+      } finally {
+        setGeneratingEntryId(null);
+      }
+    },
+    [selectedDate],
+  );
+
+  const handleRefreshTimetablePreview = useCallback(async () => {
+    setIsRefreshing(true);
+    setError(null);
     try {
-      const response = await fetch("/api/cahier-journal/generate", {
+      const response = await fetch("/api/cahier-journal/refresh-timetable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: selectedDate, persist: true }),
+        body: JSON.stringify({ date: selectedDate, apply: false }),
       });
-      const data = (await response.json()) as JournalPayload & { error?: string };
-      if (!response.ok) throw new Error(data.error || "Enregistrement impossible.");
-      setPayload(data);
-    } catch (persistError) {
-      setError(persistError instanceof Error ? persistError.message : "Erreur d'enregistrement.");
+      const data = (await response.json()) as TimetableRefreshPreview & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Prévisualisation impossible.");
+      setRefreshPreview(data);
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : "Erreur d'actualisation.");
     } finally {
-      setIsGenerating(false);
+      setIsRefreshing(false);
     }
   }, [selectedDate]);
 
-  const handleGenerateEntry = useCallback(
-    async (_entry: JournalPayload["entries"][number]) => {
-      await handlePersistJournal();
-    },
-    [handlePersistJournal],
-  );
+  const handleRefreshTimetableApply = useCallback(async () => {
+    setIsRefreshing(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/cahier-journal/refresh-timetable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: selectedDate, apply: true }),
+      });
+      const data = (await response.json()) as TimetableRefreshPreview & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Actualisation impossible.");
+      setRefreshPreview(null);
+      await loadJournal(selectedDate);
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : "Erreur d'actualisation.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadJournal, selectedDate]);
 
   const handleRegenerate = useCallback(async () => {
     setIsGenerating(true);
@@ -352,14 +405,25 @@ export function CahierJournalPage() {
                 <p className="mt-1 text-sm">{payload.journal.dailyProject || "—"}</p>
               </div>
             </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <FloraButton
+                accent="lavender"
+                variant="secondary"
+                onClick={() => void handleRefreshTimetablePreview()}
+                disabled={isRefreshing || payload.preview === true}
+              >
+                {isRefreshing ? "Analyse…" : "Actualiser les horaires depuis l'emploi du temps"}
+              </FloraButton>
+            </div>
           </FloraCard>
 
           {viewMode === "day" ? (
             <JournalDayView
               payload={payload}
               onSaveObservation={handleObservationSave}
-              onPersist={handlePersistJournal}
+              onCompleteEntry={setEntryToComplete}
               onGenerateEntry={handleGenerateEntry}
+              generatingEntryId={generatingEntryId}
             />
           ) : null}
           {viewMode === "week" || viewMode === "period" || viewMode === "calendar" ? (
@@ -424,6 +488,26 @@ export function CahierJournalPage() {
             </div>
           )}
         </>
+      ) : null}
+
+      {entryToComplete ? (
+        <JournalEntryCompleteModal
+          entry={entryToComplete}
+          date={selectedDate}
+          onClose={() => setEntryToComplete(null)}
+          onSaved={async () => {
+            await loadJournal(selectedDate);
+          }}
+        />
+      ) : null}
+
+      {refreshPreview ? (
+        <JournalTimetableRefreshDialog
+          preview={refreshPreview}
+          isApplying={isRefreshing}
+          onCancel={() => setRefreshPreview(null)}
+          onConfirm={() => void handleRefreshTimetableApply()}
+        />
       ) : null}
     </div>
   );

@@ -10,8 +10,9 @@ import type { JournalEntry, JournalPayload } from "@/lib/journal/types";
 type Props = {
   payload: JournalPayload;
   onSaveObservation: (entryId: string, patch: Record<string, unknown>) => Promise<void>;
-  onPersist?: () => Promise<void>;
+  onCompleteEntry?: (entry: JournalEntry) => void;
   onGenerateEntry?: (entry: JournalEntry) => Promise<void>;
+  generatingEntryId?: string | null;
 };
 
 function fillStateLabel(entry: JournalEntry): string {
@@ -23,7 +24,13 @@ function fillStateLabel(entry: JournalEntry): string {
   return "Aucun contenu pédagogique ajouté";
 }
 
-export function JournalDayView({ payload, onSaveObservation, onPersist, onGenerateEntry }: Props) {
+export function JournalDayView({
+  payload,
+  onSaveObservation,
+  onCompleteEntry,
+  onGenerateEntry,
+  generatingEntryId,
+}: Props) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const isPreview = payload.preview === true;
   const isBreak = (entry: JournalEntry) => entry.entryType === "break";
@@ -72,6 +79,7 @@ export function JournalDayView({ payload, onSaveObservation, onPersist, onGenera
         }
 
         const hasContent = Boolean(entry.objectif || entry.competence || entry.organisation);
+        const isGenerating = generatingEntryId === entry.id;
 
         return (
           <FloraCard
@@ -112,20 +120,32 @@ export function JournalDayView({ payload, onSaveObservation, onPersist, onGenera
               </div>
 
               <div className="flex shrink-0 flex-wrap gap-2">
-                {!hasContent && isPreview ? (
+                {!hasContent ? (
                   <>
                     <FloraButton
                       accent="lavender"
                       variant="secondary"
-                      onClick={() => void onPersist?.()}
+                      onClick={() => onCompleteEntry?.(entry)}
                     >
                       Compléter
                     </FloraButton>
-                    <FloraButton accent="sage" onClick={() => void onGenerateEntry?.(entry)}>
-                      Générer
+                    <FloraButton
+                      accent="sage"
+                      disabled={isGenerating}
+                      onClick={() => void onGenerateEntry?.(entry)}
+                    >
+                      {isGenerating ? "Génération…" : "Générer"}
                     </FloraButton>
                   </>
-                ) : null}
+                ) : (
+                  <FloraButton
+                    accent="lavender"
+                    variant="secondary"
+                    onClick={() => onCompleteEntry?.(entry)}
+                  >
+                    Modifier
+                  </FloraButton>
+                )}
                 {entry.seanceId ? (
                   <Link href={`/seances?seanceId=${entry.seanceId}`}>
                     <FloraButton accent="sage" variant="secondary">

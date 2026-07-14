@@ -143,6 +143,23 @@ export type JournalAdjustment = {
   status: AdjustmentStatus;
 };
 
+export type TimetableRefreshChange = {
+  entryId: string;
+  matiere: string;
+  field: "startTime" | "endTime" | "matiere" | "subSubject";
+  previousValue: string;
+  nextValue: string;
+};
+
+export type TimetableRefreshPreview = {
+  date: string;
+  journalId: string | null;
+  changes: TimetableRefreshChange[];
+  preservedCount: number;
+  updatableCount: number;
+  message: string;
+};
+
 export type RitualDefinition = {
   id: string;
   label: string;

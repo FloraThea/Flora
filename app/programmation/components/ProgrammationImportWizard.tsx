@@ -17,8 +17,9 @@ import {
   DEFAULT_FORMAT_CONFIG,
 } from "@/lib/programming/import/types";
 import { applyProgrammationColumnMapping, COLUMN_FIELD_LABELS } from "@/lib/programming/import/grid-parser";
-import { getFormatsAcceptesLabel, getModuleAcceptAttribute } from "@/lib/import/accepted-formats";
+import { getFormatsAcceptesLabel } from "@/lib/import/accepted-formats";
 import type { ProgrammationFormValues } from "../types";
+import { ProgrammationImportBatchPanel } from "./ProgrammationImportBatchPanel";
 
 const MAPPING_FIELDS: ProgrammationColumnField[] = [
   "period",
@@ -62,6 +63,8 @@ export function ProgrammationImportWizard({
   const [formatConfig, setFormatConfig] = useState<ProgrammationFormatConfig>(DEFAULT_FORMAT_CONFIG);
   const [title, setTitle] = useState("");
   const [storagePath, setStoragePath] = useState("");
+  const [storagePaths, setStoragePaths] = useState<string[]>([]);
+  const [batchId, setBatchId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [columnMapping, setColumnMapping] = useState<Partial<Record<ProgrammationColumnField, number>>>({});
@@ -174,7 +177,9 @@ export function ProgrammationImportWizard({
           formatConfig,
           title,
           sourceStoragePath: storagePath,
-          sourceFileName: file?.name,
+          sourceStoragePaths: storagePaths,
+          sourceFileName: file?.name ?? parsed.fileName,
+          batchId,
         }),
       });
       const data = (await response.json()) as ProgrammationPayload & { error?: string };
@@ -196,6 +201,8 @@ export function ProgrammationImportWizard({
     formatConfig,
     title,
     storagePath,
+    storagePaths,
+    batchId,
     file?.name,
     onComplete,
   ]);
@@ -258,35 +265,39 @@ export function ProgrammationImportWizard({
       ) : null}
 
       {step === 0 ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block text-sm">
-            <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
-              Fichier (PDF, CSV, Word, Excel, JPG, JPEG, PNG)
-            </span>
-            <input
-              type="file"
-              accept={getModuleAcceptAttribute("programmation")}
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
-            />
-            <span className="mt-1 block text-xs text-flora-text-subtle">
-              {getFormatsAcceptesLabel("programmation")}. Les images sont analysées par OCR.
-            </span>
-          </label>
-          <label className="block text-sm md:col-span-2">
-            <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
-              Ou texte copié-collé (tableau)
-            </span>
-            <textarea
-              value={pastedText}
-              onChange={(e) => setPastedText(e.target.value)}
-              className="min-h-32 w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
-              placeholder="Période;Semaine;Discipline;Séance;Compétence;Objectif…"
-            />
-          </label>
-          <FloraButton onClick={() => void runAnalyze()} disabled={isLoading}>
-            {isLoading ? "Analyse…" : "Analyser"}
-          </FloraButton>
+        <div className="grid gap-4">
+          <ProgrammationImportBatchPanel
+            schoolYear={schoolYear}
+            onError={setError}
+            onAnalyzed={(batchParsed, newBatchId, paths) => {
+              setParsed(batchParsed);
+              setBatchId(newBatchId);
+              setStoragePaths(paths);
+              setStoragePath(paths[0] ?? "");
+              setColumnMapping(batchParsed.columnMapping ?? {});
+              setTitle(`Import ${batchParsed.discipline || formValues.matiere} ${schoolYear}`);
+              setStep(1);
+            }}
+          />
+
+          <details className="rounded-2xl bg-white/40 px-4 py-3 text-sm">
+            <summary className="cursor-pointer font-medium">Coller du texte (option avancée)</summary>
+            <div className="mt-3 grid gap-3">
+              <textarea
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                className="min-h-32 w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
+                placeholder="Période;Semaine;Discipline;Séance;Compétence;Objectif…"
+              />
+              <FloraButton
+                variant="secondary"
+                onClick={() => void runAnalyze()}
+                disabled={isLoading || !pastedText.trim()}
+              >
+                {isLoading ? "Analyse…" : "Analyser le texte collé"}
+              </FloraButton>
+            </div>
+          </details>
         </div>
       ) : null}
 
@@ -490,7 +501,7 @@ export function ProgrammationImportWizard({
             </div>
           ) : null}
           <FloraButton onClick={() => void runSave()} disabled={isLoading || !title.trim()}>
-            {isLoading ? "Sauvegarde…" : "Sauvegarder"}
+            {isLoading ? "Enregistrement…" : "Valider et créer la programmation"}
           </FloraButton>
         </div>
       ) : null}

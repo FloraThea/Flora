@@ -1,4 +1,5 @@
 import type { AcademicZone, CalendarSnapshot, ProgrammingTable, SchoolLevel } from "../types";
+import type { ProgrammationImportBatchMeta } from "./batch-types";
 
 export type ProgrammationImportFormat = "pdf" | "word" | "excel" | "csv" | "text" | "image";
 
@@ -60,6 +61,7 @@ export type ParsedProgrammationImport = {
   columnMapping?: Partial<Record<ProgrammationColumnField, number>>;
   headerRowIndex?: number;
   sourceGrid?: string[][];
+  batchMeta?: ProgrammationImportBatchMeta;
 };
 
 export type AdaptationStrategy =

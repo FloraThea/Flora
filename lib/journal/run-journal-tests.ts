@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { isJournalEntryProtected, isDemoMetadata, journalSlotKey } from "./journal-entry-utils";
 import { isNonPedagogicalSlot } from "./journal-slot-utils";
 import type { JournalScheduleSlot } from "./journal-timetable";
 import { dailyPlanner } from "./DailyPlanner";
@@ -117,12 +118,61 @@ function testPlannerDoesNotInventSeanceContentWithoutLink() {
   assert.equal(entries[0].competence, "");
 }
 
+function testProtectedEntryDetection() {
+  assert.equal(
+    isJournalEntryProtected({
+      id: "1",
+      journalId: "j1",
+      sortOrder: 1,
+      entryType: "slot",
+      startTime: "08:00",
+      endTime: "09:00",
+      matiere: "Français",
+      seanceId: null,
+      ritualId: null,
+      ritualLabel: "",
+      competence: "Lire",
+      objectif: "",
+      dureeMinutes: 60,
+      organisation: "",
+      materiel: { items: [], guides: [], albums: [], fiches: [], jeux: [], autres: [] },
+      documents: [],
+      resources: {
+        guides: [],
+        albums: [],
+        fiches: [],
+        documents: [],
+        jeux: [],
+        videos: [],
+        numeriques: [],
+        liens: [],
+      },
+      observations: "",
+      slotData: {},
+      metadata: { fillState: "manual" },
+    }),
+    true,
+  );
+
+  assert.equal(isDemoMetadata({ source: "seed" }), true);
+  assert.equal(isDemoMetadata({}), false);
+  assert.equal(
+    journalSlotKey({
+      startTime: "08:00",
+      matiere: "Maths",
+      slotData: { sourceScheduleSlotId: "slot-42" },
+    }),
+    "id:slot-42",
+  );
+}
+
 function runJournalTests() {
   testBreakSlotsAreNonPedagogical();
   testEmptySlotHasNoPedagogicalContent();
   testBreakEntryIsSimple();
   testPlannerDoesNotInventSeanceContentWithoutLink();
-  console.log("Journal tests: 4/4 passed");
+  testProtectedEntryDetection();
+  console.log("Journal tests: 5/5 passed");
 }
 
 runJournalTests();

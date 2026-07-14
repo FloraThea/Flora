@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx lib/timetable/import/run-tests.ts && tsx lib/timetable/run-grid-tests.ts && tsx lib/programming/run-generation-tests.ts && tsx lib/progression/run-import-tests.ts && tsx lib/sequences/run-independent-tests.ts && tsx lib/import/run-png-tests.ts && tsx lib/agenda/run-agenda-tests.ts && tsx lib/journal/run-journal-tests.ts"
+    "test": "tsx lib/timetable/import/run-tests.ts && tsx lib/timetable/run-grid-tests.ts && tsx lib/timetable/run-mobile-schedule-tests.ts && tsx lib/programming/run-generation-tests.ts && tsx lib/programming/import/run-programmation-import-tests.ts && tsx lib/progression/run-import-tests.ts && tsx lib/sequences/run-independent-tests.ts && tsx lib/import/run-png-tests.ts && tsx lib/agenda/run-agenda-tests.ts && tsx lib/journal/run-journal-tests.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1078.0",

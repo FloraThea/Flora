@@ -181,15 +181,22 @@ export async function createAgendaEvent(input: CreateAgendaEventInput): Promise<
 }
 
 export async function deleteAgendaEvent(eventId: string): Promise<void> {
-  const { error } = await supabase.from("agenda_events").delete().eq("id", eventId);
+  const bundle = await getProfileContext();
+  const { error } = await supabase
+    .from("agenda_events")
+    .delete()
+    .eq("id", eventId)
+    .eq("teacher_profile_id", bundle.profile.id);
   if (error) throw new Error(getSupabaseErrorMessage(error, "Suppression impossible."));
 }
 
 export async function moveAgendaEvent(eventId: string, targetDate: string): Promise<AgendaEvent> {
+  const bundle = await getProfileContext();
   const { data: row, error: fetchError } = await supabase
     .from("agenda_events")
     .select("*")
     .eq("id", eventId)
+    .eq("teacher_profile_id", bundle.profile.id)
     .single();
 
   if (fetchError || !row) {
@@ -218,6 +225,7 @@ export async function moveAgendaEvent(eventId: string, targetDate: string): Prom
       },
     })
     .eq("id", eventId)
+    .eq("teacher_profile_id", bundle.profile.id)
     .select("*")
     .single();
 
@@ -275,6 +283,7 @@ export async function updateAgendaTask(
   taskId: string,
   patch: Partial<CreateAgendaTaskInput & { status: AgendaTask["status"]; eventId?: string | null }>,
 ): Promise<AgendaTask> {
+  const bundle = await getProfileContext();
   const { data, error } = await supabase
     .from("agenda_tasks")
     .update({
@@ -288,6 +297,7 @@ export async function updateAgendaTask(
       updated_at: new Date().toISOString(),
     })
     .eq("id", taskId)
+    .eq("teacher_profile_id", bundle.profile.id)
     .select("*")
     .single();
 
@@ -304,6 +314,7 @@ export async function convertTaskToEvent(taskId: string): Promise<AgendaEvent> {
     .from("agenda_tasks")
     .select("*")
     .eq("id", taskId)
+    .eq("teacher_profile_id", bundle.profile.id)
     .single();
 
   if (error || !taskRow) {
