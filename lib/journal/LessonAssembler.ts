@@ -95,6 +95,8 @@ export class LessonAssembler {
       },
       metadata: {
         source: "seances",
+        fillState: "generated",
+        isPersisted: true,
         seanceTitle: input.seance.title,
         elevesFragiles: input.seance.differentiation.elevesFragiles,
         elevesAvances: input.seance.differentiation.elevesAvances,
@@ -105,21 +107,25 @@ export class LessonAssembler {
   buildEmptySlotEntry(input: {
     journalId: string;
     sortOrder: number;
-    slot: TimetableSlot;
+    slot: TimetableSlot & { slotType?: string; subSubject?: string; sourceScheduleSlotId?: string };
   }): Omit<JournalEntry, "id" | "observation"> {
+    const slotType = input.slot.slotType ?? "seance";
+    const entryType =
+      slotType === "rituel" ? "ritual" : slotType === "recreation" || slotType === "pause_meridienne" ? "break" : "slot";
+
     return {
       journalId: input.journalId,
       sortOrder: input.sortOrder,
-      entryType: "slot",
+      entryType,
       startTime: input.slot.start,
       endTime: input.slot.end,
       matiere: input.slot.subject,
       seanceId: null,
       ritualId: null,
-      ritualLabel: "",
+      ritualLabel: entryType === "ritual" ? input.slot.subject : "",
       competence: "",
       objectif: "",
-      dureeMinutes: scheduleEngine.estimateSlotMinutes(input.slot),
+      dureeMinutes: this.estimateMinutes(input.slot),
       organisation: "",
       materiel: { items: [], guides: [], albums: [], fiches: [], jeux: [], autres: [] },
       documents: [],
@@ -134,9 +140,21 @@ export class LessonAssembler {
         liens: [],
       },
       observations: "",
-      slotData: {},
-      metadata: { source: "timetable" },
+      slotData: {
+        slotType,
+        subSubject: input.slot.subSubject ?? "",
+        sourceScheduleSlotId: input.slot.sourceScheduleSlotId ?? null,
+      },
+      metadata: {
+        source: "timetable",
+        fillState: "empty",
+        isPersisted: false,
+      },
     };
+  }
+
+  estimateMinutes(slot: TimetableSlot): number {
+    return scheduleEngine.estimateSlotMinutes(slot);
   }
 }
 

@@ -19,10 +19,10 @@ import type {
   ProgrammationImportFormat,
 } from "./types";
 
+import { isSupportedImageFile } from "@/lib/import/accepted-formats";
+
 function isImageFormat(fileName: string, mimeType?: string): boolean {
-  const lower = fileName.toLowerCase();
-  if ([".jpg", ".jpeg", ".png", ".webp"].some((ext) => lower.endsWith(ext))) return true;
-  return mimeType?.startsWith("image/") ?? false;
+  return isSupportedImageFile(fileName, mimeType);
 }
 
 function detectFormat(fileName: string, mimeType?: string): ProgrammationImportFormat | "image" | "unsupported" {
@@ -74,7 +74,7 @@ export async function parseProgrammationFile(input: {
       niveau: "",
       rows: [],
       warnings: [
-        `Format non supporté (${input.fileName}). Formats acceptés : Excel (.xlsx, .xls), CSV, PDF, Word (.docx), JPG, PNG, texte.`,
+        `Format non supporté (${input.fileName}). Formats acceptés : Excel (.xlsx, .xls), CSV, PDF, Word (.docx), JPG, JPEG, PNG, texte.`,
       ],
       columns: [],
       previewRows: [],

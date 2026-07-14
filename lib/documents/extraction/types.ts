@@ -2,6 +2,7 @@ export type ExtractionMethod =
   | "plain-text"
   | "pdf-text"
   | "pdf-ocr"
+  | "ocr-image"
   | "unsupported";
 
 export type ExtractionFailureReason =

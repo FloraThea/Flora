@@ -126,6 +126,10 @@ export type JournalPayload = {
   entries: JournalEntry[];
   adjustments: JournalAdjustment[];
   calendar: CalendarSnapshot | null;
+  preview?: boolean;
+  hasTimetable?: boolean;
+  noClassDay?: boolean;
+  specialDayMessage?: string;
 };
 
 export type JournalAdjustment = {

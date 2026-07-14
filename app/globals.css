@@ -41,6 +41,10 @@
   --shadow-button: 0 4px 16px rgba(45, 71, 57, 0.18);
   --shadow-button-secondary: 0 2px 10px rgba(45, 71, 57, 0.06);
   --shadow-sidebar: 4px 0 24px rgba(45, 58, 40, 0.14);
+
+  --schedule-subject-font-size: 16px;
+  --schedule-time-font-size: 13px;
+  --schedule-secondary-font-size: 13px;
 }
 
 @theme inline {
@@ -73,6 +77,31 @@
   --color-peche-text: var(--peche-text);
   --font-sans: var(--font-dm-sans);
   --font-serif: var(--font-cormorant);
+}
+
+.schedule-card-time {
+  font-size: var(--schedule-time-font-size);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.schedule-card-subject {
+  font-size: var(--schedule-subject-font-size);
+  font-weight: 700;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.schedule-card-secondary {
+  font-size: var(--schedule-secondary-font-size);
+  font-weight: 500;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
 }
 
 body {

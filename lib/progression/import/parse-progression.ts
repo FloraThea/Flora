@@ -4,14 +4,11 @@ import { recognizeImageBuffer } from "@/lib/documents/extraction/ocr-extractor";
 import { parseStructuredText } from "@/lib/programming/import/grid-parser";
 import { parseProgrammationFile } from "@/lib/programming/import/parse-programmation";
 import type { ProgrammationColumnField } from "@/lib/programming/import/types";
+import { isSupportedImageFile } from "@/lib/import/accepted-formats";
 import type { ParsedProgressionImport } from "./types";
 
-const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
-
 function isImageFormat(fileName: string, mimeType?: string): boolean {
-  const lower = fileName.toLowerCase();
-  if (IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext))) return true;
-  return mimeType?.startsWith("image/") ?? false;
+  return isSupportedImageFile(fileName, mimeType);
 }
 
 export async function parseProgressionFile(input: {

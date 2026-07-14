@@ -1,3 +1,8 @@
+/** Tailles de police fixes pour toutes les cartes EDT (écran + export). */
+export const SCHEDULE_SUBJECT_FONT_SIZE_PX = 16;
+export const SCHEDULE_TIME_FONT_SIZE_PX = 13;
+export const SCHEDULE_SECONDARY_FONT_SIZE_PX = 13;
+
 export type SlotCardTypography = {
   timePx: number;
   titlePx: number;
@@ -8,52 +13,36 @@ export type SlotCardTypography = {
   lineClamp: number;
 };
 
+/**
+ * Typographie uniforme : la hauteur de carte ne modifie jamais la taille de police.
+ * Le mode compact masque uniquement les informations secondaires.
+ */
 export function computeSlotCardTypography(heightPx: number): SlotCardTypography {
   const compact = heightPx < 44;
 
-  if (compact) {
-    return {
-      timePx: 10,
-      titlePx: 12,
-      secondaryPx: 0,
-      compact: true,
-      showSecondary: false,
-      showTertiary: false,
-      lineClamp: 1,
-    };
-  }
-
-  if (heightPx < 64) {
-    return {
-      timePx: 11,
-      titlePx: 14,
-      secondaryPx: 11,
-      compact: false,
-      showSecondary: true,
-      showTertiary: false,
-      lineClamp: 1,
-    };
-  }
-
-  if (heightPx < 96) {
-    return {
-      timePx: 12,
-      titlePx: 15,
-      secondaryPx: 12,
-      compact: false,
-      showSecondary: true,
-      showTertiary: true,
-      lineClamp: 2,
-    };
-  }
-
   return {
-    timePx: 13,
-    titlePx: 17,
-    secondaryPx: 13,
-    compact: false,
-    showSecondary: true,
-    showTertiary: true,
-    lineClamp: 3,
+    timePx: SCHEDULE_TIME_FONT_SIZE_PX,
+    titlePx: SCHEDULE_SUBJECT_FONT_SIZE_PX,
+    secondaryPx: SCHEDULE_SECONDARY_FONT_SIZE_PX,
+    compact,
+    showSecondary: !compact,
+    showTertiary: !compact,
+    lineClamp: compact ? 1 : 2,
+  };
+}
+
+export function computeUniformPrintTypography(isCompact: boolean): {
+  subjectPx: number;
+  timePx: number;
+  secondaryPx: number;
+  showSecondary: boolean;
+  showTertiary: boolean;
+} {
+  return {
+    subjectPx: SCHEDULE_SUBJECT_FONT_SIZE_PX,
+    timePx: SCHEDULE_TIME_FONT_SIZE_PX,
+    secondaryPx: SCHEDULE_SECONDARY_FONT_SIZE_PX,
+    showSecondary: !isCompact,
+    showTertiary: !isCompact,
   };
 }

@@ -17,6 +17,7 @@ import {
   DEFAULT_FORMAT_CONFIG,
 } from "@/lib/programming/import/types";
 import { applyProgrammationColumnMapping, COLUMN_FIELD_LABELS } from "@/lib/programming/import/grid-parser";
+import { getFormatsAcceptesLabel, getModuleAcceptAttribute } from "@/lib/import/accepted-formats";
 import type { ProgrammationFormValues } from "../types";
 
 const MAPPING_FIELDS: ProgrammationColumnField[] = [
@@ -260,14 +261,17 @@ export function ProgrammationImportWizard({
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block text-sm">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
-              Fichier (PDF, CSV, Word, Excel, JPG)
+              Fichier (PDF, CSV, Word, Excel, JPG, JPEG, PNG)
             </span>
             <input
               type="file"
-              accept=".pdf,.csv,.txt,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+              accept={getModuleAcceptAttribute("programmation")}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
             />
+            <span className="mt-1 block text-xs text-flora-text-subtle">
+              {getFormatsAcceptesLabel("programmation")}. Les images sont analysées par OCR.
+            </span>
           </label>
           <label className="block text-sm md:col-span-2">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">

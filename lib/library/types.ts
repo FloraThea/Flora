@@ -1,3 +1,8 @@
+import {
+  LIBRARY_ACCEPTED_EXTENSIONS,
+  isAcceptedForModule,
+} from "@/lib/import/accepted-formats";
+
 export const LIBRARY_CATEGORIES = [
   "Référentiel BO",
   "Guide enseignant",
@@ -61,25 +66,8 @@ export type LibraryFilterOptions = {
   formats: string[];
 };
 
-export const UNIFIED_ACCEPTED_EXTENSIONS = [
-  ".pdf",
-  ".docx",
-  ".doc",
-  ".xlsx",
-  ".xls",
-  ".csv",
-  ".pptx",
-  ".txt",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".webp",
-  ".gif",
-] as const;
+export const UNIFIED_ACCEPTED_EXTENSIONS = LIBRARY_ACCEPTED_EXTENSIONS;
 
-export function isUnifiedAcceptedFile(filename: string): boolean {
-  const dot = filename.lastIndexOf(".");
-  if (dot === -1) return false;
-  const ext = filename.slice(dot).toLowerCase();
-  return UNIFIED_ACCEPTED_EXTENSIONS.includes(ext as (typeof UNIFIED_ACCEPTED_EXTENSIONS)[number]);
+export function isUnifiedAcceptedFile(filename: string, mimeType?: string): boolean {
+  return isAcceptedForModule("bibliotheque", filename, mimeType);
 }

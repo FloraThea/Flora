@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
-import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { getOrCreateTeacherProfile, loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { resolveAgendaProfile, isMissingAgendaTableError, toAgendaUserMessage } from "./agenda-profile";
 import { resolveJournalTimetable } from "@/lib/journal/JournalTimetableResolver";
 import { getFrenchDayName, normalizeDayName } from "@/lib/journal/date-utils";
 import { runAgendaSync } from "./agenda-sync";
@@ -108,9 +109,9 @@ function mapHoursEntry(row: Record<string, unknown>): Hours108Entry {
 }
 
 async function getProfileContext() {
-  const bundle = await loadTeacherProfileBundle();
-  if (!bundle) throw new Error("Profil enseignant requis.");
-  return bundle;
+  const ctx = await resolveAgendaProfile();
+  if (!ctx) throw new Error("Profil enseignant requis.");
+  return ctx.bundle;
 }
 
 export async function listAgendaEvents(input: {
@@ -364,14 +365,18 @@ export async function listPendingReminders(teacherProfileId?: string): Promise<A
   return (data ?? []).map(mapReminder);
 }
 
-export async function listUpcomingReminders(limit = 10): Promise<AgendaReminder[]> {
+export async function listUpcomingReminders(
+  limit = 10,
+  teacherProfileId?: string,
+): Promise<AgendaReminder[]> {
   const bundle = await getProfileContext();
+  const profileId = teacherProfileId ?? bundle.profile.id;
   const now = new Date().toISOString();
 
   const { data } = await supabase
     .from("agenda_reminders")
     .select("*")
-    .eq("teacher_profile_id", bundle.profile.id)
+    .eq("teacher_profile_id", profileId)
     .eq("status", "pending")
     .gte("remind_at", now)
     .order("remind_at", { ascending: true })
@@ -526,22 +531,48 @@ export async function syncAgendaFromModules(start: string, end: string): Promise
 }
 
 export async function loadAgendaFeed(start: string, end: string): Promise<AgendaFeedPayload> {
-  await syncAgendaFromModules(start, end);
+  const profileCtx = await resolveAgendaProfile();
 
-  const [events, tasks, reminders, dueReminders] = await Promise.all([
-    listAgendaEvents({ start, end }),
-    listAgendaTasks(),
-    listUpcomingReminders(20),
-    listPendingReminders(),
-  ]);
+  if (!profileCtx) {
+    return {
+      events: [],
+      tasks: [],
+      reminders: [],
+      dueReminders: [],
+      syncedAt: new Date().toISOString(),
+      needsSchoolYearSetup: true,
+    };
+  }
 
-  return {
-    events,
-    tasks,
-    reminders,
-    dueReminders,
-    syncedAt: new Date().toISOString(),
-  };
+  try {
+    await syncAgendaFromModules(start, end);
+  } catch (error) {
+    if (!isMissingAgendaTableError(error)) {
+      console.error("[agenda] Synchronisation ignorée :", error);
+    }
+  }
+
+  const profileId = profileCtx.bundle.profile.id;
+
+  try {
+    const [events, tasks, reminders, dueReminders] = await Promise.all([
+      listAgendaEvents({ start, end, teacherProfileId: profileId }),
+      listAgendaTasks(profileId),
+      listUpcomingReminders(20, profileId),
+      listPendingReminders(profileId),
+    ]);
+
+    return {
+      events,
+      tasks,
+      reminders,
+      dueReminders,
+      syncedAt: new Date().toISOString(),
+      needsSchoolYearSetup: profileCtx.needsSchoolYearSetup,
+    };
+  } catch (error) {
+    throw new Error(toAgendaUserMessage(error));
+  }
 }
 
 export async function buildMaJournee(date: string): Promise<MaJourneePayload> {

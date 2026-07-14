@@ -92,7 +92,7 @@ export async function importDocumentFromFile(
 ): Promise<ImportDocumentResponse> {
   if (!isAcceptedResourceFile(file.name)) {
     throw new DocumentExtractionError(
-      "Format non supporté. Formats acceptés : PDF, DOCX, PPTX, XLSX, TXT.",
+      "Format non supporté. Formats acceptés : JPG, JPEG, PNG, PDF, DOCX, PPTX, XLSX, TXT.",
     );
   }
 

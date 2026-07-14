@@ -219,7 +219,7 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                 {(slotsByDay.get(day) ?? []).map(({ slot, topPx, heightPx }) => {
                   const top = Math.round(topPx * scaleFactor);
                   const height = Math.max(
-                    40,
+                    4,
                     Math.round(heightPx * scaleFactor) - SLOT_GAP_PX,
                   );
                   return (

@@ -6,6 +6,7 @@ import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraProgressBar } from "@/components/ui/FloraProgressBar";
 import { HOURS_108_CATEGORIES, formatMinutesAsHours } from "@/lib/agenda/hours-108";
 import type { Hours108Dashboard } from "@/lib/agenda/types";
+import { getFormatsAcceptesLabel, getModuleAcceptAttribute } from "@/lib/import/accepted-formats";
 import { accentClasses } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
@@ -223,10 +224,13 @@ export function Hours108Panel({ dashboard, isLoading, onRefresh }: Hours108Panel
             </span>
             <input
               type="file"
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              accept={getModuleAcceptAttribute("agenda_108h")}
               onChange={(e) => setAttachmentFile(e.target.files?.[0] ?? null)}
               className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-sauge/20 file:px-3 file:py-1 file:text-xs"
             />
+            <span className="mt-1 block text-xs font-light text-flora-text-subtle">
+              {getFormatsAcceptesLabel("agenda_108h")}
+            </span>
             {attachmentFile ? (
               <span className="mt-1 block text-xs font-light text-flora-text-subtle">{attachmentFile.name}</span>
             ) : null}

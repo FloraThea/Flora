@@ -1,15 +1,21 @@
+import { isSupportedImageFile } from "@/lib/import/accepted-formats";
 import { readWorkbookGrid } from "./grid-reader";
 import { mapSubjectLabel, applySubjectMapping, collectUncertainMappings } from "./subject-mapper";
 import { buildParsedImport } from "./session-extractor";
 import { detectStructure } from "./structure-detector";
 import type { ParsedTimetableImport, StructureOverrides } from "./types";
 
-export function parseTimetableFile(
+export async function parseTimetableFile(
   buffer: Buffer,
   fileName: string,
   subjectOverrides?: Record<string, string>,
   structureOverrides?: StructureOverrides,
-): ParsedTimetableImport {
+): Promise<ParsedTimetableImport> {
+  if (isSupportedImageFile(fileName)) {
+    const { parseTimetableImage } = await import("./parse-image-timetable");
+    return parseTimetableImage(buffer, fileName, subjectOverrides, structureOverrides);
+  }
+
   const { sheetName, grid, merges } = readWorkbookGrid(buffer, fileName);
   const detection = detectStructure(grid, merges, structureOverrides);
 

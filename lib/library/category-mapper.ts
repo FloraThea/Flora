@@ -37,7 +37,7 @@ export function isLikelyBoDocument(fileName: string, mimeType?: string): boolean
   const lower = fileName.toLowerCase();
   const extension = lower.slice(lower.lastIndexOf("."));
 
-  if (![".pdf", ".docx", ".doc", ".txt"].includes(extension)) {
+  if (![".pdf", ".docx", ".doc", ".txt", ".jpg", ".jpeg", ".png"].includes(extension)) {
     return false;
   }
 

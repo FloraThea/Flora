@@ -23,6 +23,7 @@ import { MaJourneeView } from "./MaJourneeView";
 import { Hours108Panel } from "./Hours108Panel";
 import { AgendaTasksPanel } from "./AgendaTasksPanel";
 import { AgendaReminderToasts } from "./AgendaReminderToasts";
+import { AgendaErrorState, AgendaSkeleton, EmptyAgendaState } from "./AgendaStates";
 
 export function AgendaPage() {
   const [view, setView] = useState<AgendaView>("ma_journee");
@@ -67,8 +68,10 @@ export function AgendaPage() {
       const response = await fetch(
         `/api/agenda/feed?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`,
       );
-      const data = (await response.json()) as AgendaFeedPayload & { error?: string };
-      if (!response.ok) throw new Error(data.error || "Chargement impossible.");
+      const data = (await response.json()) as AgendaFeedPayload & { error?: string; details?: string };
+      if (!response.ok) {
+        throw new Error(data.error || data.details || "L'agenda n'a pas pu être chargé.");
+      }
       setFeed(data);
       setTasks(data.tasks);
     } catch (loadError) {
@@ -193,45 +196,65 @@ export function AgendaPage() {
         </FloraCard>
       ) : null}
 
-      {error ? (
-        <p className="rounded-2xl bg-rose-soft/35 px-4 py-3 text-sm font-light text-[#b88989]">
-          {error}
-        </p>
+      {feed?.needsSchoolYearSetup ? (
+        <FloraCard padding="md" accent="lavender">
+          <p className="text-sm font-light text-flora-text-subtle">
+            Complétez votre année scolaire dans le{" "}
+            <a href="/profil" className="underline">
+              profil pédagogique
+            </a>{" "}
+            pour affiner l&apos;agenda.
+          </p>
+        </FloraCard>
       ) : null}
 
-      {view === "ma_journee" ? (
-        <MaJourneeView payload={maJournee} isLoading={isLoading} />
+      {isLoading ? <AgendaSkeleton /> : null}
+
+      {!isLoading && error ? (
+        <AgendaErrorState message={error} onRetry={() => void refreshAll()} />
       ) : null}
 
-      {view === "day" ? <AgendaDayView date={focusDate} events={events} /> : null}
-      {view === "week" ? (
-        <AgendaWeekView
-          focusDate={focusDate}
-          events={events}
-          onEventMoved={() => void refreshAll()}
-        />
-      ) : null}
-      {view === "month" ? (
-        <AgendaMonthView
-          focusDate={focusDate}
-          events={events}
-          onSelectDate={(date) => {
-            setFocusDate(date);
-            setView("day");
-          }}
-        />
-      ) : null}
-      {view === "list" ? <AgendaListView events={events} /> : null}
-      {view === "tasks" ? <AgendaTasksPanel tasks={tasks} onRefresh={() => void refreshAll()} /> : null}
-      {view === "108h" ? (
-        <Hours108Panel
-          dashboard={hours108}
-          isLoading={isLoading}
-          onRefresh={() => void load108h()}
-        />
+      {!isLoading && !error && view !== "108h" && view !== "tasks" && events.length === 0 ? (
+        <EmptyAgendaState />
       ) : null}
 
-      {view !== "108h" && view !== "tasks" && view !== "ma_journee" ? (
+      {!isLoading && !error ? (
+        <>
+          {view === "ma_journee" ? (
+            <MaJourneeView payload={maJournee} isLoading={isLoading} />
+          ) : null}
+
+          {view === "day" ? <AgendaDayView date={focusDate} events={events} /> : null}
+          {view === "week" ? (
+            <AgendaWeekView
+              focusDate={focusDate}
+              events={events}
+              onEventMoved={() => void refreshAll()}
+            />
+          ) : null}
+          {view === "month" ? (
+            <AgendaMonthView
+              focusDate={focusDate}
+              events={events}
+              onSelectDate={(date) => {
+                setFocusDate(date);
+                setView("day");
+              }}
+            />
+          ) : null}
+          {view === "list" ? <AgendaListView events={events} /> : null}
+          {view === "tasks" ? <AgendaTasksPanel tasks={tasks} onRefresh={() => void refreshAll()} /> : null}
+          {view === "108h" ? (
+            <Hours108Panel
+              dashboard={hours108}
+              isLoading={isLoading}
+              onRefresh={() => void load108h()}
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      {!isLoading && !error && view !== "108h" && view !== "tasks" && view !== "ma_journee" && events.length > 0 ? (
         <FloraCard padding="md" accent="cream">
           <p className="text-sm font-light text-flora-text-subtle">
             {events.length} événement(s) sur la période · {tasks.filter((t) => t.status !== "done").length}{" "}

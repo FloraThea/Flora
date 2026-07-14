@@ -14,6 +14,7 @@ import {
   applyProgrammationColumnMapping,
   COLUMN_FIELD_LABELS,
 } from "@/lib/programming/import/grid-parser";
+import { getFormatsAcceptesLabel, getModuleAcceptAttribute } from "@/lib/import/accepted-formats";
 import { METHODE_OPTIONS, type ValidatedProgrammationOption } from "../types";
 
 const MAPPING_FIELDS: ProgrammationColumnField[] = [
@@ -241,14 +242,13 @@ export function ProgressionImportWizard({
             </span>
             <input
               type="file"
-              accept=".xlsx,.xls,.pdf,.jpg,.jpeg,.png"
+              accept={getModuleAcceptAttribute("progression")}
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
               className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
             />
           </label>
           <p className="text-sm font-light text-flora-text-muted">
-            Formats acceptés : Excel (.xlsx, .xls), PDF et images (.jpg, .jpeg, .png). Les photos
-            sont analysées par OCR.
+            {getFormatsAcceptesLabel("progression")}. Les photos sont analysées par OCR.
           </p>
           <FloraButton onClick={() => void runAnalyze()} disabled={isLoading || !file}>
             {isLoading ? "Analyse en cours…" : "Analyser le fichier"}

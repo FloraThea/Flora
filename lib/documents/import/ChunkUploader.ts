@@ -331,7 +331,7 @@ export class ChunkUploader {
 
   validateFileForUpload(filename: string, fileSize: number): { extension: string; maxSize: number } {
     if (!isAcceptedResourceFile(filename)) {
-      throw new Error("Format non supporté. Formats acceptés : PDF, DOCX, PPTX, XLSX, TXT.");
+      throw new Error("Format non supporté. Formats acceptés : JPG, JPEG, PNG, PDF, DOCX, PPTX, XLSX, TXT.");
     }
 
     validateUploadFileSize(fileSize, filename);

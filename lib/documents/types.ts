@@ -1,3 +1,8 @@
+import {
+  getFileExtension as getImportFileExtension,
+  isAcceptedResourceFile as isImportAcceptedResourceFile,
+} from "@/lib/import/accepted-formats";
+
 export const DOCUMENT_STATUSES = ["uploaded", "analysed", "error"] as const;
 
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
@@ -23,6 +28,9 @@ export const ACCEPTED_RESOURCE_EXTENSIONS = [
   ".pptx",
   ".xlsx",
   ".txt",
+  ".jpg",
+  ".jpeg",
+  ".png",
 ] as const;
 
 export type AcceptedResourceExtension =
@@ -99,15 +107,11 @@ export type TextChunkDraft = {
 };
 
 export function getFileExtension(filename: string): string {
-  const dotIndex = filename.lastIndexOf(".");
-  if (dotIndex === -1) return "";
-  return filename.slice(dotIndex).toLowerCase();
+  return getImportFileExtension(filename);
 }
 
-export function isAcceptedResourceFile(filename: string): boolean {
-  return ACCEPTED_RESOURCE_EXTENSIONS.includes(
-    getFileExtension(filename) as AcceptedResourceExtension,
-  );
+export function isAcceptedResourceFile(filename: string, mimeType?: string): boolean {
+  return isImportAcceptedResourceFile(filename, mimeType);
 }
 
 export function isFullySupportedExtension(extension: string): boolean {

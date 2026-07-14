@@ -156,6 +156,7 @@ export type AgendaFeedPayload = {
   reminders: AgendaReminder[];
   dueReminders?: AgendaReminder[];
   syncedAt: string;
+  needsSchoolYearSetup?: boolean;
 };
 
 export type CreateAgendaEventInput = {

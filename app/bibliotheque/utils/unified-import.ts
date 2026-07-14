@@ -12,7 +12,7 @@ export async function importUnifiedFiles(
   const boFiles: File[] = [];
 
   for (const file of files) {
-    if (!isUnifiedAcceptedFile(file.name)) {
+    if (!isUnifiedAcceptedFile(file.name, file.type)) {
       setUploadState((current) => ({
         ...current,
         globalError: `Format non supporté : ${file.name}`,

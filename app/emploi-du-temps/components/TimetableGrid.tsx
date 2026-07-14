@@ -116,13 +116,7 @@ export function TimetableGrid({
                 height: segment.heightPx,
               }}
             >
-              <span
-                className={`text-right leading-tight ${
-                  segment.durationMinutes >= 45
-                    ? "text-[10px] font-semibold text-flora-text md:text-[11px]"
-                    : "text-[9px] font-medium text-flora-text-subtle md:text-[10px]"
-                }`}
-              >
+              <span className="schedule-card-time text-right leading-tight text-flora-text">
                 {segment.label}
               </span>
             </div>

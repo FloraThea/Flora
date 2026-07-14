@@ -13,32 +13,49 @@ function workbookBuffer(rows: string[][], merges?: XLSX.Range[]): Buffer {
 }
 
 const results: Array<{ name: string; ok: boolean; error?: string }> = [];
+let pending = 0;
+let finished = false;
 
-function test(name: string, fn: () => void) {
-  try {
-    fn();
-    results.push({ name, ok: true });
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    results.push({ name, ok: false, error: message });
-    console.error(`✗ ${name}: ${message}`);
+function maybeFinish() {
+  pending -= 1;
+  if (pending <= 0 && !finished) {
+    finished = true;
+    const failed = results.filter((r) => !r.ok).length;
+    console.log(`\n${results.length - failed}/${results.length} tests passed`);
+    process.exit(failed > 0 ? 1 : 0);
   }
 }
 
-test("detects days with accents and casing", () => {
+function queueTest(name: string, fn: () => void | Promise<void>) {
+  pending += 1;
+  Promise.resolve()
+    .then(fn)
+    .then(() => {
+      results.push({ name, ok: true });
+      console.log(`✓ ${name}`);
+      maybeFinish();
+    })
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      results.push({ name, ok: false, error: message });
+      console.error(`✗ ${name}: ${message}`);
+      maybeFinish();
+    });
+}
+
+queueTest("detects days with accents and casing", () => {
   assert.deepEqual(findDaysInCell("  LUNDI matin  ").map((d) => d.day), ["Lundi"]);
   assert.deepEqual(findDaysInCell("mercredi").map((d) => d.day), ["Mercredi"]);
 });
 
-test("parses multiple time formats", () => {
+queueTest("parses multiple time formats", () => {
   assert.equal(parseTimeCell("8h30"), "08:30");
   assert.equal(parseTimeCell("08:30"), "08:30");
   assert.equal(parseTimeCell("13h45"), "13:45");
   assert.equal(parseTimeCell("08h30 - 09h30"), "08:30");
 });
 
-test("parses grid with days not on first row", () => {
+queueTest("parses grid with days not on first row", async () => {
   const buffer = workbookBuffer([
     ["", "Emploi du temps CM2", "", ""],
     ["", "Classe", "CM2", ""],
@@ -48,25 +65,25 @@ test("parses grid with days not on first row", () => {
     ["09:30", "Maths", "Français", "EPS"],
   ]);
 
-  const parsed = parseTimetableFile(buffer, "edt.xlsx");
+  const parsed = await parseTimetableFile(buffer, "edt.xlsx");
   assert.equal(parsed.needsManualStructure, false);
   assert.ok(parsed.sessions.length >= 4);
   assert.equal(parsed.structure.headerRow, 3);
 });
 
-test("returns manual mode instead of throwing when days are missing", () => {
+queueTest("returns manual mode instead of throwing when days are missing", async () => {
   const buffer = workbookBuffer([
     ["Titre", "Inconnu", "Format"],
     ["08:00", "A", "B"],
   ]);
 
-  const parsed = parseTimetableFile(buffer, "edt.xlsx");
+  const parsed = await parseTimetableFile(buffer, "edt.xlsx");
   assert.equal(parsed.needsManualStructure, true);
   assert.equal(parsed.sessions.length, 0);
   assert.ok(parsed.warnings.some((w) => w.includes("identifier automatiquement les jours")));
 });
 
-test("supports merged cells spanning multiple rows", () => {
+queueTest("supports merged cells spanning multiple rows", async () => {
   const buffer = workbookBuffer(
     [
       ["", "Lundi", "Mardi"],
@@ -77,13 +94,13 @@ test("supports merged cells spanning multiple rows", () => {
     [{ s: { r: 1, c: 1 }, e: { r: 2, c: 1 } }],
   );
 
-  const parsed = parseTimetableFile(buffer, "edt-merge.xlsx");
+  const parsed = await parseTimetableFile(buffer, "edt-merge.xlsx");
   const french = parsed.sessions.find((s) => s.day === "Lundi" && s.startTime === "08:30");
   assert.ok(french);
   assert.equal(french?.subject, "Français");
 });
 
-test("accepts manual structure overrides", () => {
+queueTest("accepts manual structure overrides", async () => {
   const buffer = workbookBuffer([
     ["Titre de l'école", "", "", ""],
     ["", "", "", ""],
@@ -92,7 +109,7 @@ test("accepts manual structure overrides", () => {
     ["10:00", "Musique", "Arts", "EMC"],
   ]);
 
-  const manual = parseTimetableFile(buffer, "edt-weird.xlsx", undefined, {
+  const manual = await parseTimetableFile(buffer, "edt-weird.xlsx", undefined, {
     layout: "days_in_row",
     headerRow: 2,
     timeColumn: 0,
@@ -102,7 +119,7 @@ test("accepts manual structure overrides", () => {
   assert.ok(manual.days.includes("Mercredi"));
 });
 
-test("detects saturday and decorative title rows", () => {
+queueTest("detects saturday and decorative title rows", async () => {
   const buffer = workbookBuffer([
     ["", "École Flora — Année 2025-2026", "", "", ""],
     ["", "Lundi", "Mardi", "Mercredi", "Samedi"],
@@ -110,13 +127,13 @@ test("detects saturday and decorative title rows", () => {
     ["9h30", "Maths", "Français", "Musique", "Théâtre"],
   ]);
 
-  const parsed = parseTimetableFile(buffer, "edt-samedi.xlsx");
+  const parsed = await parseTimetableFile(buffer, "edt-samedi.xlsx");
   assert.equal(parsed.needsManualStructure, false);
   assert.ok(parsed.days.includes("Samedi"));
   assert.ok(parsed.diagnostics.decorativeRows.includes(0));
 });
 
-test("parses csv export style", () => {
+queueTest("parses csv export style", async () => {
   const csv = [
     "Emploi du temps,,,",
     ",Lundi,Mardi,Mercredi",
@@ -124,11 +141,7 @@ test("parses csv export style", () => {
     "09:30,Maths,Français,Questionner le monde",
   ].join("\n");
   const buffer = Buffer.from(csv, "utf8");
-  const parsed = parseTimetableFile(buffer, "edt.csv");
+  const parsed = await parseTimetableFile(buffer, "edt.csv");
   assert.equal(parsed.needsManualStructure, false);
   assert.ok(parsed.sessions.length >= 4);
 });
-
-const failed = results.filter((r) => !r.ok).length;
-console.log(`\n${results.length - failed}/${results.length} tests passed`);
-process.exit(failed > 0 ? 1 : 0);

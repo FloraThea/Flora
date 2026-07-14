@@ -72,7 +72,7 @@ export function CahierJournalPage() {
           ? await fetch("/api/cahier-journal/generate", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ date, regenerate: true }),
+              body: JSON.stringify({ date, regenerate: true, persist: true }),
             })
           : await fetch(`/api/cahier-journal/generate?date=${encodeURIComponent(date)}`);
 
@@ -99,6 +99,31 @@ export function CahierJournalPage() {
       void loadRange(selectedDate, viewMode);
     }
   }, [viewMode, selectedDate, payload, loadRange]);
+
+  const handlePersistJournal = useCallback(async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch("/api/cahier-journal/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: selectedDate, persist: true }),
+      });
+      const data = (await response.json()) as JournalPayload & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Enregistrement impossible.");
+      setPayload(data);
+    } catch (persistError) {
+      setError(persistError instanceof Error ? persistError.message : "Erreur d'enregistrement.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [selectedDate]);
+
+  const handleGenerateEntry = useCallback(
+    async (_entry: JournalPayload["entries"][number]) => {
+      await handlePersistJournal();
+    },
+    [handlePersistJournal],
+  );
 
   const handleRegenerate = useCallback(async () => {
     setIsGenerating(true);
@@ -330,7 +355,12 @@ export function CahierJournalPage() {
           </FloraCard>
 
           {viewMode === "day" ? (
-            <JournalDayView payload={payload} onSaveObservation={handleObservationSave} />
+            <JournalDayView
+              payload={payload}
+              onSaveObservation={handleObservationSave}
+              onPersist={handlePersistJournal}
+              onGenerateEntry={handleGenerateEntry}
+            />
           ) : null}
           {viewMode === "week" || viewMode === "period" || viewMode === "calendar" ? (
             <JournalWeekView

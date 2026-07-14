@@ -251,10 +251,33 @@ export async function loadTimetablePayload(scheduleId: string): Promise<Timetabl
 }
 
 export async function loadActiveSchedule(): Promise<TimetablePayload | null> {
+  const bundle = await loadTeacherProfileBundle();
+  if (bundle?.profile.id) {
+    return loadActiveScheduleForProfile(bundle.profile.id);
+  }
+
   const { data, error } = await supabase
     .from("timetable_schedules")
     .select("*")
     .eq("is_active", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return loadTimetablePayload(String(data.id));
+}
+
+export async function loadActiveScheduleForProfile(
+  teacherProfileId: string,
+): Promise<TimetablePayload | null> {
+  const { data, error } = await supabase
+    .from("timetable_schedules")
+    .select("*")
+    .eq("is_active", true)
+    .eq("teacher_profile_id", teacherProfileId)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();

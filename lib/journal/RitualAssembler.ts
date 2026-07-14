@@ -63,14 +63,12 @@ export class RitualAssembler {
     dayName: string;
   }): RitualDefinition[] {
     const profileRituals = parseProfileRituals(input.profile);
-    const base = profileRituals.length > 0 ? profileRituals : DEFAULT_RITUALS;
-    const subjects = new Set(input.slots.map((slot) => slot.subject.toLowerCase()));
-
-    return base
+    return profileRituals
       .filter((ritual) => {
         if (ritual.frequency === "weekly" && input.dayName === "lundi") return true;
         if (ritual.frequency === "weekly" && input.dayName !== "lundi") return false;
         if (!ritual.matiere) return true;
+        const subjects = new Set(input.slots.map((slot) => slot.subject.toLowerCase()));
         return subjects.has(ritual.matiere.toLowerCase());
       })
       .sort((a, b) => b.priority - a.priority);

@@ -389,7 +389,9 @@ export async function runAgendaSync(start: string, end: string): Promise<{
   breakdown: Record<string, number>;
 }> {
   const bundle = await loadTeacherProfileBundle();
-  if (!bundle) throw new Error("Profil enseignant requis.");
+  if (!bundle) {
+    return { inserted: 0, breakdown: {} };
+  }
 
   const ctx: SyncContext = {
     bundle,

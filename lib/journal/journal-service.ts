@@ -463,20 +463,27 @@ export async function listSeancesForJournal(input: {
   date: string;
   periodNumber: number;
   weekNumber: number;
+  teacherProfileId?: string | null;
 }): Promise<Record<string, unknown>[]> {
-  const { data: byDate } = await supabase
-    .from("seances")
-    .select("*")
-    .eq("session_date", input.date);
+  let byDateQuery = supabase.from("seances").select("*").eq("session_date", input.date);
+  if (input.teacherProfileId) {
+    byDateQuery = byDateQuery.eq("teacher_profile_id", input.teacherProfileId);
+  }
 
+  const { data: byDate } = await byDateQuery;
   if (byDate && byDate.length > 0) return byDate;
 
-  const { data: byWeek } = await supabase
+  let byWeekQuery = supabase
     .from("seances")
     .select("*")
     .eq("period_number", input.periodNumber)
     .eq("week_number", input.weekNumber);
 
+  if (input.teacherProfileId) {
+    byWeekQuery = byWeekQuery.eq("teacher_profile_id", input.teacherProfileId);
+  }
+
+  const { data: byWeek } = await byWeekQuery;
   return byWeek ?? [];
 }
 

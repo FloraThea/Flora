@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
+import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { findJournalByDate, loadJournalPayload } from "@/lib/journal/journal-service";
 import { journalGenerator } from "@/lib/journal/JournalGenerator";
+import { buildJournalPreviewForDate } from "@/lib/journal/journal-preview";
 
 const ROUTE_PATH = "/api/cahier-journal/generate";
 
@@ -11,6 +13,7 @@ export async function POST(request: Request) {
       date?: string;
       regenerate?: boolean;
       proposeAdjustments?: boolean;
+      persist?: boolean;
       range?: "week" | "period";
     };
 
@@ -31,15 +34,21 @@ export async function POST(request: Request) {
     logRouteInfo(ROUTE_PATH, "Génération cahier journal", {
       date: body.date,
       regenerate: body.regenerate ?? false,
+      persist: body.persist ?? false,
     });
 
-    const payload = await journalGenerator.generateForDate({
-      date: body.date,
-      regenerate: body.regenerate,
-      proposeAdjustments: body.proposeAdjustments,
-    });
+    if (body.persist || body.regenerate) {
+      const payload = await journalGenerator.generateForDate({
+        date: body.date,
+        regenerate: body.regenerate,
+        proposeAdjustments: body.proposeAdjustments,
+        persist: true,
+      });
+      return NextResponse.json({ route: ROUTE_PATH, ...payload, preview: false });
+    }
 
-    return NextResponse.json({ route: ROUTE_PATH, ...payload });
+    const preview = await buildJournalPreviewForDate(body.date);
+    return NextResponse.json({ route: ROUTE_PATH, ...preview });
   } catch (error) {
     return jsonRouteError(
       ROUTE_PATH,
@@ -72,23 +81,24 @@ export async function GET(request: Request) {
       if (!payload) {
         return jsonRouteError(ROUTE_PATH, 404, "Cahier journal introuvable.");
       }
-      return NextResponse.json({ route: ROUTE_PATH, ...payload });
+      return NextResponse.json({ route: ROUTE_PATH, ...payload, preview: false });
     }
 
     if (!date) {
       return jsonRouteError(ROUTE_PATH, 400, "date, id ou range requis.");
     }
 
-    const existing = await findJournalByDate(date);
+    const profile = await loadTeacherProfileBundle();
+    const existing = await findJournalByDate(date, profile?.profile.id ?? null);
     if (existing) {
       const payload = await loadJournalPayload(existing.id);
       if (payload) {
-        return NextResponse.json({ route: ROUTE_PATH, ...payload });
+        return NextResponse.json({ route: ROUTE_PATH, ...payload, preview: false });
       }
     }
 
-    const payload = await journalGenerator.generateForDate({ date });
-    return NextResponse.json({ route: ROUTE_PATH, ...payload });
+    const preview = await buildJournalPreviewForDate(date);
+    return NextResponse.json({ route: ROUTE_PATH, ...preview });
   } catch (error) {
     return jsonRouteError(
       ROUTE_PATH,

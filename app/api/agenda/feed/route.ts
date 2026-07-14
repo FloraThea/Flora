@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
 import { loadAgendaFeed } from "@/lib/agenda/agenda-service";
+import { toAgendaUserMessage } from "@/lib/agenda/agenda-profile";
 
 const ROUTE_PATH = "/api/agenda/feed";
 
@@ -19,6 +20,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ route: ROUTE_PATH, ...payload });
   } catch (error) {
-    return jsonRouteError(ROUTE_PATH, 500, "Feed agenda impossible.", toErrorMessage(error));
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[agenda/feed]", error);
+    }
+    return jsonRouteError(ROUTE_PATH, 500, toAgendaUserMessage(error), toErrorMessage(error));
   }
 }

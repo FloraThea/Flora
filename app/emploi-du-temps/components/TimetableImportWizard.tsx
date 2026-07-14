@@ -19,6 +19,7 @@ import {
   getSubjectBaseColor,
 } from "@/lib/timetable/subject-palette";
 import type { TimetablePayload } from "@/lib/timetable/types";
+import { getFormatsAcceptesLabel, getModuleAcceptAttribute, isAcceptedForModule } from "@/lib/import/accepted-formats";
 import { colors } from "@/lib/theme";
 
 function applySessionAppearance(
@@ -77,6 +78,7 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
   const [showDebug, setShowDebug] = useState(false);
   const [manualHeaderRow, setManualHeaderRow] = useState<number>(0);
   const [manualTimeColumn, setManualTimeColumn] = useState<number>(0);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   const uncertain = parsed?.uncertainMappings ?? [];
   const needsManual = parsed?.needsManualStructure ?? false;
@@ -90,7 +92,11 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
   const runAnalyze = useCallback(
     async (structureOverrides?: StructureOverrides) => {
       if (!file) {
-        setError("Choisissez un fichier Excel (.xlsx, .xls) ou CSV.");
+        setError("Choisissez un fichier à importer.");
+        return;
+      }
+      if (!isAcceptedForModule("emploi_du_temps", file.name, file.type)) {
+        setError(getFormatsAcceptesLabel("emploi_du_temps"));
         return;
       }
 
@@ -323,16 +329,23 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
                 <span className="text-3xl">📅</span>
                 <span className="font-serif text-lg">Glissez votre fichier ici</span>
                 <span className="text-xs font-light text-flora-text-muted">
-                  .xlsx · .xls · .csv · Google Sheets · LibreOffice
+                  {getFormatsAcceptesLabel("emploi_du_temps")}
                 </span>
                 <input
                   type="file"
-                  accept=".xlsx,.xls,.csv"
+                  accept={getModuleAcceptAttribute("emploi_du_temps")}
                   className="hidden"
                   onChange={(event) => {
-                    setFile(event.target.files?.[0] ?? null);
+                    const nextFile = event.target.files?.[0] ?? null;
+                    setFile(nextFile);
                     setParsed(null);
                     setError(null);
+                    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+                    if (nextFile && nextFile.type.startsWith("image/")) {
+                      setImagePreviewUrl(URL.createObjectURL(nextFile));
+                    } else {
+                      setImagePreviewUrl(null);
+                    }
                   }}
                 />
               </label>
@@ -340,6 +353,13 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
                 <p className="mt-3 text-sm font-light text-flora-text-muted">
                   Fichier sélectionné : {file.name}
                 </p>
+              ) : null}
+              {imagePreviewUrl ? (
+                <img
+                  src={imagePreviewUrl}
+                  alt="Prévisualisation de l'emploi du temps importé"
+                  className="mt-4 max-h-64 w-full rounded-2xl border border-white/70 object-contain bg-white/50"
+                />
               ) : null}
               <FloraButton accent="sage" className="mt-4" onClick={() => void runAnalyze()} disabled={isLoading}>
                 {isLoading ? "Analyse en cours…" : "Analyser le fichier"}

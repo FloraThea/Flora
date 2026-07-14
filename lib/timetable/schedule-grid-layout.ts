@@ -1,17 +1,24 @@
 import { minutesBetween } from "@/lib/journal/date-utils";
 import type { SmartTimetableSlot, TimetableSettings } from "./types";
 
-/** 1,25 px/min → créneaux proportionnels à la durée réelle. */
+/** 1,25 px/min → créneaux proportionnels à la durée visuelle. */
 export const PX_PER_MINUTE = 1.25;
 
-/** Seuil en dessous duquel la carte passe en mode compact (typo réduite, pas de hauteur forcée). */
+/** Durée visuelle fixe pour récréations et pause méridienne. */
+export const VISUAL_BREAK_DURATION_MINUTES = 30;
+
+export const BREAK_SLOT_TYPES = new Set<string>(["recreation", "pause_meridienne"]);
+
+/** Seuil en dessous duquel la carte masque les infos secondaires (pas la taille de police). */
 export const COMPACT_SLOT_HEIGHT_PX = 44;
 
 /** Marge interne entre cartes voisines dans une colonne. */
 export const SLOT_GAP_PX = 3;
 
-/** @deprecated Utiliser COMPACT_SLOT_HEIGHT_PX — la hauteur de layout n'est plus forcée. */
+/** @deprecated Utiliser COMPACT_SLOT_HEIGHT_PX */
 export const MIN_SLOT_HEIGHT_PX = COMPACT_SLOT_HEIGHT_PX;
+
+export type ScheduleEventKind = "lesson" | "recess" | "lunch";
 
 export type ScheduleTimeScale = {
   dayStartMinutes: number;
@@ -21,12 +28,24 @@ export type ScheduleTimeScale = {
   pxPerMinute: number;
 };
 
+export type TimelineSegment = {
+  startMinutes: number;
+  endMinutes: number;
+  realDurationMinutes: number;
+  visualDurationMinutes: number;
+  kind: ScheduleEventKind;
+  topPx: number;
+  heightPx: number;
+  label: string;
+};
+
 export type PositionedSlot = {
   slot: SmartTimetableSlot;
   day: string;
   topPx: number;
   heightPx: number;
   durationMinutes: number;
+  visualDurationMinutes: number;
   compact: boolean;
 };
 
@@ -37,14 +56,23 @@ export type TimeAxisLabel = {
   kind: "major" | "minor";
 };
 
-export type TimeAxisSegment = {
-  startMinutes: number;
-  endMinutes: number;
-  topPx: number;
-  heightPx: number;
-  label: string;
-  durationMinutes: number;
-};
+export type TimeAxisSegment = TimelineSegment;
+
+export function getSlotEventKind(slot: Pick<SmartTimetableSlot, "slotType">): ScheduleEventKind {
+  if (slot.slotType === "recreation") return "recess";
+  if (slot.slotType === "pause_meridienne") return "lunch";
+  return "lesson";
+}
+
+export function getVisualDurationMinutes(
+  event: Pick<SmartTimetableSlot, "start" | "end" | "slotType">,
+): number {
+  const kind = getSlotEventKind(event);
+  if (kind === "recess" || kind === "lunch") {
+    return VISUAL_BREAK_DURATION_MINUTES;
+  }
+  return Math.max(1, minutesBetween(event.start, event.end));
+}
 
 export function parseTimeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
@@ -77,8 +105,33 @@ function slotDurationMinutes(slot: Pick<SmartTimetableSlot, "start" | "end">): n
   return Math.max(1, minutesBetween(slot.start, slot.end));
 }
 
+function segmentKindForInterval(
+  slots: SmartTimetableSlot[],
+  startMinutes: number,
+  endMinutes: number,
+): ScheduleEventKind {
+  for (const slot of slots) {
+    if (!slot.start || !slot.end) continue;
+    const slotStart = parseTimeToMinutes(slot.start);
+    const slotEnd = parseTimeToMinutes(slot.end);
+    if (slotStart >= endMinutes || slotEnd <= startMinutes) continue;
+
+    const kind = getSlotEventKind(slot);
+    if (kind === "lunch") return "lunch";
+    if (kind === "recess") return "recess";
+  }
+  return "lesson";
+}
+
+function visualDurationForKind(kind: ScheduleEventKind, realDurationMinutes: number): number {
+  if (kind === "recess" || kind === "lunch") {
+    return VISUAL_BREAK_DURATION_MINUTES;
+  }
+  return realDurationMinutes;
+}
+
 /**
- * Construit une échelle horaire commune à partir des plages réelles + paramètres EDT.
+ * Construit une échelle horaire commune (chronologie réelle pour les bornes).
  */
 export function buildScheduleTimeScale(
   slots: SmartTimetableSlot[],
@@ -103,13 +156,12 @@ export function buildScheduleTimeScale(
   dayEndMinutes = roundUpToStep(dayEndMinutes, 15);
 
   const totalMinutes = Math.max(60, dayEndMinutes - dayStartMinutes);
-  const totalHeightPx = Math.round(totalMinutes * pxPerMinute);
 
   return {
     dayStartMinutes,
     dayEndMinutes,
     totalMinutes,
-    totalHeightPx,
+    totalHeightPx: Math.round(totalMinutes * pxPerMinute),
     pxPerMinute,
   };
 }
@@ -118,7 +170,6 @@ export function minutesToTopPx(minutes: number, scale: ScheduleTimeScale): numbe
   return Math.round((minutes - scale.dayStartMinutes) * scale.pxPerMinute);
 }
 
-/** Hauteur strictement proportionnelle à la durée (sans minimum artificiel). */
 export function durationToHeightPx(durationMinutes: number, scale: ScheduleTimeScale): number {
   const raw = Math.round(durationMinutes * scale.pxPerMinute);
   return Math.max(4, raw - SLOT_GAP_PX);
@@ -129,42 +180,12 @@ export function isCompactSlotHeight(heightPx: number): boolean {
 }
 
 /**
- * Positionne chaque plage sur l'échelle commune (hauteur = durée réelle).
+ * Segments horaires partagés par toutes les journées (durée réelle + hauteur visuelle).
  */
-export function layoutSlotsOnScale(
+export function buildTimelineSegments(
   slots: SmartTimetableSlot[],
   scale: ScheduleTimeScale,
-): PositionedSlot[] {
-  const positioned: PositionedSlot[] = [];
-
-  for (const slot of slots) {
-    if (!slot.day || !slot.start || !slot.end) continue;
-
-    const startMinutes = parseTimeToMinutes(slot.start);
-    const duration = slotDurationMinutes(slot);
-    const topPx = minutesToTopPx(startMinutes, scale);
-    const heightPx = durationToHeightPx(duration, scale);
-
-    positioned.push({
-      slot,
-      day: slot.day,
-      topPx,
-      heightPx,
-      durationMinutes: duration,
-      compact: isCompactSlotHeight(heightPx),
-    });
-  }
-
-  return positioned;
-}
-
-/**
- * Segments horaires dérivés des limites réelles des plages (récréations, déjeuner, etc.).
- */
-export function buildTimeAxisSegments(
-  slots: SmartTimetableSlot[],
-  scale: ScheduleTimeScale,
-): TimeAxisSegment[] {
+): TimelineSegment[] {
   const boundaries = new Set<number>([scale.dayStartMinutes, scale.dayEndMinutes]);
 
   for (const slot of slots) {
@@ -173,38 +194,152 @@ export function buildTimeAxisSegments(
   }
 
   const sorted = [...boundaries].sort((a, b) => a - b);
-  const segments: TimeAxisSegment[] = [];
+  const segments: TimelineSegment[] = [];
+  let cumulativeTopPx = 0;
 
   for (let index = 0; index < sorted.length - 1; index += 1) {
     const startMinutes = sorted[index];
     const endMinutes = sorted[index + 1];
-    const durationMinutes = endMinutes - startMinutes;
-    if (durationMinutes <= 0) continue;
+    const realDurationMinutes = endMinutes - startMinutes;
+    if (realDurationMinutes <= 0) continue;
 
-    const topPx = minutesToTopPx(startMinutes, scale);
-    const heightPx = durationToHeightPx(durationMinutes, scale);
+    const kind = segmentKindForInterval(slots, startMinutes, endMinutes);
+    const visualDurationMinutes = visualDurationForKind(kind, realDurationMinutes);
+    const heightPx = durationToHeightPx(visualDurationMinutes, scale);
     const label =
-      durationMinutes >= 45
+      realDurationMinutes >= 45
         ? `${formatMinutesToFrenchTime(startMinutes)} – ${formatMinutesToFrenchTime(endMinutes)}`
         : formatMinutesToFrenchTime(startMinutes);
 
     segments.push({
       startMinutes,
       endMinutes,
-      topPx,
+      realDurationMinutes,
+      visualDurationMinutes,
+      kind,
+      topPx: cumulativeTopPx,
       heightPx,
       label,
-      durationMinutes,
     });
+
+    cumulativeTopPx += heightPx + SLOT_GAP_PX;
   }
 
   return segments;
 }
 
+export function getVisualTopPx(minutes: number, segments: TimelineSegment[]): number {
+  for (const segment of segments) {
+    if (minutes >= segment.startMinutes && minutes < segment.endMinutes) {
+      return segment.topPx;
+    }
+    if (minutes === segment.endMinutes) {
+      return segment.topPx + segment.heightPx + SLOT_GAP_PX;
+    }
+  }
+
+  const last = segments[segments.length - 1];
+  if (last && minutes >= last.endMinutes) {
+    return last.topPx + last.heightPx + SLOT_GAP_PX;
+  }
+
+  return 0;
+}
+
+export function applyVisualTimelineToScale(
+  scale: ScheduleTimeScale,
+  segments: TimelineSegment[],
+): ScheduleTimeScale {
+  const totalVisualMinutes = segments.reduce(
+    (sum, segment) => sum + segment.visualDurationMinutes,
+    0,
+  );
+  const totalHeightPx =
+    segments.reduce((sum, segment) => sum + segment.heightPx, 0) +
+    Math.max(0, segments.length - 1) * SLOT_GAP_PX;
+
+  return {
+    ...scale,
+    totalMinutes: totalVisualMinutes,
+    totalHeightPx,
+  };
+}
+
 /**
- * Étiquettes horaires alignées sur la grille (principales + intermédiaires si espace suffisant).
+ * Positionne chaque plage sur la timeline visuelle partagée.
  */
-export function buildTimeAxisLabels(scale: ScheduleTimeScale): TimeAxisLabel[] {
+export function layoutSlotsOnScale(
+  slots: SmartTimetableSlot[],
+  scale: ScheduleTimeScale,
+  segments?: TimelineSegment[],
+): PositionedSlot[] {
+  const timeline = segments ?? buildTimelineSegments(slots, scale);
+  const positioned: PositionedSlot[] = [];
+
+  for (const slot of slots) {
+    if (!slot.day || !slot.start || !slot.end) continue;
+
+    const startMinutes = parseTimeToMinutes(slot.start);
+    const realDuration = slotDurationMinutes(slot);
+    const visualDuration = getVisualDurationMinutes(slot);
+    const topPx = getVisualTopPx(startMinutes, timeline);
+    const heightPx = durationToHeightPx(visualDuration, scale);
+
+    positioned.push({
+      slot,
+      day: slot.day,
+      topPx,
+      heightPx,
+      durationMinutes: realDuration,
+      visualDurationMinutes: visualDuration,
+      compact: isCompactSlotHeight(heightPx),
+    });
+  }
+
+  return positioned;
+}
+
+/** Alias — segments horaires pour la colonne de temps. */
+export function buildTimeAxisSegments(
+  slots: SmartTimetableSlot[],
+  scale: ScheduleTimeScale,
+): TimeAxisSegment[] {
+  return buildTimelineSegments(slots, scale);
+}
+
+export function buildTimeAxisLabels(
+  scale: ScheduleTimeScale,
+  segments: TimelineSegment[],
+): TimeAxisLabel[] {
+  const labels: TimeAxisLabel[] = [];
+
+  for (const segment of segments) {
+    labels.push({
+      minutes: segment.startMinutes,
+      topPx: segment.topPx,
+      label: formatMinutesToTime(segment.startMinutes),
+      kind: segment.realDurationMinutes >= 45 ? "major" : "minor",
+    });
+  }
+
+  const last = segments[segments.length - 1];
+  if (last) {
+    labels.push({
+      minutes: last.endMinutes,
+      topPx: last.topPx + last.heightPx,
+      label: formatMinutesToTime(last.endMinutes),
+      kind: "major",
+    });
+  }
+
+  if (labels.length === 0) {
+    return buildLegacyTimeAxisLabels(scale);
+  }
+
+  return labels;
+}
+
+function buildLegacyTimeAxisLabels(scale: ScheduleTimeScale): TimeAxisLabel[] {
   const labels: TimeAxisLabel[] = [];
   const majorStep = scale.totalMinutes > 360 ? 60 : scale.totalMinutes > 240 ? 45 : 30;
   const minorStep = majorStep >= 60 ? 30 : 15;
@@ -231,6 +366,7 @@ export type ScheduleGridModel = {
   positioned: PositionedSlot[];
   timeLabels: TimeAxisLabel[];
   timeSegments: TimeAxisSegment[];
+  timelineSegments: TimelineSegment[];
   days: string[];
 };
 
@@ -240,15 +376,16 @@ export function buildScheduleGridModel(
   settings?: TimetableSettings,
   pxPerMinute?: number,
 ): ScheduleGridModel {
-  const scale = buildScheduleTimeScale(slots, settings, pxPerMinute);
-  const positioned = layoutSlotsOnScale(slots, scale);
-  const timeLabels = buildTimeAxisLabels(scale);
-  const timeSegments = buildTimeAxisSegments(slots, scale);
+  const baseScale = buildScheduleTimeScale(slots, settings, pxPerMinute);
+  const timelineSegments = buildTimelineSegments(slots, baseScale);
+  const scale = applyVisualTimelineToScale(baseScale, timelineSegments);
+  const positioned = layoutSlotsOnScale(slots, baseScale, timelineSegments);
+  const timeLabels = buildTimeAxisLabels(baseScale, timelineSegments);
+  const timeSegments = timelineSegments;
 
-  return { scale, positioned, timeLabels, timeSegments, days };
+  return { scale, positioned, timeLabels, timeSegments, timelineSegments, days };
 }
 
-/** Détecte les chevauchements sur une même journée (hors récréations). */
 export function findOverlappingSlots(slots: SmartTimetableSlot[]): Array<[string, string]> {
   const pairs: Array<[string, string]> = [];
   const skipTypes = new Set(["recreation", "pause_meridienne"]);

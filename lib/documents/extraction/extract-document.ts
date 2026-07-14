@@ -6,6 +6,8 @@ import {
   getFileExtension,
   isAcceptedResourceFile,
 } from "@/lib/documents/types";
+import { recognizeImageBuffer } from "@/lib/documents/extraction/ocr-extractor";
+import { isSupportedImageFile } from "@/lib/import/accepted-formats";
 import { DocumentExtractionError } from "./errors";
 import { extractPdfBuffer } from "./pdf-extractor";
 import type { DocumentExtractionResult, ExtractionMethod } from "./types";
@@ -36,6 +38,19 @@ export async function extractTextFromBuffer(
     return extractPdfBuffer(buffer);
   }
 
+  if (isSupportedImageFile(fileName)) {
+    const text = (await recognizeImageBuffer(buffer)).trim();
+    return {
+      text,
+      pageCount: 1,
+      textLength: text.length,
+      preview: text.slice(0, 500),
+      extractionMethod: "ocr-image",
+      usedOcr: true,
+      charsPerPage: text.length || null,
+    };
+  }
+
   throw new DocumentExtractionError(
     `Format non supporté pour l'extraction automatique (${extension || "inconnu"}).`,
     { reason: "unsupported_format" },
@@ -45,9 +60,9 @@ export async function extractTextFromBuffer(
 export async function extractTextFromFile(
   file: File,
 ): Promise<DocumentExtractionResult> {
-  if (!isAcceptedResourceFile(file.name)) {
+  if (!isAcceptedResourceFile(file.name, file.type)) {
     throw new DocumentExtractionError(
-      "Format non supporté. Formats acceptés : PDF, DOCX, PPTX, XLSX, TXT.",
+      "Format non supporté. Formats acceptés : JPG, JPEG, PNG, PDF, DOCX, PPTX, XLSX, TXT.",
       { reason: "unsupported_format" },
     );
   }

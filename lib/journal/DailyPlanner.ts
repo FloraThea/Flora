@@ -1,29 +1,30 @@
 import type { TeacherProfileBundle } from "@/lib/profile/types";
 import type { StoredSeance } from "@/lib/seances/types";
 import { lessonAssembler } from "./LessonAssembler";
-import { ritualAssembler } from "./RitualAssembler";
-import { scheduleEngine, type ResolvedSchoolDay } from "./ScheduleEngine";
-import type { JournalEntry, JournalResources, RitualDefinition } from "./types";
+import type { JournalScheduleSlot } from "./journal-timetable";
+import { isNonPedagogicalSlot } from "./journal-slot-utils";
+import type { ResolvedSchoolDay } from "./ScheduleEngine";
+import type { JournalEntry, JournalResources } from "./types";
 
-function buildRitualEntry(input: {
+function buildBreakEntry(input: {
   journalId: string;
   sortOrder: number;
-  ritual: RitualDefinition;
+  slot: JournalScheduleSlot;
 }): Omit<JournalEntry, "id" | "observation"> {
   return {
     journalId: input.journalId,
     sortOrder: input.sortOrder,
-    entryType: "ritual",
-    startTime: input.ritual.startTime ?? "",
-    endTime: input.ritual.endTime ?? "",
-    matiere: input.ritual.matiere ?? "Rituel",
+    entryType: "break",
+    startTime: input.slot.start,
+    endTime: input.slot.end,
+    matiere: input.slot.subject,
     seanceId: null,
-    ritualId: input.ritual.id,
-    ritualLabel: input.ritual.label,
+    ritualId: null,
+    ritualLabel: "",
     competence: "",
-    objectif: input.ritual.objectif,
-    dureeMinutes: input.ritual.dureeMinutes,
-    organisation: input.ritual.organisation,
+    objectif: "",
+    dureeMinutes: lessonAssembler.estimateMinutes(input.slot),
+    organisation: "",
     materiel: { items: [], guides: [], albums: [], fiches: [], jeux: [], autres: [] },
     documents: [],
     resources: {
@@ -37,8 +38,16 @@ function buildRitualEntry(input: {
       liens: [],
     },
     observations: "",
-    slotData: {},
-    metadata: { source: "rituals", movable: true },
+    slotData: {
+      slotType: input.slot.slotType,
+      subSubject: input.slot.subSubject ?? "",
+      sourceScheduleSlotId: input.slot.sourceScheduleSlotId ?? null,
+    },
+    metadata: {
+      source: "timetable",
+      fillState: "break",
+      isPersisted: false,
+    },
   };
 }
 
@@ -49,45 +58,28 @@ export class DailyPlanner {
     profile: TeacherProfileBundle;
     seances: StoredSeance[];
     resourcesByMatiere: Record<string, JournalResources>;
+    linkSeances?: boolean;
   }): Omit<JournalEntry, "id" | "observation">[] {
-    const rituals = ritualAssembler.buildRituals({
-      profile: input.profile,
-      slots: input.resolvedDay.slots,
-      dayName: input.resolvedDay.dayName,
-    });
-
     const entries: Omit<JournalEntry, "id" | "observation">[] = [];
     let sortOrder = 1;
 
-    for (const ritual of rituals.filter((item) => item.startTime)) {
-      entries.push(
-        buildRitualEntry({
-          journalId: input.journalId,
-          sortOrder,
-          ritual,
-        }),
-      );
-      sortOrder += 1;
-    }
-
-    for (const slot of input.resolvedDay.slots) {
-      const seance = lessonAssembler.findSeanceForSlot(
-        input.seances,
-        slot,
-        input.resolvedDay.date,
-      );
-      const inlineRitual = ritualAssembler.attachRitualToSlot(rituals, slot);
-
-      if (inlineRitual) {
+    for (const slot of input.resolvedDay.slots as JournalScheduleSlot[]) {
+      if (isNonPedagogicalSlot(slot.slotType)) {
         entries.push(
-          buildRitualEntry({
+          buildBreakEntry({
             journalId: input.journalId,
             sortOrder,
-            ritual: inlineRitual,
+            slot,
           }),
         );
         sortOrder += 1;
+        continue;
       }
+
+      const seance =
+        input.linkSeances === true
+          ? lessonAssembler.findSeanceForSlot(input.seances, slot, input.resolvedDay.date)
+          : null;
 
       if (seance) {
         entries.push(

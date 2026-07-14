@@ -2,6 +2,7 @@ import { loadTeacherProfileBundle } from "@/lib/profile";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import type { StoredSeance } from "@/lib/seances/types";
 import { adjustmentEngine } from "./AdjustmentEngine";
+import { buildJournalPreviewForDate } from "./journal-preview";
 import { dailyPlanner } from "./DailyPlanner";
 import { formatDateLabel, getWeekDates, addDays } from "./date-utils";
 import {
@@ -94,7 +95,12 @@ export class JournalGenerator {
     date: string;
     regenerate?: boolean;
     proposeAdjustments?: boolean;
+    persist?: boolean;
   }): Promise<JournalPayload> {
+    if (!input.persist) {
+      return buildJournalPreviewForDate(input.date);
+    }
+
     const profileBundle = await loadTeacherProfileBundle();
     if (!profileBundle) {
       throw new Error("Profil enseignant requis pour générer le cahier journal.");
@@ -108,7 +114,11 @@ export class JournalGenerator {
     }
 
     const profile = profileBundle.profile;
-    const timetable = await resolveJournalTimetable(profileBundle);
+    const timetableResolved = await resolveJournalTimetable(profileBundle);
+    if (!timetableResolved.hasActiveSchedule) {
+      return buildJournalPreviewForDate(input.date);
+    }
+
     const calendar = schoolWeeksCalculator.calculate(
       profile.schoolYear,
       profile.zoneScolaire,
@@ -117,7 +127,7 @@ export class JournalGenerator {
 
     const resolvedDay = scheduleEngine.resolveDay(
       calendar,
-      timetable,
+      timetableResolved,
       input.date,
       profile.workingDays,
     );
@@ -126,6 +136,7 @@ export class JournalGenerator {
       date: input.date,
       periodNumber: resolvedDay.periodNumber,
       weekNumber: resolvedDay.weekNumber,
+      teacherProfileId: profile.id,
     });
     const seances = seanceRows.map(mapSeanceRow);
     const resourcesByMatiere = await loadLibraryResourcesByMatiere();
@@ -138,6 +149,7 @@ export class JournalGenerator {
       profile: profileBundle,
       seances,
       resourcesByMatiere,
+      linkSeances: true,
     });
 
     const annualProject = profileBundle.projects.find((project) => project.projectType === "annuel");

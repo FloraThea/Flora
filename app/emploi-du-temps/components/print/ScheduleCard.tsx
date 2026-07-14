@@ -1,7 +1,6 @@
 import type { SmartTimetableSlot } from "@/lib/timetable/types";
 import {
   buildCardContentLines,
-  computeAdaptiveCardTypography,
   getCardPadding,
   getSubjectIcon,
   type PrintThemeTokens,
@@ -11,6 +10,7 @@ import {
   resolvePrintCardBackground,
 } from "@/lib/timetable/export/print-layout-engine";
 import type { PrintCustomization } from "@/lib/timetable/export/types";
+import { computeUniformPrintTypography } from "@/lib/timetable/slot-card-typography";
 import { useFloraTheme } from "@/components/theme/ThemeProvider";
 
 type ScheduleCardProps = {
@@ -39,6 +39,7 @@ export function ScheduleCard({
   const icon = metaIcon ?? getSubjectIcon(slot.subject, slot.subSubject, slot.slotType);
   const padding = getCardPadding(customization.cardScale);
   const hasIcon = customization.showIcons;
+  const typography = computeUniformPrintTypography(cellHeight < 44);
 
   const contentLines = buildCardContentLines({
     subject: displayTitle,
@@ -46,18 +47,9 @@ export function ScheduleCard({
     complementaryText,
     objectif,
     competence,
-    showComplementaryText: customization.showComplementaryText,
-    showObjectives: customization.showObjectives,
-    showCompetencies: customization.showCompetencies,
-  });
-
-  const { fontSizes, lineHeight } = computeAdaptiveCardTypography({
-    lines: contentLines,
-    cellWidth,
-    cellHeight,
-    padding,
-    hasIcon,
-    fontScale: customization.fontScale,
+    showComplementaryText: customization.showComplementaryText && typography.showSecondary,
+    showObjectives: customization.showObjectives && typography.showTertiary,
+    showCompetencies: customization.showCompetencies && typography.showTertiary,
   });
 
   const cardStyle = {
@@ -81,25 +73,35 @@ export function ScheduleCard({
   };
 
   if (variant === "break") {
-    const breakFont = Math.max(18, fontSizes[0] ?? 22);
     return (
       <div style={cardStyle}>
         {hasIcon ? (
-          <span style={{ fontSize: breakFont * 0.85, lineHeight: 1, marginBottom: 8, opacity: 0.9 }}>
+          <span style={{ fontSize: typography.subjectPx * 0.85, lineHeight: 1, marginBottom: 8, opacity: 0.9 }}>
             {icon}
           </span>
         ) : null}
         <div
           style={{
-            fontSize: breakFont,
+            fontSize: typography.subjectPx,
             fontWeight: 700,
-            lineHeight,
+            lineHeight: 1.15,
             wordBreak: "break-word",
             hyphens: "auto",
             width: "100%",
           }}
         >
           {slot.subject}
+        </div>
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: typography.timePx,
+            fontWeight: 600,
+            lineHeight: 1.15,
+            width: "100%",
+          }}
+        >
+          {slot.start} – {slot.end}
         </div>
       </div>
     );
@@ -110,7 +112,7 @@ export function ScheduleCard({
       {hasIcon ? (
         <span
           style={{
-            fontSize: Math.max(16, (fontSizes[0] ?? 22) * 0.65),
+            fontSize: typography.subjectPx * 0.65,
             lineHeight: 1,
             marginBottom: 8,
             opacity: 0.85,
@@ -121,18 +123,39 @@ export function ScheduleCard({
         </span>
       ) : null}
 
+      <div
+        style={{
+          fontSize: typography.timePx,
+          fontWeight: 600,
+          lineHeight: 1.15,
+          marginBottom: 6,
+          width: "100%",
+        }}
+      >
+        {slot.start} – {slot.end}
+      </div>
+
       {contentLines.map((line, index) => (
         <div
           key={`${line.role}-${index}`}
           style={{
             marginTop: index > 0 ? 6 : 0,
-            fontSize: fontSizes[index] ?? MIN_FALLBACK,
+            fontSize:
+              line.role === "primary"
+                ? typography.subjectPx
+                : line.role === "secondary"
+                  ? typography.secondaryPx
+                  : typography.secondaryPx,
             fontWeight: line.role === "primary" ? 700 : line.role === "secondary" ? 600 : 500,
-            lineHeight,
+            lineHeight: 1.15,
             wordBreak: "break-word",
             hyphens: "auto",
             width: "100%",
             opacity: line.role === "tertiary" ? 0.88 : 1,
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical" as const,
+            WebkitLineClamp: 2,
+            overflow: "hidden",
           }}
         >
           {line.text}
@@ -141,5 +164,3 @@ export function ScheduleCard({
     </div>
   );
 }
-
-const MIN_FALLBACK = 16;

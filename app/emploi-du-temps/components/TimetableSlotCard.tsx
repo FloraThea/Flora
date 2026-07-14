@@ -61,18 +61,6 @@ export function TimetableSlotCard({
   const teacher = meta.teacherName || slot.intervenant;
   const timeLabel = `${slot.start} – ${slot.end}`;
 
-  const titleStyle = isGrid && typography
-    ? { fontSize: typography.titlePx, lineHeight: 1.15 }
-    : undefined;
-
-  const timeStyle = isGrid && typography
-    ? { fontSize: typography.timePx }
-    : undefined;
-
-  const secondaryStyle = isGrid && typography
-    ? { fontSize: typography.secondaryPx }
-    : undefined;
-
   return (
     <article
       draggable={draggable && !locked}
@@ -110,16 +98,15 @@ export function TimetableSlotCard({
     >
       <div className={`flex shrink-0 items-start justify-between gap-1 ${isGrid ? "mb-0.5" : "mb-1.5"}`}>
         <span
-          className={`rounded-full bg-white/55 px-1.5 py-0.5 font-semibold tracking-wide ${
+          className={`schedule-card-time rounded-full bg-white/55 px-1.5 py-0.5 tracking-wide ${
             isGrid ? "" : "text-[10px] font-medium"
           }`}
-          style={timeStyle}
         >
           {timeLabel}
         </span>
         <div className="flex shrink-0 items-center gap-0.5">
-          {!typography?.compact ? (
-            <span className={`leading-none ${isGrid ? "text-xs" : "text-sm"}`} aria-hidden>
+          {typography?.showTertiary ? (
+            <span className="text-xs leading-none" aria-hidden>
               {icon}
             </span>
           ) : null}
@@ -130,7 +117,7 @@ export function TimetableSlotCard({
                 event.stopPropagation();
                 onLock();
               }}
-              className="shrink-0 rounded-md bg-white/40 px-1 py-0.5 text-[9px] opacity-70 transition hover:opacity-100"
+              className="schedule-card-time shrink-0 rounded-md bg-white/40 px-1 py-0.5 opacity-70 transition hover:opacity-100"
               title="Verrouiller la séance"
             >
               {locked ? "🔒" : "○"}
@@ -141,23 +128,19 @@ export function TimetableSlotCard({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <h5
-          className={`font-serif font-bold ${
-            isGrid ? "line-clamp-2" : "text-sm font-medium leading-snug"
+          className={`schedule-card-subject font-serif ${
+            isGrid ? "" : "text-sm font-medium leading-snug"
           }`}
-          style={{
-            ...titleStyle,
-            WebkitLineClamp: typography?.lineClamp ?? 2,
-          }}
+          style={{ WebkitLineClamp: typography?.lineClamp ?? 2 }}
         >
           {displayTitle || slot.subject || "Créneau"}
         </h5>
 
-        {(!typography || typography.showSecondary) && (subjectLine || slot.subSubject) ? (
+        {typography?.showSecondary && (subjectLine || slot.subSubject) ? (
           <p
-            className={`mt-0.5 line-clamp-1 font-medium leading-snug opacity-95 ${
+            className={`schedule-card-secondary mt-0.5 opacity-95 ${
               isGrid ? "" : "text-xs font-light opacity-90"
             }`}
-            style={secondaryStyle}
           >
             {subjectLine}
             {subjectLine && slot.subSubject ? " · " : null}
@@ -165,44 +148,39 @@ export function TimetableSlotCard({
           </p>
         ) : null}
 
-        {(!typography || typography.showTertiary) && meta.levels?.length ? (
-          <p
-            className={`mt-0.5 line-clamp-1 font-light leading-snug opacity-85 ${
-              isGrid ? "" : "text-[10px]"
-            }`}
-            style={secondaryStyle}
-          >
+        {typography?.showTertiary && meta.levels?.length ? (
+          <p className={`schedule-card-secondary mt-0.5 opacity-85 ${isGrid ? "" : "text-[10px] font-light"}`}>
             {meta.levels.join(" · ")}
           </p>
         ) : null}
 
-        {(!typography || typography.showTertiary) && slot.customText ? (
+        {typography?.showTertiary && slot.customText ? (
           <p
-            className={`mt-0.5 line-clamp-2 font-light italic opacity-85 ${
-              isGrid ? "" : "text-[10px]"
+            className={`schedule-card-secondary mt-0.5 italic opacity-85 ${
+              isGrid ? "" : "text-[10px] font-light"
             }`}
-            style={secondaryStyle}
+            style={{ WebkitLineClamp: 2 }}
           >
             {slot.customText}
           </p>
         ) : null}
 
         {(slot.room || teacher) && !isGrid ? (
-          <div className="mt-1 space-y-0.5 text-[10px] font-light leading-snug opacity-80">
+          <div className="schedule-card-secondary mt-1 space-y-0.5 font-light opacity-80">
             {slot.room ? <p className="line-clamp-1">{slot.room}</p> : null}
             {teacher ? <p className="line-clamp-1">{teacher}</p> : null}
           </div>
         ) : null}
 
         {isGrid && typography?.showTertiary && (slot.room || teacher) ? (
-          <p className="mt-0.5 line-clamp-1 text-[11px] font-light opacity-85">
+          <p className="schedule-card-secondary mt-0.5 line-clamp-1 opacity-85">
             {[slot.room, teacher].filter(Boolean).join(" · ")}
           </p>
         ) : null}
       </div>
 
       {onEdit && !isGrid ? (
-        <p className="mt-2 shrink-0 text-[10px] font-light opacity-60 transition group-hover:opacity-90">
+        <p className="schedule-card-secondary mt-2 shrink-0 opacity-60 transition group-hover:opacity-90">
           Cliquer pour tout modifier
         </p>
       ) : null}
