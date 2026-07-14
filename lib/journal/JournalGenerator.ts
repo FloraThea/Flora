@@ -149,7 +149,7 @@ export class JournalGenerator {
       profile: profileBundle,
       seances,
       resourcesByMatiere,
-      linkSeances: true,
+      linkSeances: false,
     });
 
     const annualProject = profileBundle.projects.find((project) => project.projectType === "annuel");

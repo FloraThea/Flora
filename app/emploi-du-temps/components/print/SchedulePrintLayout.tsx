@@ -3,10 +3,13 @@
 import { forwardRef, useMemo } from "react";
 import type { SmartTimetableSlot } from "@/lib/timetable/types";
 import { resolvePrintDays } from "@/lib/timetable/export/print-layout-engine";
-import { getPrintThemeTokens, PRINT_FONT_URL, TIME_FONT_PX } from "@/lib/timetable/export/print-theme";
 import {
-  A4_LANDSCAPE_PX,
-  A4_PORTRAIT_PX,
+  getPrintThemeTokens,
+  PRINT_AXIS_TIME_FONT_PX,
+  PRINT_FONT_URL,
+} from "@/lib/timetable/export/print-theme";
+import {
+  resolvePageDimensions,
   type PrintCustomization,
   type SchedulePrintMeta,
 } from "@/lib/timetable/export/types";
@@ -18,11 +21,13 @@ import {
 import { PrintHeader } from "./PrintHeader";
 import { ScheduleCard } from "./ScheduleCard";
 
-const PAGE_MARGIN_X = 70;
-const PAGE_MARGIN_TOP = 56;
-const PAGE_MARGIN_BOTTOM = 48;
-const HEADER_BLOCK_HEIGHT = 320;
-const TIME_COLUMN_WIDTH = 88;
+const PAGE_MARGIN_X = 40;
+const PAGE_MARGIN_TOP = 36;
+const PAGE_MARGIN_BOTTOM = 32;
+const HEADER_BLOCK_HEIGHT = 220;
+const TIME_COLUMN_WIDTH = 96;
+const GRID_GAP_PX = 4;
+const PRINT_PX_PER_MINUTE = PX_PER_MINUTE * 1.2;
 
 type SchedulePrintLayoutProps = {
   slots: SmartTimetableSlot[];
@@ -62,12 +67,11 @@ function WatermarkLayer({ opacity }: { opacity: number }) {
 export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayoutProps>(
   function SchedulePrintLayout({ slots, schoolDays, meta, customization }, ref) {
     const theme = getPrintThemeTokens(customization.styleTheme);
-    const dimensions =
-      customization.orientation === "portrait" ? A4_PORTRAIT_PX : A4_LANDSCAPE_PX;
+    const dimensions = resolvePageDimensions(customization);
     const days = useMemo(() => resolvePrintDays(schoolDays), [schoolDays]);
 
     const grid = useMemo(
-      () => buildScheduleGridModel(slots, days, undefined, PX_PER_MINUTE * 1.1),
+      () => buildScheduleGridModel(slots, days, undefined, PRINT_PX_PER_MINUTE),
       [slots, days],
     );
 
@@ -77,7 +81,9 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
     const scaleFactor = tableHeight / Math.max(grid.scale.totalHeightPx, 1);
     const scaledHeight = Math.round(grid.scale.totalHeightPx * scaleFactor);
     const timeColWidth = customization.showTimes ? TIME_COLUMN_WIDTH : 0;
-    const dayColumnWidth = Math.floor((contentWidth - timeColWidth - 8 * days.length) / days.length);
+    const dayColumnWidth = Math.floor(
+      (contentWidth - timeColWidth - GRID_GAP_PX * days.length) / days.length,
+    );
 
     const slotsByDay = useMemo(() => {
       const map = new Map<string, typeof grid.positioned>();
@@ -109,15 +115,14 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
         <PrintHeader meta={meta} theme={theme} />
 
         <div style={{ position: "relative", zIndex: 1, height: tableHeight }}>
-          {/* En-têtes jours */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: customization.showTimes
                 ? `${timeColWidth}px repeat(${days.length}, ${dayColumnWidth}px)`
                 : `repeat(${days.length}, ${dayColumnWidth}px)`,
-              gap: 8,
-              marginBottom: 8,
+              gap: GRID_GAP_PX,
+              marginBottom: GRID_GAP_PX,
             }}
           >
             {customization.showTimes ? <div /> : null}
@@ -125,11 +130,11 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
               <div
                 key={day}
                 style={{
-                  padding: "10px 8px",
-                  borderRadius: 14,
+                  padding: "8px 6px",
+                  borderRadius: 12,
                   background: theme.tableHeaderBg,
                   color: theme.tableHeaderText,
-                  fontSize: TIME_FONT_PX + 1,
+                  fontSize: PRINT_AXIS_TIME_FONT_PX,
                   fontWeight: 700,
                   textAlign: "center",
                 }}
@@ -145,7 +150,7 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
               gridTemplateColumns: customization.showTimes
                 ? `${timeColWidth}px repeat(${days.length}, ${dayColumnWidth}px)`
                 : `repeat(${days.length}, ${dayColumnWidth}px)`,
-              gap: 8,
+              gap: GRID_GAP_PX,
               height: scaledHeight,
             }}
           >
@@ -154,7 +159,7 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                 style={{
                   position: "relative",
                   height: scaledHeight,
-                  borderRadius: 14,
+                  borderRadius: 12,
                   background: theme.timeColumnBg,
                   border: `1px solid ${theme.borderColor}`,
                 }}
@@ -174,7 +179,7 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                     {tick.kind === "major" ? (
                       <div
                         style={{
-                          fontSize: TIME_FONT_PX,
+                          fontSize: PRINT_AXIS_TIME_FONT_PX,
                           fontWeight: 700,
                           textAlign: "center",
                           transform: "translateY(-50%)",
@@ -194,7 +199,7 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                 style={{
                   position: "relative",
                   height: scaledHeight,
-                  borderRadius: 14,
+                  borderRadius: 12,
                   background: theme.cardBackground,
                   border: `1px solid ${theme.borderColor}`,
                   overflow: "hidden",
@@ -211,24 +216,25 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                         right: 0,
                         top: Math.round(tick.topPx * scaleFactor),
                         borderTop: `1px dashed ${theme.borderColor}`,
-                        opacity: 0.5,
+                        opacity: 0.45,
                       }}
                     />
                   ))}
 
                 {(slotsByDay.get(day) ?? []).map(({ slot, topPx, heightPx }) => {
                   const top = Math.round(topPx * scaleFactor);
-                  const height = Math.max(
-                    4,
-                    Math.round(heightPx * scaleFactor) - SLOT_GAP_PX,
-                  );
+                  const scaled = Math.round(heightPx * scaleFactor);
+                  const height = Math.max(scaled - SLOT_GAP_PX, scaled);
+                  const isBreak =
+                    slot.slotType === "recreation" || slot.slotType === "pause_meridienne";
+
                   return (
                     <div
                       key={slot.id}
                       style={{
                         position: "absolute",
-                        left: 4,
-                        right: 4,
+                        left: 2,
+                        right: 2,
                         top,
                         height,
                       }}
@@ -237,7 +243,8 @@ export const SchedulePrintLayout = forwardRef<HTMLDivElement, SchedulePrintLayou
                         slot={slot}
                         theme={theme}
                         customization={customization}
-                        cellWidth={dayColumnWidth - 8}
+                        variant={isBreak ? "break" : "lesson"}
+                        cellWidth={dayColumnWidth - 4}
                         cellHeight={height}
                       />
                     </div>

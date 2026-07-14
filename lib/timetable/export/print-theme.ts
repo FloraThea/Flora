@@ -12,8 +12,9 @@ export const PRIMARY_FONT_MAX_PX = 30;
 export const PRIMARY_FONT_MIN_PX = 22;
 export const SECONDARY_FONT_MAX_PX = 20;
 export const SECONDARY_FONT_MIN_PX = 16;
-export const TIME_FONT_PX = 15;
-export const HEADER_TITLE_FONT_PX = 38;
+export const TIME_FONT_PX = 22;
+export const PRINT_AXIS_TIME_FONT_PX = 22;
+export const HEADER_TITLE_FONT_PX = 36;
 
 export function getSubjectIcon(subject: string, subSubject = "", slotType?: string): string {
   const key = `${subject} ${subSubject}`.toLowerCase();
@@ -133,9 +134,9 @@ const FONT_SCALE_MULTIPLIER: Record<FontScale, number> = {
 };
 
 const CARD_PADDING: Record<PrintCustomization["cardScale"], number> = {
-  compact: 16,
-  normal: 22,
-  comfortable: 28,
+  compact: 8,
+  normal: 12,
+  comfortable: 16,
 };
 
 export function getCardPadding(cardScale: PrintCustomization["cardScale"]): number {

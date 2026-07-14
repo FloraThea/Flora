@@ -10,8 +10,7 @@ import {
   type ExportFormat,
   type PrintCustomization,
   type SchedulePrintMeta,
-  A4_LANDSCAPE_PX,
-  A4_PORTRAIT_PX,
+  resolvePageDimensions,
 } from "@/lib/timetable/export";
 import { SchedulePrintLayout } from "./SchedulePrintLayout";
 import { PrintToolbar } from "./PrintToolbar";
@@ -35,8 +34,7 @@ export function PrintPreview({ slots, settings, meta, onClose }: PrintPreviewPro
   const [error, setError] = useState<string | null>(null);
 
   const schoolDays = settings.schoolDays.length > 0 ? settings.schoolDays : [...SCHOOL_DAYS];
-  const dimensions =
-    customization.orientation === "portrait" ? A4_PORTRAIT_PX : A4_LANDSCAPE_PX;
+  const dimensions = resolvePageDimensions(customization);
 
   const handleCustomizationChange = useCallback((patch: Partial<PrintCustomization>) => {
     setCustomization((current) => ({ ...current, ...patch }));
@@ -61,7 +59,10 @@ export function PrintPreview({ slots, settings, meta, onClose }: PrintPreviewPro
       setError(null);
 
       try {
-        await ExportService.export(node, format, customization.orientation);
+        await ExportService.export(node, format, {
+          orientation: customization.orientation,
+          pageFormat: customization.pageFormat,
+        });
         if (format === "print") onClose();
       } catch (exportError) {
         setError(exportError instanceof Error ? exportError.message : "Export impossible.");
@@ -69,7 +70,7 @@ export function PrintPreview({ slots, settings, meta, onClose }: PrintPreviewPro
         setIsExporting(false);
       }
     },
-    [customization.orientation, onClose],
+    [customization.orientation, customization.pageFormat, onClose],
   );
 
   return (
@@ -86,7 +87,7 @@ export function PrintPreview({ slots, settings, meta, onClose }: PrintPreviewPro
 
         <h2 className="font-serif text-2xl font-medium text-flora-text">Export Premium</h2>
         <p className="mt-1 text-sm font-light text-flora-text-muted">
-          Aperçu avant impression — mise en page dédiée, qualité A4 300 dpi.
+          Aperçu fidèle au rendu imprimé — police 30 px, mise en page classe.
         </p>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr]">

@@ -1,30 +1,39 @@
 import { jsPDF } from "jspdf";
-import type { PageDimensions, PrintOrientation } from "./types";
-import { A4_LANDSCAPE_PX, A4_PORTRAIT_PX } from "./types";
+import type { PageDimensions, PageFormat, PrintOrientation } from "./types";
+import { resolvePageDimensions } from "./types";
 
-export function getPageDimensions(orientation: PrintOrientation): PageDimensions {
-  return orientation === "portrait" ? A4_PORTRAIT_PX : A4_LANDSCAPE_PX;
+export function getPageDimensions(
+  orientation: PrintOrientation,
+  pageFormat: PageFormat = "a4",
+): PageDimensions {
+  return resolvePageDimensions({ orientation, pageFormat });
 }
 
+const PDF_MM: Record<PageFormat, { w: number; h: number }> = {
+  a4: { w: 210, h: 297 },
+  a3: { w: 297, h: 420 },
+};
+
 /**
- * Generates a print-quality PDF (300 dpi equivalent) from a rendered print-layout image.
- * The source is the dedicated SchedulePrintLayout — never the interactive grid.
+ * PDF haute définition depuis la vue d'impression dédiée (SchedulePrintLayout).
  */
 export class PdfGenerator {
   static async fromImageDataUrl(
     dataUrl: string,
     orientation: PrintOrientation,
     filename: string,
+    pageFormat: PageFormat = "a4",
   ): Promise<void> {
     const pdf = new jsPDF({
       orientation,
       unit: "mm",
-      format: "a4",
+      format: pageFormat,
       compress: true,
     });
 
-    const pageWidth = orientation === "portrait" ? 210 : 297;
-    const pageHeight = orientation === "portrait" ? 297 : 210;
+    const base = PDF_MM[pageFormat];
+    const pageWidth = orientation === "portrait" ? base.w : base.h;
+    const pageHeight = orientation === "portrait" ? base.h : base.w;
 
     pdf.addImage(dataUrl, "PNG", 0, 0, pageWidth, pageHeight, undefined, "SLOW");
     pdf.save(filename);

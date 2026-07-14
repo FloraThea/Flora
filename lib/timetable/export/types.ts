@@ -1,7 +1,7 @@
 import type { SmartTimetableSlot } from "../types";
 
-/** Page formats — extensible for A3 / Letter US later */
-export type PageFormat = "a4";
+/** Formats de page — A4 et A3 à ~300 dpi pour export HD. */
+export type PageFormat = "a4" | "a3";
 
 export type PrintOrientation = "portrait" | "landscape";
 
@@ -27,7 +27,7 @@ export const DEFAULT_PRINT_CUSTOMIZATION: PrintCustomization = {
   orientation: "landscape",
   pageFormat: "a4",
   styleTheme: "flora",
-  cardScale: "comfortable",
+  cardScale: "compact",
   fontScale: "large",
   showIcons: true,
   showTimes: true,
@@ -51,6 +51,18 @@ export type ExportFormat = "pdf" | "png" | "jpeg" | "print";
 
 export const A4_PORTRAIT_PX = { width: 2480, height: 3508 } as const;
 export const A4_LANDSCAPE_PX = { width: 3508, height: 2480 } as const;
+export const A3_PORTRAIT_PX = { width: 3508, height: 4961 } as const;
+export const A3_LANDSCAPE_PX = { width: 4961, height: 3508 } as const;
+
+export function resolvePageDimensions(input: {
+  pageFormat: PageFormat;
+  orientation: PrintOrientation;
+}): PageDimensions {
+  if (input.pageFormat === "a3") {
+    return input.orientation === "portrait" ? A3_PORTRAIT_PX : A3_LANDSCAPE_PX;
+  }
+  return input.orientation === "portrait" ? A4_PORTRAIT_PX : A4_LANDSCAPE_PX;
+}
 
 /** Standard 4-day week for premium print layout */
 export const PREMIUM_PRINT_DAYS = ["Lundi", "Mardi", "Jeudi", "Vendredi"] as const;

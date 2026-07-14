@@ -5,6 +5,7 @@ import { loadActiveScheduleForProfile } from "@/lib/timetable/timetable-service"
 export type JournalScheduleSlot = TimetableSlot & {
   slotType: string;
   subSubject?: string;
+  customText?: string;
   color?: string;
   sourceScheduleSlotId?: string;
 };
@@ -40,6 +41,7 @@ export async function resolveJournalScheduleSlots(
         hours: slot.hours,
         slotType: slot.slotType,
         subSubject: slot.subSubject ?? "",
+        customText: slot.customText ?? "",
         color: slot.color ?? "",
         sourceScheduleSlotId: slot.id,
       })),

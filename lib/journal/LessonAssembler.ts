@@ -107,7 +107,13 @@ export class LessonAssembler {
   buildEmptySlotEntry(input: {
     journalId: string;
     sortOrder: number;
-    slot: TimetableSlot & { slotType?: string; subSubject?: string; sourceScheduleSlotId?: string };
+    slot: TimetableSlot & {
+      slotType?: string;
+      subSubject?: string;
+      customText?: string;
+      color?: string;
+      sourceScheduleSlotId?: string;
+    };
   }): Omit<JournalEntry, "id" | "observation"> {
     const slotType = input.slot.slotType ?? "seance";
     const entryType =
@@ -143,6 +149,8 @@ export class LessonAssembler {
       slotData: {
         slotType,
         subSubject: input.slot.subSubject ?? "",
+        customText: input.slot.customText ?? "",
+        color: input.slot.color ?? "",
         sourceScheduleSlotId: input.slot.sourceScheduleSlotId ?? null,
       },
       metadata: {

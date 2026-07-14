@@ -1,7 +1,7 @@
 "use client";
 
 import { FloraButton } from "@/components/ui/FloraButton";
-import type { ExportFormat, PrintCustomization, PrintStyleTheme } from "@/lib/timetable/export/types";
+import type { ExportFormat, PageFormat, PrintCustomization, PrintStyleTheme } from "@/lib/timetable/export/types";
 import { PRINT_STYLE_LABELS } from "@/lib/timetable/export/print-theme";
 
 type PrintToolbarProps = {
@@ -44,7 +44,27 @@ export function PrintToolbar({
   return (
     <aside className="space-y-5">
       <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-flora-text-muted">Format</p>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-flora-text-muted">Format page</p>
+        <div className="flex flex-wrap gap-2">
+          {(["a4", "a3"] as PageFormat[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onChange({ pageFormat: value })}
+              className={`rounded-full px-3 py-1.5 text-xs uppercase ${
+                customization.pageFormat === value
+                  ? "bg-sauge-light/50 text-flora-text"
+                  : "bg-white/50 text-flora-text-muted"
+              }`}
+            >
+              {value}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-flora-text-muted">Orientation</p>
         <div className="flex flex-wrap gap-2">
           {(["portrait", "landscape"] as const).map((value) => (
             <button
@@ -57,7 +77,7 @@ export function PrintToolbar({
                   : "bg-white/50 text-flora-text-muted"
               }`}
             >
-              A4 {value === "portrait" ? "Portrait" : "Paysage"}
+              {customization.pageFormat.toUpperCase()} {value === "portrait" ? "Portrait" : "Paysage"}
             </button>
           ))}
         </div>
@@ -85,7 +105,7 @@ export function PrintToolbar({
 
       <div>
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-flora-text-muted">
-          Taille des cartes
+          Marges cartes
         </p>
         <div className="flex flex-wrap gap-2">
           {(["compact", "normal", "comfortable"] as const).map((value) => (
@@ -105,25 +125,10 @@ export function PrintToolbar({
         </div>
       </div>
 
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-flora-text-muted">Polices</p>
-        <div className="flex flex-wrap gap-2">
-          {(["small", "normal", "large"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onChange({ fontScale: value })}
-              className={`rounded-full px-3 py-1.5 text-xs ${
-                customization.fontScale === value
-                  ? "bg-sauge-light/50 text-flora-text"
-                  : "bg-white/50 text-flora-text-muted"
-              }`}
-            >
-              {value === "small" ? "Petite" : value === "normal" ? "Normale" : "Grande"}
-            </button>
-          ))}
-        </div>
-      </div>
+      <p className="rounded-xl bg-white/40 px-3 py-2 text-xs text-flora-text-subtle">
+        Police fixe 30 px (matière, sous-matière, texte complémentaire) · horaires 26 px · pas de
+        réduction automatique.
+      </p>
 
       <div>
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-flora-text-muted">

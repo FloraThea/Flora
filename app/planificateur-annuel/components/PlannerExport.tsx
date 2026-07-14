@@ -23,7 +23,10 @@ export function PlannerExport({ open, onClose, exportRootRef }: PlannerExportPro
       setIsExporting(true);
       setError(null);
       try {
-        await ExportService.export(node, format, "landscape", "planificateur-annuel-flora");
+        await ExportService.export(node, format, {
+          orientation: "landscape",
+          pageFormat: "a4",
+        }, "planificateur-annuel-flora");
         onClose();
       } catch (exportError) {
         setError(exportError instanceof Error ? exportError.message : "Export impossible.");

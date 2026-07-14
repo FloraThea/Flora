@@ -1,5 +1,5 @@
 import { toJpeg, toPng } from "html-to-image";
-import type { ExportFormat, PrintOrientation } from "./types";
+import type { ExportFormat, PageFormat, PrintOrientation } from "./types";
 import { getPageDimensions } from "./PdfGenerator";
 import { PdfGenerator } from "./PdfGenerator";
 import { PRINT_FONT_URL } from "./print-theme";
@@ -34,17 +34,21 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
+export type ExportOptions = {
+  orientation: PrintOrientation;
+  pageFormat?: PageFormat;
+};
+
 /**
- * Orchestrates export from the dedicated print layout DOM node.
- * This service never captures the interactive TimetableGrid.
+ * Export depuis la vue d'impression dédiée — jamais depuis la grille interactive.
  */
 export class ExportService {
   static async renderLayoutToPng(
     element: HTMLElement,
-    orientation: PrintOrientation,
+    options: ExportOptions,
   ): Promise<string> {
     await waitForFonts();
-    const { width, height } = getPageDimensions(orientation);
+    const { width, height } = getPageDimensions(options.orientation, options.pageFormat ?? "a4");
 
     return toPng(element, {
       ...CAPTURE_OPTIONS,
@@ -60,31 +64,32 @@ export class ExportService {
 
   static async exportPdf(
     element: HTMLElement,
-    orientation: PrintOrientation,
+    options: ExportOptions,
     filename: string,
   ): Promise<void> {
-    const dataUrl = await this.renderLayoutToPng(element, orientation);
-    await PdfGenerator.fromImageDataUrl(dataUrl, orientation, filename);
+    const pageFormat = options.pageFormat ?? "a4";
+    const dataUrl = await this.renderLayoutToPng(element, options);
+    await PdfGenerator.fromImageDataUrl(dataUrl, options.orientation, filename, pageFormat);
   }
 
   static async exportPng(
     element: HTMLElement,
-    orientation: PrintOrientation,
+    options: ExportOptions,
     filename: string,
   ): Promise<void> {
     await waitForFonts();
-    const { width, height } = getPageDimensions(orientation);
+    const { width, height } = getPageDimensions(options.orientation, options.pageFormat ?? "a4");
     const dataUrl = await toPng(element, { ...CAPTURE_OPTIONS, width, height });
     downloadBlob(dataUrlToBlob(dataUrl), filename);
   }
 
   static async exportJpeg(
     element: HTMLElement,
-    orientation: PrintOrientation,
+    options: ExportOptions,
     filename: string,
   ): Promise<void> {
     await waitForFonts();
-    const { width, height } = getPageDimensions(orientation);
+    const { width, height } = getPageDimensions(options.orientation, options.pageFormat ?? "a4");
     const dataUrl = await toJpeg(element, {
       ...CAPTURE_OPTIONS,
       width,
@@ -94,26 +99,26 @@ export class ExportService {
     downloadBlob(dataUrlToBlob(dataUrl), filename);
   }
 
-  static printLayout(element: HTMLElement, orientation: PrintOrientation = "portrait"): void {
+  static printLayout(element: HTMLElement, options: ExportOptions): void {
     const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1200,height=900");
     if (!printWindow) {
       throw new Error("Impossible d'ouvrir la fenêtre d'impression.");
     }
 
-    const pageSize = orientation === "landscape" ? "A4 landscape" : "A4 portrait";
+    const pageFormat = options.pageFormat ?? "a4";
+    const pageSize =
+      options.orientation === "landscape"
+        ? `${pageFormat.toUpperCase()} landscape`
+        : `${pageFormat.toUpperCase()} portrait`;
     const clone = element.cloneNode(true) as HTMLElement;
 
     printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8" />
       <title>Emploi du temps — Flora</title>
       <link href="${PRINT_FONT_URL}" rel="stylesheet" />
       <style>
-        @page { size: ${pageSize}; margin: 10mm; }
+        @page { size: ${pageSize}; margin: 8mm; }
         * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: white;
-        }
+        html, body { margin: 0; padding: 0; background: white; }
         body { display: flex; justify-content: center; align-items: flex-start; }
       </style>
     </head><body></body></html>`);
@@ -129,22 +134,20 @@ export class ExportService {
   static async export(
     element: HTMLElement,
     format: ExportFormat,
-    orientation: PrintOrientation,
+    options: ExportOptions,
     baseName = "emploi-du-temps-flora",
   ): Promise<void> {
+    const suffix = `${options.pageFormat ?? "a4"}-${options.orientation === "portrait" ? "portrait" : "paysage"}`;
+
     switch (format) {
       case "pdf":
-        return this.exportPdf(
-          element,
-          orientation,
-          `${baseName}-${orientation === "portrait" ? "portrait" : "paysage"}.pdf`,
-        );
+        return this.exportPdf(element, options, `${baseName}-${suffix}.pdf`);
       case "png":
-        return this.exportPng(element, orientation, `${baseName}.png`);
+        return this.exportPng(element, options, `${baseName}-${suffix}.png`);
       case "jpeg":
-        return this.exportJpeg(element, orientation, `${baseName}.jpg`);
+        return this.exportJpeg(element, options, `${baseName}-${suffix}.jpg`);
       case "print":
-        return this.printLayout(element, orientation);
+        return this.printLayout(element, options);
       default:
         throw new Error("Format d'export inconnu.");
     }
