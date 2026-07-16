@@ -190,7 +190,13 @@ export async function parseProgrammationFile(input: {
     extractedTextPreview =
       "Extraction Word limitée. Flora ne lit pas encore les tableaux Word directement — utilisez Excel ou CSV.";
   } else if (format === "image") {
-    try {
+    const mime = input.mimeType?.toLowerCase() ?? "";
+    if (mime.includes("heic") || mime.includes("heif")) {
+      warnings.push(
+        "Format HEIC/HEIF détecté. Exportez la photo en JPG ou PNG depuis votre iPhone, ou utilisez Excel (.xlsx).",
+      );
+      extractedTextPreview = "Format HEIC non pris en charge directement — convertissez en JPG ou PNG.";
+    } else try {
       const text = (await recognizeImageBuffer(input.buffer)).trim();
       extractedTextPreview = text.slice(0, 1200);
 
@@ -215,11 +221,12 @@ export async function parseProgrammationFile(input: {
           );
         }
       }
-    } catch {
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Erreur OCR";
       warnings.push(
-        "Analyse de l'image impossible. Réessayez avec une photo plus nette ou exportez en Excel (.xlsx).",
+        `Analyse de l'image impossible (${detail}). Réessayez avec une photo plus nette ou exportez en Excel (.xlsx).`,
       );
-      extractedTextPreview = "Extraction image limitée.";
+      extractedTextPreview = `Extraction image limitée : ${detail}`;
     }
   } else {
     const text = input.buffer.toString("utf8");

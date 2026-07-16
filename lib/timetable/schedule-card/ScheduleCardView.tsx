@@ -139,7 +139,7 @@ export function ScheduleCardView({
 
   if (mode === "export") {
     const typography = computeUniformPrintTypography();
-    const cardHeight =
+    const minCardHeight =
       fixedHeightPx ?? (isBreak ? EXPORT_BREAK_CARD_HEIGHT : EXPORT_LESSON_CARD_HEIGHT);
 
     const blocks = buildClassroomExportCardBlocks({
@@ -152,9 +152,8 @@ export function ScheduleCardView({
 
     const cardStyle: CSSProperties = {
       width: "100%",
-      height: cardHeight,
-      minHeight: cardHeight,
-      maxHeight: cardHeight,
+      minHeight: minCardHeight,
+      height: "auto",
       boxSizing: "border-box",
       padding: "8px 10px",
       borderRadius: 12,
@@ -195,7 +194,7 @@ export function ScheduleCardView({
             </span>
           ) : null}
         </div>
-        <div className="min-h-0 w-full flex-1" style={{ overflow: "visible" }}>
+        <div className="w-full shrink-0" style={{ overflow: "visible" }}>
           {blocks
             .filter((block) => block.kind !== "time")
             .map((block, index) => renderExportBlock(block, index, typography))}

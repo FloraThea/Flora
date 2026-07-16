@@ -59,6 +59,19 @@ function createBatchId(): string {
   return `batch-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function shouldFallbackToInlineAnalyze(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("accessible") ||
+    normalized.includes("stockage") ||
+    normalized.includes("storage") ||
+    normalized.includes("introuvable") ||
+    normalized.includes("download") ||
+    normalized.includes("nosuchkey") ||
+    normalized.includes("fichier local introuvable")
+  );
+}
+
 function buildPreviewUrl(file: File): string | undefined {
   if (isSupportedImageFile(file.name, file.type)) {
     return URL.createObjectURL(file);
@@ -261,6 +274,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       console.log("[ProgrammingImport] analyze-payload", {
         batchId: input.currentBatchId,
         documentMode: mergeMode,
+        source: "inline",
         files: input.pages.map((file) => ({
           id: file.fileId,
           name: file.filename,
@@ -322,6 +336,113 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       };
     },
     [mergeMode],
+  );
+
+  const runAnalyzeFromStorage = useCallback(
+    async (input: {
+      currentBatchId: string;
+      pages: Array<{
+        fileId: string;
+        filename: string;
+        mimeType: string;
+        pageOrder: number;
+        storagePath: string;
+        pdfPageNumber?: number;
+      }>;
+    }) => {
+      console.log("[ProgrammingImport] analyze-payload", {
+        batchId: input.currentBatchId,
+        documentMode: mergeMode,
+        source: "storage",
+        files: input.pages.map((file) => ({
+          id: file.fileId,
+          name: file.filename,
+          mimeType: file.mimeType,
+          storagePath: file.storagePath,
+          hasAccessibleUrl: Boolean(file.storagePath),
+          pageOrder: file.pageOrder,
+        })),
+      });
+
+      const analyzeResponse = await fetch("/api/programmation/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "batch_analyze",
+          batchId: input.currentBatchId,
+          mergeMode,
+          uploadedFiles: input.pages,
+        }),
+      });
+
+      const analyzeData = (await analyzeResponse.json()) as {
+        parsed?: ParsedProgrammationImport;
+        files?: Array<{ fileId: string; status: ImportedFileStatus; error?: string }>;
+        error?: string;
+        details?: string;
+      };
+
+      if (!analyzeResponse.ok || !analyzeData.parsed) {
+        throw new Error(parseImportApiError(analyzeData, "L'analyse des pages a échoué."));
+      }
+
+      return {
+        parsed: analyzeData.parsed,
+        storagePaths: input.pages.map((entry) => entry.storagePath),
+        fileStatuses: analyzeData.files ?? [],
+      };
+    },
+    [mergeMode],
+  );
+
+  const runAnalyzeWithFallback = useCallback(
+    async (input: {
+      currentBatchId: string;
+      pages: Array<{
+        fileId: string;
+        clientId: string;
+        filename: string;
+        mimeType: string;
+        pageOrder: number;
+        storagePath: string;
+        pdfPageNumber?: number;
+      }>;
+    }) => {
+      try {
+        console.log("[ProgrammingImport] analyze-start", {
+          batchId: input.currentBatchId,
+          fileCount: input.pages.length,
+          mode: "storage",
+        });
+        return await runAnalyzeFromStorage({
+          currentBatchId: input.currentBatchId,
+          pages: input.pages,
+        });
+      } catch (storageError) {
+        const message = storageError instanceof Error ? storageError.message : "";
+        const canUseLocalFiles = input.pages.every((page) => fileRegistry.current.has(page.clientId));
+
+        if (!canUseLocalFiles && !shouldFallbackToInlineAnalyze(message)) {
+          throw storageError;
+        }
+
+        if (!canUseLocalFiles) {
+          throw storageError;
+        }
+
+        console.warn("[ProgrammingImport] analyze-storage-fallback", {
+          batchId: input.currentBatchId,
+          reason: message,
+        });
+        console.log("[ProgrammingImport] analyze-start", {
+          batchId: input.currentBatchId,
+          fileCount: input.pages.length,
+          mode: "inline",
+        });
+        return runAnalyzeInline(input);
+      }
+    },
+    [runAnalyzeFromStorage, runAnalyzeInline],
   );
 
   const runBatchImport = useCallback(async () => {
@@ -411,7 +532,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       currentStep = "analyze";
       setUiState("analyzing");
 
-      const analyzeResult = await runAnalyzeInline({
+      const analyzeResult = await runAnalyzeWithFallback({
         currentBatchId,
         pages: uploadedDescriptors,
       });
@@ -440,7 +561,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       setFailureStep(currentStep);
       onError(message);
     }
-  }, [ensureBatch, mergeMode, onAnalyzed, onError, runAnalyzeInline, sortedFiles]);
+  }, [ensureBatch, onAnalyzed, onError, runAnalyzeWithFallback, sortedFiles]);
 
   const retryAnalysis = useCallback(async () => {
     const activePages = sortedFiles.filter(
@@ -461,17 +582,19 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
     onError(null);
 
     try {
-      const analyzeResult = await runAnalyzeInline({
+      const pages = activePages.map((item) => ({
+        fileId: item.fileId!,
+        clientId: item.clientId,
+        filename: item.filename,
+        mimeType: item.mimeType,
+        pageOrder: item.pageOrder,
+        storagePath: item.storagePath!,
+        pdfPageNumber: item.pdfPageNumber,
+      }));
+
+      const analyzeResult = await runAnalyzeWithFallback({
         currentBatchId: batchId,
-        pages: activePages.map((item) => ({
-          fileId: item.fileId!,
-          clientId: item.clientId,
-          filename: item.filename,
-          mimeType: item.mimeType,
-          pageOrder: item.pageOrder,
-          storagePath: item.storagePath!,
-          pdfPageNumber: item.pdfPageNumber,
-        })),
+        pages,
       });
 
       setFiles((current) =>
@@ -494,7 +617,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       setFailureStep("analyze");
       onError(message);
     }
-  }, [batchId, onAnalyzed, onError, runAnalyzeInline, sortedFiles]);
+  }, [batchId, onAnalyzed, onError, runAnalyzeWithFallback, sortedFiles]);
 
   const skipFile = useCallback((clientId: string) => {
     setFiles((current) =>

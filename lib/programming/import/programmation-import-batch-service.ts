@@ -315,6 +315,26 @@ export async function uploadProgrammingImportBatchFile(input: {
   };
 }
 
+async function resolveAnalyzeBuffer(input: {
+  buffer: Buffer;
+  storagePath?: string;
+  pageOrder: number;
+}): Promise<Buffer> {
+  if (input.buffer.length > 0) {
+    return input.buffer;
+  }
+
+  if (input.storagePath) {
+    return downloadBatchFileBuffer(input.storagePath);
+  }
+
+  throw new ProgrammingImportError(
+    "file_not_accessible",
+    `La page ${input.pageOrder} n'a pas pu être lue : fichier vide ou inaccessible.`,
+    { pageOrder: input.pageOrder },
+  );
+}
+
 async function analyzeFileBuffer(input: {
   fileName: string;
   buffer: Buffer;
@@ -356,7 +376,12 @@ async function analyzeFileBuffer(input: {
 
   const validation = validateProgrammingAnalysisResponse(parsed);
   if (!validation.ok) {
-    throw new ProgrammingImportError("invalid_analysis_response", validation.error);
+    devLog("[ProgrammingImport] analyze-soft-warning", {
+      fileName: resolvedName,
+      warning: validation.error,
+      previewLength: parsed.extractedTextPreview?.length ?? 0,
+    });
+    parsed.warnings.push(validation.error);
   }
 
   return parsed;
@@ -366,9 +391,17 @@ async function downloadBatchFileBuffer(storagePath: string): Promise<Buffer> {
   try {
     devLog("[ProgrammingImport] download-start", { storagePath });
     const downloaded = await storageService.download(storagePath);
+    if (!downloaded.body.length) {
+      throw new ProgrammingImportError(
+        "file_not_accessible",
+        "Le fichier téléversé est vide ou illisible.",
+        { details: storagePath },
+      );
+    }
     devLog("[ProgrammingImport] download-success", { storagePath, bytes: downloaded.body.length });
     return downloaded.body;
   } catch (error) {
+    if (error instanceof ProgrammingImportError) throw error;
     throw new ProgrammingImportError(
       "storage_download_failed",
       "Le fichier téléversé n'est plus accessible. Réessayez l'analyse ou remplacez la page.",
@@ -500,7 +533,7 @@ export async function analyzeProgrammingImportBatch(
         status: "analyzed",
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Analyse impossible.";
+      const message = mapProgrammingImportErrorMessage(error);
       await supabase
         .from("programming_import_files")
         .update({
@@ -601,9 +634,15 @@ export async function analyzeProgrammingImportBatchInline(input: {
     });
 
     try {
+      const buffer = await resolveAnalyzeBuffer({
+        buffer: page.buffer,
+        storagePath: page.storagePath,
+        pageOrder: page.pageOrder,
+      });
+
       const parsed = await analyzeFileBuffer({
         fileName: page.filename,
-        buffer: page.buffer,
+        buffer,
         mimeType: page.mimeType,
         pdfPageNumber: page.pdfPageNumber,
       });
@@ -651,7 +690,9 @@ export async function analyzeProgrammingImportBatchInline(input: {
     const firstError = failedPages[0]?.error ?? "Analyse impossible.";
     throw new ProgrammingImportError(
       "no_pages_analyzed",
-      `La page ${failedPages[0]?.pageOrder ?? "?"} n'a pas pu être lue : ${firstError}`,
+      failedPages.length > 0
+        ? `La page ${failedPages[0]?.pageOrder ?? "?"} n'a pas pu être lue : ${firstError}`
+        : "Aucune page n'a pu être analysée. Vérifiez le format (PNG, JPG, PDF, Excel) et réessayez.",
       { details: firstError, fileId: failedPages[0]?.fileId, pageOrder: failedPages[0]?.pageOrder },
     );
   }

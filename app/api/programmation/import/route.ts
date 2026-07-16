@@ -28,6 +28,8 @@ import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 
 const ROUTE_PATH = "/api/programmation/import";
 
+export const maxDuration = 300;
+
 function mapImportStepError(action: string | undefined, error: unknown): { status: number; message: string } {
   const details = toErrorMessage(error).toLowerCase();
 
@@ -92,7 +94,7 @@ export async function POST(request: Request) {
         const metadataRaw = String(formData.get("pagesMetadata") ?? "[]");
         if (!batchId) return jsonRouteError(ROUTE_PATH, 400, "batchId requis.");
 
-        const metadata = JSON.parse(metadataRaw) as Array<{
+        let metadata: Array<{
           fileId: string;
           pageOrder: number;
           filename: string;
@@ -100,6 +102,16 @@ export async function POST(request: Request) {
           storagePath?: string;
           pdfPageNumber?: number;
         }>;
+
+        try {
+          metadata = JSON.parse(metadataRaw);
+        } catch {
+          return jsonRouteError(ROUTE_PATH, 400, "Métadonnées des pages invalides.");
+        }
+
+        if (!Array.isArray(metadata) || metadata.length === 0) {
+          return jsonRouteError(ROUTE_PATH, 400, "Aucune page à analyser.");
+        }
 
         logRouteInfo(ROUTE_PATH, "Analyse inline lot programmation", {
           batchId,
