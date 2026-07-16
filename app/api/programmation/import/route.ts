@@ -8,6 +8,7 @@ import {
 } from "@/lib/programming/import/programmation-import-service";
 import {
   analyzeProgrammingImportBatch,
+  analyzeProgrammingImportBatchInline,
   confirmProgrammingImportBatchUpload,
   createProgrammingImportBatch,
   loadProgrammingImportBatchDraft,
@@ -19,6 +20,10 @@ import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type { AcademicZone, SchoolLevel } from "@/lib/programming/types";
 import type { ProgrammationFormatConfig } from "@/lib/programming/import/types";
 import type { ImportBatchMergeMode, ProgrammingImportUploadedFileDescriptor } from "@/lib/programming/import/batch-types";
+import {
+  ProgrammingImportError,
+} from "@/lib/programming/import/programming-import-errors";
+import { resolveImportFileName } from "@/lib/import/accepted-formats";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 
 const ROUTE_PATH = "/api/programmation/import";
@@ -38,7 +43,11 @@ function mapImportStepError(action: string | undefined, error: unknown): { statu
   if (action === "batch_upload_prepare" || action === "batch_upload_confirm" || action === "batch_upload") {
     return { status: 500, message: toErrorMessage(error) || "Le téléversement des fichiers a échoué." };
   }
-  if (action === "batch_analyze") {
+  if (error instanceof ProgrammingImportError) {
+    return { status: 500, message: error.message };
+  }
+
+  if (action === "batch_analyze" || action === "batch_analyze_inline") {
     return { status: 500, message: toErrorMessage(error) || "L'analyse des pages a échoué." };
   }
   if (action === "save") {
@@ -75,6 +84,55 @@ export async function POST(request: Request) {
           clientFileId,
         });
         return NextResponse.json({ route: ROUTE_PATH, ...uploaded });
+      }
+
+      if (action === "batch_analyze_inline") {
+        const batchId = String(formData.get("batchId") ?? "");
+        const mergeMode = String(formData.get("mergeMode") ?? "single_document") as ImportBatchMergeMode;
+        const metadataRaw = String(formData.get("pagesMetadata") ?? "[]");
+        if (!batchId) return jsonRouteError(ROUTE_PATH, 400, "batchId requis.");
+
+        const metadata = JSON.parse(metadataRaw) as Array<{
+          fileId: string;
+          pageOrder: number;
+          filename: string;
+          mimeType: string;
+          storagePath?: string;
+          pdfPageNumber?: number;
+        }>;
+
+        logRouteInfo(ROUTE_PATH, "Analyse inline lot programmation", {
+          batchId,
+          fileCount: metadata.length,
+          mergeMode,
+        });
+
+        const pages = await Promise.all(
+          metadata.map(async (meta) => {
+            const pageFile = formData.get(`file_${meta.fileId}`);
+            if (!(pageFile instanceof File)) {
+              throw new ProgrammingImportError(
+                "file_not_accessible",
+                `La page ${meta.pageOrder} n'a pas pu être lue : fichier manquant dans la requête.`,
+                { fileId: meta.fileId, pageOrder: meta.pageOrder },
+              );
+            }
+            const buffer = Buffer.from(await pageFile.arrayBuffer());
+            return {
+              ...meta,
+              filename: resolveImportFileName(pageFile),
+              mimeType: pageFile.type || meta.mimeType,
+              buffer,
+            };
+          }),
+        );
+
+        const result = await analyzeProgrammingImportBatchInline({
+          batchId,
+          mergeMode,
+          pages,
+        });
+        return NextResponse.json({ route: ROUTE_PATH, ...result });
       }
 
       if (!(file instanceof File)) {

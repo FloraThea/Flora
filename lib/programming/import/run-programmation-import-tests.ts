@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { PROGRAMMATION_IMPORT_BATCH_LIMITS, formatBatchLimitsLabel } from "./batch-limits";
 import { findDuplicateFiles, validateBatchFiles } from "./batch-validation";
 import { mergeProgrammationPages } from "./merge-programmation-pages";
+import { validateProgrammingAnalysisResponse } from "./programming-analysis-schema";
+import { ProgrammingImportError, mapProgrammingImportErrorMessage } from "./programming-import-errors";
 import type { ParsedProgrammationImport } from "./types";
 
 function parsedStub(fileName: string, rows: ParsedProgrammationImport["rows"]): ParsedProgrammationImport {
@@ -109,6 +111,51 @@ function testValidateBatchAcceptsMixedPngAndJpeg() {
   assert.equal(result.ok, true);
 }
 
+function testAnalysisSchemaRejectsEmptyRowsWithoutPreview() {
+  const result = validateProgrammingAnalysisResponse({
+    format: "image",
+    fileName: "page.png",
+    discipline: "",
+    niveau: "",
+    rows: [],
+    warnings: [],
+    columns: [],
+    previewRows: [],
+    rowCount: 0,
+    needsColumnMapping: false,
+    detectedFields: {},
+    extractedTextPreview: "",
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.match(result.error, /aucune donnée/);
+}
+
+function testAnalysisSchemaAcceptsRows() {
+  const result = validateProgrammingAnalysisResponse({
+    format: "image",
+    fileName: "page.png",
+    discipline: "Mathématiques",
+    niveau: "CM2",
+    rows: [row("Séance A")],
+    warnings: [],
+    columns: [],
+    previewRows: [],
+    rowCount: 1,
+    needsColumnMapping: false,
+    detectedFields: {},
+    extractedTextPreview: "Séance A",
+  });
+  assert.equal(result.ok, true);
+}
+
+function testProgrammingImportErrorMessage() {
+  const error = new ProgrammingImportError(
+    "storage_download_failed",
+    "Le fichier téléversé n'est plus accessible. Réessayez l'analyse ou remplacez la page.",
+  );
+  assert.equal(mapProgrammingImportErrorMessage(error), error.message);
+}
+
 function runProgrammationImportTests() {
   testBatchLimits();
   testDuplicateDetection();
@@ -116,7 +163,10 @@ function runProgrammationImportTests() {
   testValidateBatchRejectsTooManyFiles();
   testValidateBatchAcceptsIphoneUuidPngWithoutExtension();
   testValidateBatchAcceptsMixedPngAndJpeg();
-  console.log("Programmation import tests: 6/6 passed");
+  testAnalysisSchemaRejectsEmptyRowsWithoutPreview();
+  testAnalysisSchemaAcceptsRows();
+  testProgrammingImportErrorMessage();
+  console.log("Programmation import tests: 9/9 passed");
 }
 
 runProgrammationImportTests();

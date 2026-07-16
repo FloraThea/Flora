@@ -10,7 +10,7 @@ export type ExportCardBlock =
   | { kind: "time"; text: string }
   | { kind: "subjectInline"; subject: string; complementary: string }
   | { kind: "subject"; text: string }
-  | { kind: "complementary"; text: string; maxLines: number }
+  | { kind: "complementary"; text: string }
   | { kind: "subSubject"; text: string }
   | { kind: "extra"; text: string };
 
@@ -49,7 +49,7 @@ export function buildClassroomExportCardBlocks(input: {
       blocks.push({ kind: "subjectInline", subject, complementary });
     } else {
       blocks.push({ kind: "subject", text: subject });
-      blocks.push({ kind: "complementary", text: complementary, maxLines: 2 });
+      blocks.push({ kind: "complementary", text: complementary });
     }
   } else {
     blocks.push({ kind: "subject", text: subject });

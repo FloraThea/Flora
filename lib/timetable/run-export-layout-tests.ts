@@ -57,7 +57,8 @@ function testSubjectWithLongComplementaryOnNewLine() {
     ["time", "subject", "complementary"],
   );
   const comp = blocks.find((b) => b.kind === "complementary");
-  assert.ok(comp && comp.kind === "complementary" && comp.maxLines === 2);
+  assert.ok(comp && comp.kind === "complementary");
+  assert.equal(comp.text, "Production d'écrits en autonomie");
 }
 
 function testSubjectSubSubjectComplementary() {

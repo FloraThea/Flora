@@ -8,6 +8,7 @@ import {
   parseImportApiError,
   type ImportApiErrorBody,
 } from "@/lib/import/import-api-errors";
+import { resolveImportFileName } from "@/lib/import/accepted-formats";
 import { ImportFileRegistry } from "@/lib/import/file-registry";
 import {
   PROGRAMMING_IMPORT_API_BODY_LIMIT_BYTES,
@@ -163,7 +164,7 @@ export async function uploadBatchFile(input: {
       const entry = confirmed.entries[0]!;
       return {
         fileId: entry.fileId,
-        filename: input.file.name,
+        filename: resolveImportFileName(input.file),
         mimeType: input.file.type,
         pageOrder: entry.pageOrder,
         storagePath: entry.storagePath,
@@ -182,7 +183,7 @@ export async function uploadBatchFile(input: {
   const entry = uploaded.entries[0]!;
   return {
     fileId: entry.fileId,
-    filename: input.file.name,
+    filename: resolveImportFileName(input.file),
     mimeType: input.file.type,
     pageOrder: entry.pageOrder,
     storagePath: entry.storagePath,

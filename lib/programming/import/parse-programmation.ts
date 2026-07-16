@@ -19,7 +19,11 @@ import type {
   ProgrammationImportFormat,
 } from "./types";
 
-import { isSupportedImageFile } from "@/lib/import/accepted-formats";
+import {
+  isSupportedImageFile,
+  resolveFileExtension,
+  resolveImportFileName,
+} from "@/lib/import/accepted-formats";
 
 function isImageFormat(fileName: string, mimeType?: string): boolean {
   return isSupportedImageFile(fileName, mimeType);
@@ -27,25 +31,26 @@ function isImageFormat(fileName: string, mimeType?: string): boolean {
 
 function detectFormat(fileName: string, mimeType?: string): ProgrammationImportFormat | "image" | "unsupported" {
   if (isImageFormat(fileName, mimeType)) return "image";
-  const lower = fileName.toLowerCase();
-  if (lower.endsWith(".pdf") || mimeType === "application/pdf") return "pdf";
-  if (lower.endsWith(".csv") || mimeType === "text/csv") return "csv";
+  const ext = resolveFileExtension(fileName, mimeType);
+  if (ext === ".pdf" || mimeType === "application/pdf") return "pdf";
+  if (ext === ".csv" || mimeType === "text/csv") return "csv";
   if (
-    lower.endsWith(".xlsx") ||
-    lower.endsWith(".xls") ||
+    ext === ".xlsx" ||
+    ext === ".xls" ||
     mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     mimeType === "application/vnd.ms-excel"
   ) {
     return "excel";
   }
   if (
-    lower.endsWith(".docx") ||
-    lower.endsWith(".doc") ||
+    ext === ".docx" ||
+    ext === ".doc" ||
     mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
     return "word";
   }
-  if (lower.endsWith(".txt")) return "text";
+  if (ext === ".txt") return "text";
+  if (mimeType?.startsWith("image/")) return "image";
   return "unsupported";
 }
 

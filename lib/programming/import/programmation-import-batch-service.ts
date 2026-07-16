@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { resolveImportFileName } from "@/lib/import/accepted-formats";
+import { resolveFileExtension, resolveImportFileName } from "@/lib/import/accepted-formats";
 import { devLog } from "@/lib/logger";
 import { getOrCreateTeacherProfile } from "@/lib/profile/profile-service";
 import { storageService } from "@/lib/storage";
@@ -24,6 +24,11 @@ import { validateBatchFiles } from "./batch-validation";
 import { extractPdfPageTexts } from "./extract-pdf-pages";
 import { mergeProgrammationPages, type PageParseResult } from "./merge-programmation-pages";
 import { parseProgrammationFile } from "./parse-programmation";
+import {
+  mapProgrammingImportErrorMessage,
+  ProgrammingImportError,
+} from "./programming-import-errors";
+import { validateProgrammingAnalysisResponse } from "./programming-analysis-schema";
 import type { ParsedProgrammationImport } from "./types";
 
 type BatchRow = {
@@ -310,48 +315,75 @@ export async function uploadProgrammingImportBatchFile(input: {
   };
 }
 
-async function downloadBatchFileBuffer(storagePath: string): Promise<Buffer> {
-  try {
-    const downloaded = await storageService.download(storagePath);
-    return downloaded.body;
-  } catch (error) {
-    throw new Error(
-      getSupabaseErrorMessage(error, "Fichier source introuvable dans le stockage."),
-    );
-  }
-}
+async function analyzeFileBuffer(input: {
+  fileName: string;
+  buffer: Buffer;
+  mimeType?: string;
+  pdfPageNumber?: number;
+}): Promise<ParsedProgrammationImport> {
+  const resolvedName = resolveImportFileName({ name: input.fileName, type: input.mimeType ?? "" });
+  const ext = resolveFileExtension(resolvedName, input.mimeType);
 
-async function analyzeStoredFile(file: Pick<FileRow, "filename" | "mime_type" | "storage_path" | "pdf_page_number">): Promise<ParsedProgrammationImport> {
-  const buffer = await downloadBatchFileBuffer(file.storage_path);
-  const lower = file.filename.toLowerCase();
-
-  if (file.pdf_page_number && lower.endsWith(".pdf")) {
-    const pages = await extractPdfPageTexts(buffer);
-    const pageIndex = Math.max(0, (file.pdf_page_number ?? 1) - 1);
+  if (input.pdfPageNumber && ext === ".pdf") {
+    const pages = await extractPdfPageTexts(input.buffer);
+    const pageIndex = Math.max(0, (input.pdfPageNumber ?? 1) - 1);
     const pageText = pages[pageIndex] ?? pages[0] ?? "";
-    return parseProgrammationFile({
-      fileName: `${file.filename} (p.${file.pdf_page_number})`,
+    const parsed = await parseProgrammationFile({
+      fileName: `${resolvedName} (p.${input.pdfPageNumber})`,
       buffer: Buffer.from(pageText, "utf8"),
       pastedText: pageText,
     });
+    return parsed;
   }
 
-  if (lower.endsWith(".pdf")) {
-    const pages = await extractPdfPageTexts(buffer);
+  if (ext === ".pdf") {
+    const pages = await extractPdfPageTexts(input.buffer);
     if (pages.length > 1) {
       const mergedText = pages.join("\n\n");
       return parseProgrammationFile({
-        fileName: file.filename,
+        fileName: resolvedName,
         buffer: Buffer.from(mergedText, "utf8"),
         pastedText: mergedText,
       });
     }
   }
 
-  return parseProgrammationFile({
+  const parsed = await parseProgrammationFile({
+    fileName: resolvedName,
+    buffer: input.buffer,
+    mimeType: input.mimeType,
+  });
+
+  const validation = validateProgrammingAnalysisResponse(parsed);
+  if (!validation.ok) {
+    throw new ProgrammingImportError("invalid_analysis_response", validation.error);
+  }
+
+  return parsed;
+}
+
+async function downloadBatchFileBuffer(storagePath: string): Promise<Buffer> {
+  try {
+    devLog("[ProgrammingImport] download-start", { storagePath });
+    const downloaded = await storageService.download(storagePath);
+    devLog("[ProgrammingImport] download-success", { storagePath, bytes: downloaded.body.length });
+    return downloaded.body;
+  } catch (error) {
+    throw new ProgrammingImportError(
+      "storage_download_failed",
+      "Le fichier téléversé n'est plus accessible. Réessayez l'analyse ou remplacez la page.",
+      { details: getSupabaseErrorMessage(error, "download failed") },
+    );
+  }
+}
+
+async function analyzeStoredFile(file: Pick<FileRow, "filename" | "mime_type" | "storage_path" | "pdf_page_number">): Promise<ParsedProgrammationImport> {
+  const buffer = await downloadBatchFileBuffer(file.storage_path);
+  return analyzeFileBuffer({
     fileName: file.filename,
     buffer,
     mimeType: file.mime_type,
+    pdfPageNumber: file.pdf_page_number ?? undefined,
   });
 }
 
@@ -499,7 +531,15 @@ export async function analyzeProgrammingImportBatch(
   }
 
   if (pageResults.length === 0) {
-    throw new Error("Les images ont été téléversées, mais leur analyse a échoué.");
+    const failedPages = statuses.filter((item) => item.status === "error");
+    const firstError = failedPages[0]?.error ?? "Analyse impossible.";
+    throw new ProgrammingImportError(
+      "no_pages_analyzed",
+      failedPages.length > 0
+        ? `La page ${failedPages[0]?.pageOrder ?? "?"} n'a pas pu être lue : ${firstError}`
+        : "Les images ont été téléversées, mais leur analyse a échoué.",
+      { details: firstError },
+    );
   }
 
   await supabase
@@ -511,6 +551,112 @@ export async function analyzeProgrammingImportBatch(
     })
     .eq("id", batchId);
 
+  return { parsed, files: statuses };
+}
+
+export async function analyzeProgrammingImportBatchInline(input: {
+  batchId: string;
+  mergeMode?: ImportBatchMergeMode;
+  pages: Array<{
+    fileId: string;
+    pageOrder: number;
+    filename: string;
+    mimeType: string;
+    storagePath?: string;
+    buffer: Buffer;
+    pdfPageNumber?: number;
+  }>;
+}): Promise<{
+  parsed: ParsedProgrammationImport;
+  files: Array<{
+    fileId: string;
+    pageOrder: number;
+    status: ImportedFileStatus;
+    error?: string;
+  }>;
+}> {
+  const mergeMode = input.mergeMode ?? "single_document";
+  devLog("[ProgrammingImport] analyze-start", {
+    batchId: input.batchId,
+    fileCount: input.pages.length,
+    mergeMode,
+  });
+
+  const pageResults: PageParseResult[] = [];
+  const statuses: Array<{
+    fileId: string;
+    pageOrder: number;
+    status: ImportedFileStatus;
+    error?: string;
+  }> = [];
+
+  for (const page of input.pages) {
+    devLog("[ProgrammingImport] analyze-file-start", {
+      fileId: page.fileId,
+      pageOrder: page.pageOrder,
+      fileName: page.filename,
+      mimeType: page.mimeType,
+      storagePath: page.storagePath,
+      bytes: page.buffer.length,
+    });
+
+    try {
+      const parsed = await analyzeFileBuffer({
+        fileName: page.filename,
+        buffer: page.buffer,
+        mimeType: page.mimeType,
+        pdfPageNumber: page.pdfPageNumber,
+      });
+
+      pageResults.push({
+        pageOrder: page.pageOrder,
+        fileId: page.fileId,
+        fileName: page.filename,
+        storagePath: page.storagePath,
+        pdfPageNumber: page.pdfPageNumber,
+        parsed,
+      });
+
+      statuses.push({ fileId: page.fileId, pageOrder: page.pageOrder, status: "analyzed" });
+      devLog("[ProgrammingImport] analyze-file-success", { fileId: page.fileId });
+    } catch (error) {
+      const message = mapProgrammingImportErrorMessage(error);
+      devLog("[ProgrammingImport] analyze-failed", {
+        batchId: input.batchId,
+        fileId: page.fileId,
+        step: "analyze",
+        errorMessage: message,
+      });
+      statuses.push({
+        fileId: page.fileId,
+        pageOrder: page.pageOrder,
+        status: "error",
+        error: message,
+      });
+    }
+  }
+
+  devLog("[ProgrammingImport] merge-start", { batchId: input.batchId });
+  const parsed = mergeProgrammationPages(input.batchId, pageResults);
+  if (parsed.batchMeta) parsed.batchMeta.mergeMode = mergeMode;
+
+  if (statuses.some((item) => item.status === "error")) {
+    parsed.warnings.push(
+      "Certaines pages n'ont pas pu être analysées. Vous pouvez les remplacer ou continuer sans elles.",
+    );
+  }
+
+  if (pageResults.length === 0) {
+    const failedPages = statuses.filter((item) => item.status === "error");
+    const firstError = failedPages[0]?.error ?? "Analyse impossible.";
+    throw new ProgrammingImportError(
+      "no_pages_analyzed",
+      `La page ${failedPages[0]?.pageOrder ?? "?"} n'a pas pu être lue : ${firstError}`,
+      { details: firstError, fileId: failedPages[0]?.fileId, pageOrder: failedPages[0]?.pageOrder },
+    );
+  }
+
+  devLog("[ProgrammingImport] analyze-completed", { batchId: input.batchId, rows: parsed.rowCount });
   return { parsed, files: statuses };
 }
 
