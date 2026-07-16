@@ -4,8 +4,10 @@ import {
   canUseApiUpload,
   mapImportFailureMessage,
   parseImportApiError,
+  readImportApiResponse,
   shouldUseDirectUpload,
 } from "./import-batch-client";
+import { isValidImportUuid } from "@/lib/import/import-api-errors";
 import {
   PROGRAMMING_IMPORT_API_BODY_LIMIT_BYTES,
   PROGRAMMING_IMPORT_DIRECT_UPLOAD_THRESHOLD_BYTES,
@@ -47,14 +49,35 @@ function testMapImportFailureUsesRawMessage() {
   assert.equal(mapImportFailureMessage("upload-page-1", "Le téléversement vers le stockage a échoué."), "Le téléversement vers le stockage a échoué.");
 }
 
-function runImportBatchClientTests() {
+function testServerFileIdsAreUuidLike() {
+  assert.equal(isValidImportUuid("client-abc123"), false);
+  assert.equal(isValidImportUuid("550e8400-e29b-41d4-a716-446655440000"), true);
+}
+
+async function testReadImportApiResponseRejectsHtml() {
+  const response = new Response("<html>error</html>", {
+    status: 500,
+    headers: { "Content-Type": "text/html" },
+  });
+  await assert.rejects(
+    () => readImportApiResponse(response, "Erreur serveur"),
+    /Erreur serveur \(HTTP 500/,
+  );
+}
+
+async function runImportBatchClientTests() {
   testDirectUploadThreshold();
   testApiBodyLimit();
   testParseApiErrorPrefersMessage();
   testMapImportFailureMessageByStep();
   testImportFileRegistryKeepsFiles();
   testMapImportFailureUsesRawMessage();
-  console.log("Import batch client tests: 6/6 passed");
+  testServerFileIdsAreUuidLike();
+  await testReadImportApiResponseRejectsHtml();
+  console.log("Import batch client tests: 8/8 passed");
 }
 
-runImportBatchClientTests();
+runImportBatchClientTests().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

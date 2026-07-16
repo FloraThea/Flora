@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { resolveFileExtension, resolveImportFileName } from "@/lib/import/accepted-formats";
+import { isValidImportUuid } from "@/lib/import/import-api-errors";
 import { devLog } from "@/lib/logger";
 import { getOrCreateTeacherProfile } from "@/lib/profile/profile-service";
 import { storageService } from "@/lib/storage";
@@ -189,7 +190,7 @@ export async function prepareProgrammingImportBatchUpload(input: {
   ]);
   if (!validation.ok) throw new Error(validation.error);
 
-  const fileId = input.clientFileId ?? randomUUID();
+  const fileId = randomUUID();
   const storagePath = buildStoragePath({
     profileId: bundle.profile.id,
     batchId: input.batchId,
@@ -274,7 +275,7 @@ export async function uploadProgrammingImportBatchFile(input: {
   if (!validation.ok) throw new Error(validation.error);
 
   const buffer = Buffer.from(await input.file.arrayBuffer());
-  const fileId = input.clientFileId ?? randomUUID();
+  const fileId = randomUUID();
   const storagePath = buildStoragePath({
     profileId: bundle.profile.id,
     batchId: input.batchId,
@@ -724,13 +725,19 @@ export async function updateProgrammingImportBatchOrder(
   orderedFileIds: string[],
 ): Promise<void> {
   for (let index = 0; index < orderedFileIds.length; index += 1) {
+    const fileId = orderedFileIds[index];
+    if (!isValidImportUuid(fileId)) {
+      devLog("[ProgrammingImport] reorder-skip-invalid-id", { fileId, index });
+      continue;
+    }
+
     const { error } = await supabase
       .from("programming_import_files")
       .update({
         page_order: index + 1,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", orderedFileIds[index])
+      .eq("id", fileId)
       .eq("batch_id", batchId);
 
     if (error && !isMissingProgrammingImportTable(error)) {

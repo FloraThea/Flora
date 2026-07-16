@@ -4,6 +4,37 @@ export type ImportApiErrorBody = {
   step?: string;
 };
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isValidImportUuid(value: string | undefined | null): boolean {
+  return Boolean(value && UUID_PATTERN.test(value));
+}
+
+export async function readImportApiResponse<T extends ImportApiErrorBody>(
+  response: Response,
+  fallback: string,
+): Promise<T> {
+  const raw = await response.text();
+
+  if (!raw.trim()) {
+    throw new Error(
+      response.ok
+        ? fallback
+        : `${fallback} (réponse vide du serveur, HTTP ${response.status}).`,
+    );
+  }
+
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    const snippet = raw.replace(/\s+/g, " ").slice(0, 120);
+    throw new Error(
+      `${fallback} (HTTP ${response.status}${snippet ? ` — ${snippet}` : ""}).`,
+    );
+  }
+}
+
 export function parseImportApiError(data: ImportApiErrorBody, fallback: string): string {
   const details = data.details?.trim();
   const error = data.error?.trim();

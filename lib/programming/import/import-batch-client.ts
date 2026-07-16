@@ -6,6 +6,7 @@
 import {
   mapImportFailureMessage,
   parseImportApiError,
+  readImportApiResponse,
   type ImportApiErrorBody,
 } from "@/lib/import/import-api-errors";
 import { resolveImportFileName } from "@/lib/import/accepted-formats";
@@ -28,7 +29,7 @@ export type ImportWorkflowStep =
   | "success"
   | "error";
 
-export { parseImportApiError, mapImportFailureMessage, type ImportApiErrorBody, ImportFileRegistry };
+export { parseImportApiError, mapImportFailureMessage, readImportApiResponse, type ImportApiErrorBody, ImportFileRegistry };
 
 export function shouldUseDirectUpload(fileSize: number): boolean {
   return fileSize >= PROGRAMMING_IMPORT_DIRECT_UPLOAD_THRESHOLD_BYTES;
@@ -69,7 +70,10 @@ export async function prepareBatchFileUpload(input: {
     }),
   });
 
-  const data = (await response.json()) as PrepareUploadResponse & ImportApiErrorBody;
+  const data = await readImportApiResponse<PrepareUploadResponse & ImportApiErrorBody>(
+    response,
+    "Le téléversement des fichiers a échoué.",
+  );
   if (!response.ok) {
     throw new Error(parseImportApiError(data, "Le téléversement des fichiers a échoué."));
   }
@@ -78,7 +82,14 @@ export async function prepareBatchFileUpload(input: {
 }
 
 export async function uploadFileDirect(uploadUrl: string, file: File): Promise<void> {
-  const response = await fetch(uploadUrl, {
+  let resolvedUrl: string;
+  try {
+    resolvedUrl = new URL(uploadUrl).toString();
+  } catch {
+    throw new Error("L'URL de téléversement direct est invalide.");
+  }
+
+  const response = await fetch(resolvedUrl, {
     method: "PUT",
     headers: {
       "Content-Type": file.type || "application/octet-stream",
@@ -105,7 +116,10 @@ export async function uploadFileViaApi(input: {
   formData.append("file", input.file);
 
   const response = await fetch("/api/programmation/import", { method: "POST", body: formData });
-  const data = (await response.json()) as ConfirmUploadResponse & ImportApiErrorBody;
+  const data = await readImportApiResponse<ConfirmUploadResponse & ImportApiErrorBody>(
+    response,
+    "Le téléversement des fichiers a échoué.",
+  );
 
   if (!response.ok || !data.entries?.length) {
     throw new Error(parseImportApiError(data, "Le téléversement des fichiers a échoué."));
@@ -132,7 +146,10 @@ export async function confirmBatchFileUpload(input: {
     }),
   });
 
-  const data = (await response.json()) as ConfirmUploadResponse & ImportApiErrorBody;
+  const data = await readImportApiResponse<ConfirmUploadResponse & ImportApiErrorBody>(
+    response,
+    "Le téléversement des fichiers a échoué.",
+  );
   if (!response.ok || !data.entries?.length) {
     throw new Error(parseImportApiError(data, "Le téléversement des fichiers a échoué."));
   }

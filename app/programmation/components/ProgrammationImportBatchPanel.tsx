@@ -14,6 +14,7 @@ import {
   ImportFileRegistry,
   mapImportFailureMessage,
   parseImportApiError,
+  readImportApiResponse,
   uploadBatchFile,
   type ImportWorkflowStep,
 } from "@/lib/programming/import/import-batch-client";
@@ -129,11 +130,11 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         mergeMode,
       }),
     });
-    const data = (await response.json()) as {
+    const data = await readImportApiResponse<{
       batchId?: string;
       error?: string;
       details?: string;
-    };
+    }>(response, "Impossible de créer le lot d'import.");
     if (!response.ok) {
       throw new Error(parseImportApiError(data, "Impossible de créer le lot d'import."));
     }
@@ -318,12 +319,12 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         body: analyzeForm,
       });
 
-      const analyzeData = (await analyzeResponse.json()) as {
+      const analyzeData = await readImportApiResponse<{
         parsed?: ParsedProgrammationImport;
         files?: Array<{ fileId: string; status: ImportedFileStatus; error?: string }>;
         error?: string;
         details?: string;
-      };
+      }>(analyzeResponse, "L'analyse des pages a échoué.");
 
       if (!analyzeResponse.ok || !analyzeData.parsed) {
         throw new Error(parseImportApiError(analyzeData, "L'analyse des pages a échoué."));
@@ -375,12 +376,12 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         }),
       });
 
-      const analyzeData = (await analyzeResponse.json()) as {
+      const analyzeData = await readImportApiResponse<{
         parsed?: ParsedProgrammationImport;
         files?: Array<{ fileId: string; status: ImportedFileStatus; error?: string }>;
         error?: string;
         details?: string;
-      };
+      }>(analyzeResponse, "L'analyse des pages a échoué.");
 
       if (!analyzeResponse.ok || !analyzeData.parsed) {
         throw new Error(parseImportApiError(analyzeData, "L'analyse des pages a échoué."));
