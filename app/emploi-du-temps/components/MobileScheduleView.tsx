@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useEffect, useMemo, useState } from "react";
 import type { SmartTimetableSlot, TimetableSettings } from "@/lib/timetable/types";
 import { MobileDailySchedule } from "./MobileDailySchedule";
@@ -26,7 +27,7 @@ export function MobileScheduleView({ slots, settings, onLockDay, onEditSlot, onC
 
   useEffect(() => {
     if (viewMode === "day" && !selectedDay && workingDays?.length) {
-      setSelectedDay(workingDays[0]);
+      deferEffect(() => setSelectedDay(workingDays[0]));
     }
   }, [selectedDay, viewMode, workingDays]);
 

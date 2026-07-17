@@ -10,7 +10,7 @@ import type { ProfilSaveInput } from "@/lib/profile/types";
 export async function GET() {
   try {
     const bundle = await getOrCreateTeacherProfile();
-    const completion = getProfileCompletionStatus(bundle);
+    const completion = await getProfileCompletionStatus(bundle);
 
     return NextResponse.json({
       values: bundleToFormValues(bundle),
@@ -31,7 +31,7 @@ export async function PUT(request: Request) {
   try {
     const body = (await request.json()) as ProfilSaveInput;
     const bundle = await saveTeacherProfileBundle(body);
-    const completion = getProfileCompletionStatus(bundle);
+    const completion = await getProfileCompletionStatus(bundle);
 
     return NextResponse.json({
       values: bundleToFormValues(bundle),

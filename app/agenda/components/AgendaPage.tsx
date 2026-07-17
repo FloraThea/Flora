@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
@@ -98,7 +99,7 @@ export function AgendaPage() {
   }, [focusDate, load108h, loadFeed, loadMaJournee]);
 
   useEffect(() => {
-    void refreshAll();
+    deferEffect(() => refreshAll());
   }, [refreshAll]);
 
   async function handleCreateEvent() {

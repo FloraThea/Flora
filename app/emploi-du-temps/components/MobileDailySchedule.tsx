@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useEffect, useMemo, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import type { SmartTimetableSlot, TimetableSettings } from "@/lib/timetable/types";
@@ -65,7 +66,7 @@ export function MobileDailySchedule({
 
   useEffect(() => {
     if (selectedDayProp && days.includes(selectedDayProp) && selectedDayProp !== internalDay) {
-      setInternalDay(selectedDayProp);
+      deferEffect(() => setInternalDay(selectedDayProp));
     }
   }, [selectedDayProp, days, internalDay]);
 
@@ -75,7 +76,7 @@ export function MobileDailySchedule({
 
   useEffect(() => {
     if (!days.includes(selectedDay)) {
-      setSelectedDay(days[0] ?? "Lundi");
+      deferEffect(() => setSelectedDay(days[0] ?? "Lundi"));
     }
   }, [days, selectedDay]);
 

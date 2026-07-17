@@ -4,6 +4,7 @@
  */
 
 import {
+  fetchImportWithTimeout,
   mapImportFailureMessage,
   parseImportApiError,
   readImportApiResponse,
@@ -29,7 +30,7 @@ export type ImportWorkflowStep =
   | "success"
   | "error";
 
-export { parseImportApiError, mapImportFailureMessage, readImportApiResponse, type ImportApiErrorBody, ImportFileRegistry };
+export { parseImportApiError, mapImportFailureMessage, readImportApiResponse, fetchImportWithTimeout, type ImportApiErrorBody, ImportFileRegistry };
 
 export function shouldUseDirectUpload(fileSize: number): boolean {
   return fileSize >= PROGRAMMING_IMPORT_DIRECT_UPLOAD_THRESHOLD_BYTES;

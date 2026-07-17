@@ -11,6 +11,27 @@ export function isValidImportUuid(value: string | undefined | null): boolean {
   return Boolean(value && UUID_PATTERN.test(value));
 }
 
+export async function fetchImportWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function readImportApiResponse<T extends ImportApiErrorBody>(
   response: Response,
   fallback: string,

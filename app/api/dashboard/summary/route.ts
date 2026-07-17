@@ -10,16 +10,34 @@ export async function GET() {
     const bundle = await loadTeacherProfileBundle();
     const today = new Date().toISOString().slice(0, 10);
 
+    const profileId = bundle?.profile.id;
+
     const [
       { count: documentsCount },
       { count: programmationsCount },
       { count: boDocumentsCount },
       { count: seancesToday },
     ] = await Promise.all([
-      supabase.from("documents").select("id", { count: "exact", head: true }),
-      supabase.from("programmations").select("id", { count: "exact", head: true }),
+      profileId
+        ? supabase
+            .from("documents")
+            .select("id", { count: "exact", head: true })
+            .eq("teacher_profile_id", profileId)
+        : supabase.from("documents").select("id", { count: "exact", head: true }).limit(0),
+      profileId
+        ? supabase
+            .from("programmations")
+            .select("id", { count: "exact", head: true })
+            .eq("teacher_profile_id", profileId)
+        : supabase.from("programmations").select("id", { count: "exact", head: true }).limit(0),
       supabase.from("bo_documents").select("id", { count: "exact", head: true }),
-      supabase.from("seances").select("id", { count: "exact", head: true }).eq("session_date", today),
+      profileId
+        ? supabase
+            .from("seances")
+            .select("id", { count: "exact", head: true })
+            .eq("session_date", today)
+            .eq("teacher_profile_id", profileId)
+        : supabase.from("seances").select("id", { count: "exact", head: true }).limit(0),
     ]);
 
     if (!bundle) {
@@ -37,7 +55,7 @@ export async function GET() {
       });
     }
 
-    const status = getProfileCompletionStatus(bundle);
+    const status = await getProfileCompletionStatus(bundle);
 
     return NextResponse.json({
       route: ROUTE_PATH,

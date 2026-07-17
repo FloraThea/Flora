@@ -1,6 +1,7 @@
 import { searchEngine } from "@/lib/knowledge/SearchEngine";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 import { supabase } from "@/lib/supabase";
+import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import type {
   DocumentSearchFilters,
   DocumentWithRelations,
@@ -18,10 +19,11 @@ type DocumentWithOptionalRelations = FloraDocument & {
   document_competences?: Array<{ competence: string; code_bo: string }>;
 };
 
-async function fetchDocumentsForSearch(): Promise<DocumentWithOptionalRelations[]> {
+async function fetchDocumentsForSearch(profileId: string): Promise<DocumentWithOptionalRelations[]> {
   const { data, error } = await supabase
     .from("documents")
     .select(DOCUMENT_SELECT)
+    .eq("teacher_profile_id", profileId)
     .order("created_at", { ascending: false });
 
   if (!error) {
@@ -34,6 +36,7 @@ async function fetchDocumentsForSearch(): Promise<DocumentWithOptionalRelations[
   const fallback = await supabase
     .from("documents")
     .select("*")
+    .eq("teacher_profile_id", profileId)
     .order("created_at", { ascending: false });
 
   if (fallback.error) {
@@ -118,9 +121,12 @@ function matchesDocumentSearch(
 }
 
 export async function listDocuments(): Promise<FloraDocument[]> {
+  const scope = await requireTeacherScope();
+
   const { data, error } = await supabase
     .from("documents")
     .select("*")
+    .eq("teacher_profile_id", scope.profileId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -131,7 +137,8 @@ export async function listDocuments(): Promise<FloraDocument[]> {
 export async function searchDocuments(
   filters: DocumentSearchFilters = {},
 ): Promise<FloraDocument[]> {
-  const documents = (await fetchDocumentsForSearch()).filter(
+  const scope = await requireTeacherScope();
+  const documents = (await fetchDocumentsForSearch(scope.profileId)).filter(
     (document) => !isArchived(document),
   );
 
@@ -168,6 +175,8 @@ export async function searchDocuments(
 export async function getDocumentDetails(
   documentId: string,
 ): Promise<DocumentWithRelations | null> {
+  const scope = await requireTeacherScope();
+
   const { data, error } = await supabase
     .from("documents")
     .select(
@@ -179,6 +188,7 @@ export async function getDocumentDetails(
       `,
     )
     .eq("id", documentId)
+    .eq("teacher_profile_id", scope.profileId)
     .single();
 
   if (!error && data) {
@@ -199,7 +209,12 @@ export async function getDocumentDetails(
     );
   }
 
-  const fallback = await supabase.from("documents").select("*").eq("id", documentId).single();
+  const fallback = await supabase
+    .from("documents")
+    .select("*")
+    .eq("id", documentId)
+    .eq("teacher_profile_id", scope.profileId)
+    .single();
 
   if (fallback.error || !fallback.data) {
     if (fallback.error) {

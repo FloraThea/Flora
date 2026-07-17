@@ -1,5 +1,7 @@
 import type { FloraAccent } from "@/lib/theme";
 import { supabase } from "@/lib/supabase";
+import { insertWithOptionalColumnFallback } from "@/lib/supabase/schema-compat";
+import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { logPedagogicalChange } from "@/lib/pedagogical/change-history";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 import { resolveReferentielIds } from "@/lib/pedagogical/competence-resolver";
@@ -28,31 +30,39 @@ export async function saveProgression(input: {
     competencyMatches?: Record<string, unknown>;
   };
 }): Promise<ProgressionPayload> {
-  const { data: progression, error } = await supabase
-    .from("progressions")
-    .insert({
-      programmation_id: input.programmationId ?? null,
-      title: input.title,
-      methode: input.methode,
-      validation: input.validation,
-      calendar_snapshot: input.calendarSnapshot,
-      status: input.validation.valid ? "validated" : "draft",
-      link_mode: input.linkMode ?? (input.programmationId ? "linked" : "independent"),
-      metadata: {
-        generated_at: new Date().toISOString(),
-        source_type: input.importMeta?.sourceType ?? "generated",
-        source_file_name: input.importMeta?.sourceFileName ?? "",
-        source_storage_path: input.importMeta?.sourceStoragePath ?? "",
-        import_format: input.importMeta?.importFormat ?? "",
-        original_import: input.importMeta?.originalImport ?? {},
-        competency_matches: input.importMeta?.competencyMatches ?? {},
-        ...(input.importMeta?.sourceType === "imported"
-          ? { imported_at: new Date().toISOString() }
-          : {}),
-      },
-    })
-    .select("*")
-    .single();
+  const scope = await requireTeacherScope();
+
+  const progressionRow = {
+    teacher_profile_id: scope.profileId,
+    programmation_id: input.programmationId ?? null,
+    title: input.title,
+    methode: input.methode,
+    validation: input.validation,
+    calendar_snapshot: input.calendarSnapshot,
+    status: input.validation.valid ? "validated" : "draft",
+    link_mode: input.linkMode ?? (input.programmationId ? "linked" : "independent"),
+    metadata: {
+      generated_at: new Date().toISOString(),
+      source_type: input.importMeta?.sourceType ?? "generated",
+      source_file_name: input.importMeta?.sourceFileName ?? "",
+      source_storage_path: input.importMeta?.sourceStoragePath ?? "",
+      import_format: input.importMeta?.importFormat ?? "",
+      original_import: input.importMeta?.originalImport ?? {},
+      competency_matches: input.importMeta?.competencyMatches ?? {},
+      ...(input.importMeta?.sourceType === "imported"
+        ? { imported_at: new Date().toISOString() }
+        : {}),
+    },
+  };
+
+  const { data: progression, error } = await insertWithOptionalColumnFallback<
+    typeof progressionRow,
+    StoredProgression
+  >(
+    (row) => supabase.from("progressions").insert(row).select("*").single(),
+    progressionRow,
+    "link_mode",
+  );
 
   if (error || !progression) {
     throw error ?? new Error("Impossible d'enregistrer la progression.");
@@ -294,11 +304,13 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
     });
   }
 
-  const { data: programmation } = await supabase
-    .from("programmations")
-    .select("*")
-    .eq("id", progression.programmation_id)
-    .single();
+  const { data: programmation } = progression.programmation_id
+    ? await supabase
+        .from("programmations")
+        .select("*")
+        .eq("id", progression.programmation_id)
+        .single()
+    : { data: null };
 
   return {
     progression: progression as StoredProgression,
@@ -309,9 +321,12 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
 }
 
 export async function listValidatedProgressions() {
+  const scope = await requireTeacherScope();
+
   const { data, error } = await supabase
     .from("progressions")
     .select("id, title, methode, status, programmation_id")
+    .eq("teacher_profile_id", scope.profileId)
     .eq("status", "validated")
     .order("created_at", { ascending: false });
 

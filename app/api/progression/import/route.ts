@@ -8,6 +8,8 @@ import {
 } from "@/lib/progression/import/progression-import-service";
 import type { ParsedProgressionImport } from "@/lib/progression/import/types";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { isMissingSchemaColumnError } from "@/lib/supabase/schema-compat";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 const ROUTE_PATH = "/api/progression/import";
 
@@ -33,6 +35,24 @@ function mapProgressionImportStepError(
     return { status: 500, message: details || "L'analyse du document a échoué." };
   }
   if (action === "save") {
+    if (
+      isMissingSchemaColumnError(error as PostgrestError, "link_mode") ||
+      details.includes("link_mode") ||
+      details.includes("schema cache")
+    ) {
+      return {
+        status: 503,
+        message:
+          "La base de données n'est pas à jour (migration Supabase manquante). Réessayez après déploiement ou contactez le support.",
+      };
+    }
+    if (details.includes("null value") && details.includes("programmation_id")) {
+      return {
+        status: 503,
+        message:
+          "Les progressions indépendantes nécessitent une migration Supabase. Appliquez la migration « optional_pedagogical_relations » puis réessayez.",
+      };
+    }
     return { status: 500, message: details || "La progression n'a pas pu être enregistrée." };
   }
 

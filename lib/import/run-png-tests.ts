@@ -46,18 +46,18 @@ function testPngMimeTypes() {
 }
 
 function testAllImportModulesAcceptPng() {
-  for (const module of MODULES) {
+  for (const importModule of MODULES) {
     assert.ok(
-      isAcceptedForModule(module, "document.png", "image/png"),
-      `${module} must accept PNG`,
+      isAcceptedForModule(importModule, "document.png", "image/png"),
+      `${importModule} must accept PNG`,
     );
     assert.ok(
-      getModuleAcceptAttribute(module).includes(".png"),
-      `${module} accept attribute must include .png`,
+      getModuleAcceptAttribute(importModule).includes(".png"),
+      `${importModule} accept attribute must include .png`,
     );
     assert.ok(
-      getFormatsAcceptesLabel(module).toLowerCase().includes("png"),
-      `${module} help text must mention PNG`,
+      getFormatsAcceptesLabel(importModule).toLowerCase().includes("png"),
+      `${importModule} help text must mention PNG`,
     );
   }
 }

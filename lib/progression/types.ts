@@ -96,10 +96,11 @@ export type ProgressionContext = {
 
 export type StoredProgression = {
   id: string;
-  programmation_id: string;
+  programmation_id: string | null;
   title: string;
   methode: string;
   status: string;
+  link_mode?: "linked" | "independent";
   validation: ProgressionValidationResult;
   calendar_snapshot: CalendarSnapshot;
   metadata: Record<string, unknown>;

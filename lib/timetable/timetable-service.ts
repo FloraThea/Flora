@@ -283,16 +283,36 @@ export async function loadActiveScheduleForProfile(
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) return null;
+  if (data) {
+    return loadTimetablePayload(String(data.id));
+  }
 
-  return loadTimetablePayload(String(data.id));
-}
-
-export async function listSchedules(): Promise<StoredTimetableSchedule[]> {
-  const { data, error } = await supabase
+  const { data: legacy, error: legacyError } = await supabase
     .from("timetable_schedules")
     .select("*")
-    .order("updated_at", { ascending: false });
+    .eq("is_active", true)
+    .is("teacher_profile_id", null)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (legacyError) throw legacyError;
+  if (!legacy) return null;
+
+  await supabase
+    .from("timetable_schedules")
+    .update({ teacher_profile_id: teacherProfileId, updated_at: new Date().toISOString() })
+    .eq("id", legacy.id);
+
+  return loadTimetablePayload(String(legacy.id));
+}
+
+export async function listSchedules(teacherProfileId?: string | null): Promise<StoredTimetableSchedule[]> {
+  let query = supabase.from("timetable_schedules").select("*");
+  if (teacherProfileId) {
+    query = query.eq("teacher_profile_id", teacherProfileId);
+  }
+  const { data, error } = await query.order("updated_at", { ascending: false });
 
   if (error) throw error;
   return (data ?? []).map(mapSchedule);
@@ -393,45 +413,18 @@ export async function replaceScheduleSlots(
   if (updateError) throw updateError;
 
   await appendHistory(scheduleId, action, { slotCount: slots.length });
-  await syncScheduleToProfile(scheduleId, slots);
 
   const payload = await loadTimetablePayload(scheduleId);
   if (!payload) throw new Error("Emploi du temps introuvable.");
   return payload;
 }
 
-export async function syncScheduleToProfile(
-  scheduleId: string,
-  slots: SmartTimetableSlot[],
-): Promise<void> {
-  const bundle = await loadTeacherProfileBundle();
-  if (!bundle) return;
-
-  const timetable = slotsToTimetableInput(slots);
-  const entryId = `edt-${scheduleId.slice(0, 8)}`;
-  const timetables = bundle.profile.timetables.some((entry) => entry.id === entryId)
-    ? bundle.profile.timetables.map((entry) =>
-        entry.id === entryId ? { ...entry, timetable } : entry,
-      )
-    : [
-        ...bundle.profile.timetables,
-        { id: entryId, name: "Emploi du temps intelligent", timetable },
-      ];
-
-  const { error } = await supabase
-    .from("teacher_profiles")
-    .update({
-      timetables,
-      default_timetable_id: entryId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", bundle.profile.id);
-
-  if (error) throw error;
-}
-
-async function loadProgrammationWeeklyHours(): Promise<Record<string, number>[]> {
-  const { data, error } = await supabase.from("programmations").select("timetable");
+async function loadProgrammationWeeklyHours(profileId: string, schoolYear: string): Promise<Record<string, number>[]> {
+  const { data, error } = await supabase
+    .from("programmations")
+    .select("timetable")
+    .eq("teacher_profile_id", profileId)
+    .eq("school_year", schoolYear);
   if (error) throw error;
 
   return (data ?? []).map((row) => {
@@ -464,7 +457,12 @@ export async function generateTimetable(input: TimetableGenerateInput): Promise<
         ? profileSchoolDays
         : base.schedule.settings.schoolDays,
     },
-    weeklyHoursFromProgrammations: await loadProgrammationWeeklyHours(),
+    weeklyHoursFromProgrammations: bundle?.profile.id
+      ? await loadProgrammationWeeklyHours(
+          bundle.profile.id,
+          base.schedule.schoolYear || bundle.profile.schoolYear || "",
+        )
+      : [],
     rituals,
     existingSlots: base.slots,
     variantType: input.variantType ?? base.schedule.variantType,
@@ -788,18 +786,27 @@ export async function activateScheduleVariant(
   scheduleId: string,
   variantType: TimetableVariant,
 ): Promise<TimetablePayload> {
-  await supabase.from("timetable_schedules").update({ is_active: false }).eq("is_active", true);
+  const bundle = await loadTeacherProfileBundle();
+  const profileId = bundle?.profile.id ?? null;
+
+  let deactivateQuery = supabase.from("timetable_schedules").update({ is_active: false }).eq("is_active", true);
+  if (profileId) {
+    deactivateQuery = deactivateQuery.eq("teacher_profile_id", profileId);
+  }
+  await deactivateQuery;
+
+  const activeBase = profileId ? await loadActiveScheduleForProfile(profileId) : await loadActiveSchedule();
 
   const { data, error } = await supabase
     .from("timetable_schedules")
     .insert({
-      teacher_profile_id: (await loadTeacherProfileBundle())?.profile.id ?? null,
+      teacher_profile_id: profileId,
       name: `Emploi du temps — ${variantType}`,
       variant_type: variantType,
       is_active: true,
-      school_year: (await loadActiveSchedule())?.schedule.schoolYear ?? "",
-      levels: (await loadActiveSchedule())?.schedule.levels ?? [],
-      settings: (await loadActiveSchedule())?.schedule.settings ?? defaultSettings(),
+      school_year: activeBase?.schedule.schoolYear ?? bundle?.profile.schoolYear ?? "",
+      levels: activeBase?.schedule.levels ?? bundle?.profile.levels ?? [],
+      settings: activeBase?.schedule.settings ?? defaultSettings(),
       weekly_hours: {},
       status: "draft",
     })

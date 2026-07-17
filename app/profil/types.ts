@@ -1,5 +1,5 @@
 import type { SchoolLevel, TimetableInput } from "@/lib/programming/types";
-import { DEFAULT_TIMETABLE } from "@/app/programmation/types";
+import { EMPTY_TIMETABLE } from "@/app/programmation/types";
 import { getDefaultSchoolYear } from "@/lib/programming/vacation-registry";
 import {
   DEFAULT_TEACHER_WORKING_DAYS,
@@ -16,7 +16,7 @@ export const SCHOOL_LEVELS: SchoolLevel[] = ["CP", "CE1", "CE2", "CM1", "CM2"];
 
 export function createTimetableEntry(
   name: string,
-  timetable: TimetableInput = DEFAULT_TIMETABLE,
+  timetable: TimetableInput = EMPTY_TIMETABLE,
 ): TimetableEntry {
   return {
     id: `edt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -26,8 +26,6 @@ export function createTimetableEntry(
 }
 
 export const initialProfilValues: ProfilFormValues = (() => {
-  const defaultEntry = createTimetableEntry("Emploi du temps principal", DEFAULT_TIMETABLE);
-
   return {
     nom: "",
     prenom: "",
@@ -48,8 +46,8 @@ export const initialProfilValues: ProfilFormValues = (() => {
     workQuotaLabel: "100 %",
     workQuotaPreset: detectWorkQuotaPreset(100),
     workingDays: [...DEFAULT_TEACHER_WORKING_DAYS],
-    timetables: [defaultEntry],
-    defaultTimetableId: defaultEntry.id,
+    timetables: [],
+    defaultTimetableId: "",
     methods: ["MHM"],
     primaryMethod: "MHM",
     pedagogyStyles: ["explicite"],

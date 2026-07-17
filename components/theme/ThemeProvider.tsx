@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import {
   createContext,
   useCallback,
@@ -44,7 +45,7 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
 
   useEffect(() => {
     applyThemeToDocument(themeId);
-    setIsReady(true);
+    deferEffect(() => setIsReady(true));
   }, [themeId]);
 
   useEffect(() => {

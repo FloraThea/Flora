@@ -69,7 +69,7 @@ export async function saveImportedProgrammation(input: {
   sourceStoragePath?: string;
 }): Promise<ProgrammationPayload> {
   const bundle = await loadTeacherProfileForGeneration();
-  const defaultTimetable = getDefaultTimetableFromProfile(bundle);
+  const defaultTimetable = await getDefaultTimetableFromProfile(bundle);
   const validation = programmingValidator.validate(input.session.tables, {
     referentiel: [],
     resources: [],

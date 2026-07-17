@@ -14,7 +14,8 @@ import { CalendarPreview } from "./CalendarPreview";
 import { ProgrammationForm } from "./ProgrammationForm";
 import { ProgrammingTableView } from "./ProgrammingTableView";
 import { ProgrammationImportWizard } from "./ProgrammationImportWizard";
-import { initialFormValues, type ProgrammationFormValues } from "../types";
+import { initialFormValues, EMPTY_TIMETABLE, type ProgrammationFormValues } from "../types";
+import { payloadToTimetableInput } from "@/lib/timetable/timetable-input-utils";
 
 type ProfilApiResponse = {
   values: ProfilFormValues;
@@ -26,11 +27,6 @@ function applyProfileToFormValues(
   current: ProgrammationFormValues,
   profile: ProfilFormValues,
 ): ProgrammationFormValues {
-  const defaultTimetable =
-    profile.timetables.find((entry) => entry.id === profile.defaultTimetableId)?.timetable ??
-    profile.timetables[0]?.timetable ??
-    current.timetable;
-
   return {
     ...current,
     schoolYear: profile.schoolYear || current.schoolYear,
@@ -41,7 +37,6 @@ function applyProfileToFormValues(
       profile.projects.find((project) => project.projectType === "annuel")?.title ||
       profile.projects.find((project) => project.projectType === "theme")?.title ||
       current.projetAnnuel,
-    timetable: defaultTimetable,
   };
 }
 
@@ -59,12 +54,29 @@ export function ProgrammationPage() {
   useEffect(() => {
     void (async () => {
       try {
-        const response = await fetch("/api/profil");
-        const data = (await response.json()) as ProfilApiResponse;
+        const [profileResponse, edtResponse] = await Promise.all([
+          fetch("/api/profil"),
+          fetch("/api/emploi-du-temps"),
+        ]);
+        const data = (await profileResponse.json()) as ProfilApiResponse;
 
-        if (response.ok) {
+        if (profileResponse.ok) {
           setFormValues((current) => applyProfileToFormValues(current, data.values));
           setProfileComplete(data.completion.complete);
+        }
+
+        if (edtResponse.ok) {
+          const edt = (await edtResponse.json()) as {
+            slots?: Array<{ day: string; start: string; end: string; subject: string; hours?: number }>;
+          };
+          if (edt.slots?.length) {
+            setFormValues((current) => ({
+              ...current,
+              timetable: payloadToTimetableInput(edt.slots ?? []),
+            }));
+          } else {
+            setFormValues((current) => ({ ...current, timetable: EMPTY_TIMETABLE }));
+          }
         }
       } catch {
         // Le profil sera exigé à la génération.

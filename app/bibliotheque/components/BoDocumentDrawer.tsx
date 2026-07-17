@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useCallback, useEffect, useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
@@ -70,8 +71,10 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
   }, [documentId]);
 
   useEffect(() => {
-    void loadDocument();
-    void loadCompetences();
+    deferEffect(() => {
+      void loadDocument();
+      void loadCompetences();
+    });
   }, [loadDocument, loadCompetences]);
 
   async function runAction(

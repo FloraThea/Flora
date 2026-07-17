@@ -525,13 +525,22 @@ export async function loadLibraryResourcesByMatiere(): Promise<Record<string, Jo
   return grouped;
 }
 
-export async function listJournalsInRange(startDate: string, endDate: string): Promise<StoredJournal[]> {
-  const { data, error } = await supabase
+export async function listJournalsInRange(
+  startDate: string,
+  endDate: string,
+  teacherProfileId?: string | null,
+): Promise<StoredJournal[]> {
+  let query = supabase
     .from("journals")
     .select("*")
     .gte("journal_date", startDate)
-    .lte("journal_date", endDate)
-    .order("journal_date", { ascending: true });
+    .lte("journal_date", endDate);
+
+  if (teacherProfileId) {
+    query = query.eq("teacher_profile_id", teacherProfileId);
+  }
+
+  const { data, error } = await query.order("journal_date", { ascending: true });
 
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapJournal);

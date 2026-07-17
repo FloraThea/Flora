@@ -1,22 +1,13 @@
 import { supabase } from "@/lib/supabase";
-import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { loadActiveTimetableInput } from "@/lib/timetable/active-timetable";
+import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import type { HoursBalance, PedagogicalStats } from "./types";
 
 export async function recalculateHourVolumes(): Promise<HoursBalance[]> {
-  const bundle = await loadTeacherProfileBundle();
-  const timetableHours = bundle?.profile.timetables?.[0]?.timetable?.weeklyHoursBySubject ?? {};
-
-  const { data: slots } = await supabase.from("timetable_slots").select("subject, start, end");
-
-  const plannedBySubject = new Map<string, number>();
-
-  for (const slot of slots ?? []) {
-    const subject = String(slot.subject ?? "Autre");
-    const start = String(slot.start ?? "08:00");
-    const end = String(slot.end ?? "09:00");
-    const minutes = timeToMinutes(end) - timeToMinutes(start);
-    plannedBySubject.set(subject, (plannedBySubject.get(subject) ?? 0) + minutes / 60);
-  }
+  const scope = await requireTeacherScope();
+  const activeTimetable = await loadActiveTimetableInput(scope.profileId);
+  const plannedBySubject = new Map<string, number>(Object.entries(activeTimetable.weeklyHoursBySubject));
+  const timetableHours = activeTimetable.weeklyHoursBySubject;
 
   const subjects = new Set([...Object.keys(timetableHours), ...plannedBySubject.keys()]);
 
@@ -37,6 +28,7 @@ export async function recalculateHourVolumes(): Promise<HoursBalance[]> {
 export async function recalculatePedagogicalStats(
   conflictCount = 0,
 ): Promise<PedagogicalStats> {
+  const scope = await requireTeacherScope();
   const hoursBalance = await recalculateHourVolumes();
 
   const { count: totalCompetences } = await supabase
@@ -45,23 +37,31 @@ export async function recalculatePedagogicalStats(
 
   const { data: coveredRows } = await supabase
     .from("progression_rows")
-    .select("referentiel_ids")
+    .select("referentiel_ids, progression_id")
     .not("referentiel_ids", "eq", "[]");
+
+  const { data: ownedProgressions } = await supabase
+    .from("progressions")
+    .select("id")
+    .eq("teacher_profile_id", scope.profileId);
+
+  const ownedIds = new Set((ownedProgressions ?? []).map((row) => String(row.id)));
 
   const coveredIds = new Set<string>();
   for (const row of coveredRows ?? []) {
+    if (!ownedIds.has(String(row.progression_id))) continue;
     for (const id of (row.referentiel_ids as string[]) ?? []) {
       coveredIds.add(id);
     }
   }
 
-  const bundle = await loadTeacherProfileBundle();
   const calendarWeeks = 36;
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: pastSeances } = await supabase
     .from("seances")
     .select("id")
+    .eq("teacher_profile_id", scope.profileId)
     .lte("session_date", today);
 
   const completedRatio = Math.min(1, (pastSeances?.length ?? 0) / Math.max(calendarWeeks * 4, 1));
@@ -73,9 +73,4 @@ export async function recalculatePedagogicalStats(
     hoursBalance,
     conflictCount,
   };
-}
-
-function timeToMinutes(value: string): number {
-  const [hours, minutes] = value.split(":").map(Number);
-  return (hours ?? 0) * 60 + (minutes ?? 0);
 }

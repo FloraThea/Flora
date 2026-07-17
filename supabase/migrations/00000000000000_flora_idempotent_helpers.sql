@@ -9,7 +9,7 @@ as $$
   select to_regclass(format('public.%I', p_table)) is not null;
 $$;
 
-create or replace function public.flora_column_exists(p_table text, p_column text)
+create or replace function public.flora_column_exists(p_schema text, p_table text, p_column text)
 returns boolean
 language sql
 stable
@@ -17,10 +17,18 @@ as $$
   select exists (
     select 1
     from information_schema.columns
-    where table_schema = 'public'
+    where table_schema = p_schema
       and table_name = p_table
       and column_name = p_column
   );
+$$;
+
+create or replace function public.flora_column_exists(p_table text, p_column text)
+returns boolean
+language sql
+stable
+as $$
+  select public.flora_column_exists('public', p_table, p_column);
 $$;
 
 create or replace function public.flora_create_index_if_column_exists(

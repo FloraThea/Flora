@@ -271,7 +271,7 @@ export async function syncProgressions(ctx: SyncContext): Promise<number> {
   const { data: rows } = await supabase
     .from("progression_rows")
     .select(
-      "id, seance_label, competence_bo, period_number, week_number, matiere, programmation_id, metadata",
+      "id, seance_label, competence_bo, period_number, week_number, programmation_id, tab_id, metadata",
     )
     .in("programmation_id", programmationIds)
     .gt("period_number", 0)

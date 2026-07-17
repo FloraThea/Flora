@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FloraBadge } from "@/components/ui/FloraBadge";
@@ -76,7 +77,7 @@ export function SeancesPage() {
   }, []);
 
   useEffect(() => {
-    void loadIndependentSeances().catch(() => undefined);
+    deferEffect(() => loadIndependentSeances().catch(() => undefined));
   }, [loadIndependentSeances]);
 
   useEffect(() => {
@@ -116,7 +117,9 @@ export function SeancesPage() {
       }
     }
 
-    void bootstrap();
+    deferEffect(() => {
+      void bootstrap();
+    });
 
     return () => {
       cancelled = true;

@@ -138,7 +138,14 @@ export async function saveImportedTimetable(
   }
 
   if (input.isPrimary && scheduleId) {
-    await supabase.from("timetable_schedules").update({ is_active: false }).neq("id", scheduleId);
+    let deactivateQuery = supabase
+      .from("timetable_schedules")
+      .update({ is_active: false })
+      .neq("id", scheduleId);
+    if (profile?.id) {
+      deactivateQuery = deactivateQuery.eq("teacher_profile_id", profile.id);
+    }
+    await deactivateQuery;
     await supabase
       .from("timetable_schedules")
       .update({ is_active: true, name: input.scheduleName, updated_at: new Date().toISOString() })

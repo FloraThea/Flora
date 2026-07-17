@@ -12,13 +12,20 @@ import type { ImportBatchMergeMode, ImportedFileStatus } from "@/lib/programming
 import { resolveImportFileName } from "@/lib/import/accepted-formats";
 import {
   ImportFileRegistry,
+  fetchImportWithTimeout,
   mapImportFailureMessage,
   parseImportApiError,
   readImportApiResponse,
   uploadBatchFile,
   type ImportWorkflowStep,
 } from "@/lib/programming/import/import-batch-client";
+import {
+  buildMinimalParsedFromUpload,
+  mergeParsedProgrammationImports,
+} from "@/lib/programming/import/build-minimal-parsed-import";
 import type { ParsedProgrammationImport } from "@/lib/programming/import/types";
+
+const ANALYZE_PAGE_TIMEOUT_MS = 120_000;
 
 export type BatchPanelFile = {
   clientId: string;
@@ -92,6 +99,19 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
   const [dragActive, setDragActive] = useState(false);
   const [duplicatePrompt, setDuplicatePrompt] = useState<string[] | null>(null);
   const [pendingAddFiles, setPendingAddFiles] = useState<File[]>([]);
+  const [analyzeProgress, setAnalyzeProgress] = useState<{ current: number; total: number } | null>(null);
+  const [lastUploadedBatch, setLastUploadedBatch] = useState<{
+    batchId: string;
+    pages: Array<{
+      fileId: string;
+      clientId: string;
+      filename: string;
+      mimeType: string;
+      pageOrder: number;
+      storagePath: string;
+      pdfPageNumber?: number;
+    }>;
+  } | null>(null);
 
   const accept = getModuleAcceptAttribute("programmation");
   const isBusy = uiState === "uploading" || uiState === "analyzing" || uiState === "saving";
@@ -314,10 +334,12 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         analyzeForm.append(`file_${descriptor.fileId}`, matchedFile);
       }
 
-      const analyzeResponse = await fetch("/api/programmation/import", {
-        method: "POST",
-        body: analyzeForm,
-      });
+      const analyzeResponse = await fetchImportWithTimeout(
+        "/api/programmation/import",
+        { method: "POST", body: analyzeForm },
+        ANALYZE_PAGE_TIMEOUT_MS * Math.max(1, input.pages.length),
+        "L'analyse a dépassé le délai autorisé. Vous pouvez continuer avec les fichiers téléversés ou réessayer.",
+      );
 
       const analyzeData = await readImportApiResponse<{
         parsed?: ParsedProgrammationImport;
@@ -365,16 +387,21 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         })),
       });
 
-      const analyzeResponse = await fetch("/api/programmation/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "batch_analyze",
-          batchId: input.currentBatchId,
-          mergeMode,
-          uploadedFiles: input.pages,
-        }),
-      });
+      const analyzeResponse = await fetchImportWithTimeout(
+        "/api/programmation/import",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "batch_analyze",
+            batchId: input.currentBatchId,
+            mergeMode,
+            uploadedFiles: input.pages,
+          }),
+        },
+        ANALYZE_PAGE_TIMEOUT_MS * Math.max(1, input.pages.length),
+        "L'analyse a dépassé le délai autorisé. Vous pouvez continuer avec les fichiers téléversés ou réessayer.",
+      );
 
       const analyzeData = await readImportApiResponse<{
         parsed?: ParsedProgrammationImport;
@@ -408,42 +435,115 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         storagePath: string;
         pdfPageNumber?: number;
       }>;
+      onPageStart?: (pageOrder: number, total: number) => void;
+      onPageComplete?: (page: {
+        fileId: string;
+        status: ImportedFileStatus;
+        error?: string;
+      }) => void;
     }) => {
-      try {
-        console.log("[ProgrammingImport] analyze-start", {
-          batchId: input.currentBatchId,
-          fileCount: input.pages.length,
-          mode: "storage",
-        });
-        return await runAnalyzeFromStorage({
-          currentBatchId: input.currentBatchId,
-          pages: input.pages,
-        });
-      } catch (storageError) {
-        const message = storageError instanceof Error ? storageError.message : "";
-        const canUseLocalFiles = input.pages.every((page) => fileRegistry.current.has(page.clientId));
-
-        if (!canUseLocalFiles && !shouldFallbackToInlineAnalyze(message)) {
-          throw storageError;
-        }
-
-        if (!canUseLocalFiles) {
-          throw storageError;
-        }
-
-        console.warn("[ProgrammingImport] analyze-storage-fallback", {
-          batchId: input.currentBatchId,
-          reason: message,
-        });
-        console.log("[ProgrammingImport] analyze-start", {
-          batchId: input.currentBatchId,
-          fileCount: input.pages.length,
-          mode: "inline",
-        });
-        return runAnalyzeInline(input);
+      const activePages = input.pages.filter((page) => page.fileId && page.storagePath);
+      if (activePages.length === 0) {
+        throw new Error("Aucune page téléversée disponible pour l'analyse.");
       }
+
+      let mergedParsed: ParsedProgrammationImport | null = null;
+      const allStatuses: Array<{ fileId: string; status: ImportedFileStatus; error?: string }> = [];
+
+      for (let index = 0; index < activePages.length; index += 1) {
+        const page = activePages[index];
+        input.onPageStart?.(index + 1, activePages.length);
+
+        setFiles((current) =>
+          current.map((entry) =>
+            entry.fileId === page.fileId
+              ? { ...entry, status: "analyzing" as ImportedFileStatus, error: undefined }
+              : entry,
+          ),
+        );
+
+        try {
+          console.log("[ProgrammingImport] analyze-start", {
+            batchId: input.currentBatchId,
+            pageOrder: page.pageOrder,
+            mode: "storage",
+          });
+
+          const result = await runAnalyzeFromStorage({
+            currentBatchId: input.currentBatchId,
+            pages: [page],
+          });
+
+          mergedParsed = mergedParsed
+            ? mergeParsedProgrammationImports(mergedParsed, result.parsed)
+            : result.parsed;
+
+          for (const remote of result.fileStatuses) {
+            allStatuses.push(remote);
+            input.onPageComplete?.(remote);
+          }
+        } catch (storageError) {
+          const message = storageError instanceof Error ? storageError.message : "";
+          const canUseLocalFiles = fileRegistry.current.has(page.clientId);
+
+          if (canUseLocalFiles && shouldFallbackToInlineAnalyze(message)) {
+            console.warn("[ProgrammingImport] analyze-storage-fallback", {
+              batchId: input.currentBatchId,
+              pageOrder: page.pageOrder,
+              reason: message,
+            });
+
+            try {
+              const inlineResult = await runAnalyzeInline({
+                currentBatchId: input.currentBatchId,
+                pages: [page],
+              });
+
+              mergedParsed = mergedParsed
+                ? mergeParsedProgrammationImports(mergedParsed, inlineResult.parsed)
+                : inlineResult.parsed;
+
+              for (const remote of inlineResult.fileStatuses) {
+                allStatuses.push(remote);
+                input.onPageComplete?.(remote);
+              }
+              continue;
+            } catch (inlineError) {
+              const inlineMessage =
+                inlineError instanceof Error ? inlineError.message : "Analyse impossible.";
+              allStatuses.push({ fileId: page.fileId, status: "error", error: inlineMessage });
+              input.onPageComplete?.({ fileId: page.fileId, status: "error", error: inlineMessage });
+              continue;
+            }
+          }
+
+          allStatuses.push({ fileId: page.fileId, status: "error", error: message || "Analyse impossible." });
+          input.onPageComplete?.({
+            fileId: page.fileId,
+            status: "error",
+            error: message || "Analyse impossible.",
+          });
+        }
+      }
+
+      const storagePaths = activePages.map((entry) => entry.storagePath);
+      const parsed =
+        mergedParsed ??
+        buildMinimalParsedFromUpload({
+          batchId: input.currentBatchId,
+          mergeMode,
+          pages: activePages,
+          warning:
+            "Aucune page n'a pu être analysée automatiquement. Les fichiers restent téléversés — vous pouvez réessayer ou continuer.",
+        });
+
+      return {
+        parsed,
+        storagePaths,
+        fileStatuses: allStatuses,
+      };
     },
-    [runAnalyzeFromStorage, runAnalyzeInline],
+    [mergeMode, runAnalyzeFromStorage, runAnalyzeInline],
   );
 
   const runBatchImport = useCallback(async () => {
@@ -519,6 +619,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       }
 
       if (uploadedDescriptors.length > 0) {
+        setLastUploadedBatch({ batchId: currentBatchId, pages: uploadedDescriptors });
         await fetch("/api/programmation/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -532,11 +633,24 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
 
       currentStep = "analyze";
       setUiState("analyzing");
+      setAnalyzeProgress({ current: 0, total: uploadedDescriptors.length });
 
       const analyzeResult = await runAnalyzeWithFallback({
         currentBatchId,
         pages: uploadedDescriptors,
+        onPageStart: (current, total) => setAnalyzeProgress({ current, total }),
+        onPageComplete: (remote) => {
+          setFiles((current) =>
+            current.map((entry) =>
+              entry.fileId === remote.fileId
+                ? { ...entry, status: remote.status, error: remote.error }
+                : entry,
+            ),
+          );
+        },
       });
+
+      setAnalyzeProgress(null);
 
       console.log("[ProgrammingImport] analysis-success", currentBatchId);
       setFiles((current) =>
@@ -555,6 +669,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       console.log("[ProgrammingImport] completed", currentBatchId);
       onAnalyzed(analyzeResult.parsed, currentBatchId, analyzeResult.storagePaths);
     } catch (importError) {
+      setAnalyzeProgress(null);
       const rawMessage = importError instanceof Error ? importError.message : "";
       const message = mapImportFailureMessage(currentStep, rawMessage);
       console.error("[ProgrammingImport] failed", { step: currentStep, error: message });
@@ -563,6 +678,44 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       onError(message);
     }
   }, [ensureBatch, onAnalyzed, onError, runAnalyzeWithFallback, sortedFiles]);
+
+  const continueWithoutAnalysis = useCallback(() => {
+    const uploadedPages =
+      lastUploadedBatch?.pages ??
+      sortedFiles
+        .filter((item) => item.fileId && item.storagePath && item.status !== "skipped")
+        .map((item) => ({
+          fileId: item.fileId!,
+          clientId: item.clientId,
+          filename: item.filename,
+          mimeType: item.mimeType,
+          pageOrder: item.pageOrder,
+          storagePath: item.storagePath!,
+          pdfPageNumber: item.pdfPageNumber,
+        }));
+
+    if (uploadedPages.length === 0) {
+      onError("Aucun fichier téléversé disponible.");
+      return;
+    }
+
+    const currentBatchId = lastUploadedBatch?.batchId ?? batchId;
+    const parsed = buildMinimalParsedFromUpload({
+      batchId: currentBatchId,
+      mergeMode,
+      pages: uploadedPages,
+    });
+
+    setAnalyzeProgress(null);
+    setUiState("review");
+    setFailureStep(null);
+    onError(null);
+    onAnalyzed(
+      parsed,
+      currentBatchId,
+      uploadedPages.map((page) => page.storagePath),
+    );
+  }, [batchId, lastUploadedBatch, mergeMode, onAnalyzed, onError, sortedFiles]);
 
   const retryAnalysis = useCallback(async () => {
     const activePages = sortedFiles.filter(
@@ -581,6 +734,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
     setUiState("analyzing");
     setFailureStep(null);
     onError(null);
+    setAnalyzeProgress({ current: 0, total: activePages.length });
 
     try {
       const pages = activePages.map((item) => ({
@@ -596,7 +750,19 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       const analyzeResult = await runAnalyzeWithFallback({
         currentBatchId: batchId,
         pages,
+        onPageStart: (current, total) => setAnalyzeProgress({ current, total }),
+        onPageComplete: (remote) => {
+          setFiles((current) =>
+            current.map((entry) =>
+              entry.fileId === remote.fileId
+                ? { ...entry, status: remote.status, error: remote.error }
+                : entry,
+            ),
+          );
+        },
       });
+
+      setAnalyzeProgress(null);
 
       setFiles((current) =>
         current.map((entry) => {
@@ -609,6 +775,7 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
       setUiState("review");
       onAnalyzed(analyzeResult.parsed, batchId, analyzeResult.storagePaths);
     } catch (importError) {
+      setAnalyzeProgress(null);
       const message =
         importError instanceof Error
           ? importError.message
@@ -638,6 +805,13 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
   const uploadedCount = files.filter((item) =>
     ["uploaded", "analyzed", "analyzing"].includes(item.status),
   ).length;
+
+  const hasUploadedFiles = files.some(
+    (item) => item.storagePath && item.fileId && item.status !== "skipped",
+  );
+
+  const canContinueWithoutAnalysis =
+    hasUploadedFiles && (uiState === "error" || uiState === "analyzing");
 
   return (
     <div className="programming-import-panel w-full max-w-full box-border space-y-4 overflow-x-hidden">
@@ -822,7 +996,9 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
             {uiState === "uploading"
               ? `Téléversement : ${uploadedCount} / ${files.length}`
               : uiState === "analyzing"
-                ? "Analyse des pages…"
+                ? analyzeProgress
+                  ? `Analyse page ${analyzeProgress.current} / ${analyzeProgress.total}…`
+                  : "Analyse des pages…"
                 : "Fusion des données…"}
           </p>
         </div>
@@ -847,7 +1023,18 @@ export function ProgrammationImportBatchPanel({ schoolYear, onAnalyzed, onError 
         </FloraButton>
         {uiState === "error" && failureStep === "analyze" ? (
           <FloraButton type="button" className="!w-full !max-w-full" variant="secondary" onClick={() => void retryAnalysis()}>
-            Réessayer l'analyse
+            Réessayer l&apos;analyse
+          </FloraButton>
+        ) : null}
+        {canContinueWithoutAnalysis ? (
+          <FloraButton
+            type="button"
+            className="!w-full !max-w-full"
+            variant="secondary"
+            onClick={continueWithoutAnalysis}
+            disabled={isBusy && uiState !== "analyzing"}
+          >
+            Continuer avec les fichiers téléversés
           </FloraButton>
         ) : null}
         {uiState === "error" && failureStep !== "analyze" ? (

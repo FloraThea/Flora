@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
-import { getOrCreateTeacherProfile, loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { resolveAgendaProfile, isMissingAgendaTableError, toAgendaUserMessage } from "./agenda-profile";
 import { resolveJournalTimetable } from "@/lib/journal/JournalTimetableResolver";
 import { getFrenchDayName, normalizeDayName } from "@/lib/journal/date-utils";
@@ -237,7 +237,29 @@ export async function moveAgendaEvent(eventId: string, targetDate: string): Prom
 }
 
 export async function markReminderSent(reminderId: string): Promise<void> {
-  await supabase.from("agenda_reminders").update({ status: "sent" }).eq("id", reminderId);
+  const bundle = await getProfileContext();
+  const { error } = await supabase
+    .from("agenda_reminders")
+    .update({ status: "sent" })
+    .eq("id", reminderId)
+    .eq("teacher_profile_id", bundle.profile.id);
+
+  if (error) {
+    throw new Error(getSupabaseErrorMessage(error, "Impossible de marquer le rappel comme envoyé."));
+  }
+}
+
+export async function dismissAgendaReminder(reminderId: string): Promise<void> {
+  const bundle = await getProfileContext();
+  const { error } = await supabase
+    .from("agenda_reminders")
+    .update({ status: "dismissed" })
+    .eq("id", reminderId)
+    .eq("teacher_profile_id", bundle.profile.id);
+
+  if (error) {
+    throw new Error(getSupabaseErrorMessage(error, "Impossible de fermer le rappel."));
+  }
 }
 
 export async function listAgendaTasks(teacherProfileId?: string): Promise<AgendaTask[]> {

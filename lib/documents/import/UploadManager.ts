@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { getOrCreateTeacherProfile, loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import {
   buildDocumentStorageKey,
   formatMissingR2EnvMessage,
@@ -44,6 +44,7 @@ type SessionMetadata = {
   storage_provider?: string;
   multipart_upload_id?: string;
   user_id?: string;
+  teacher_profile_id?: string;
   document_category?: string;
   storage_bucket?: string;
 };
@@ -69,8 +70,9 @@ export class UploadManager {
       input.fileSize,
     );
 
-    const bundle = await loadTeacherProfileBundle();
-    const userId = bundle?.profile.id ?? "default";
+    const bundle = await getOrCreateTeacherProfile();
+    const userId = bundle.profile.id;
+    const teacherProfileId = bundle.profile.id;
     const category = inferDocumentCategory(input.filename);
     const storagePath = buildDocumentStorageKey({
       userId,
@@ -111,6 +113,7 @@ export class UploadManager {
       storage_provider: storageService.getActiveProviderName(),
       multipart_upload_id: multipartUploadId!,
       user_id: userId,
+      teacher_profile_id: teacherProfileId,
       document_category: category,
       storage_bucket: r2Bucket,
     };
@@ -225,6 +228,7 @@ export class UploadManager {
       storage_bucket: sessionMetadata.storage_bucket ?? getR2BucketNameFromEnv() ?? tryGetR2Config()?.bucketName,
       document_category: sessionMetadata.document_category,
       user_id: sessionMetadata.user_id,
+      teacher_profile_id: sessionMetadata.teacher_profile_id ?? sessionMetadata.user_id,
     };
 
     if (duplicates.length > 0 && input.duplicateResolution === "replace") {
@@ -241,6 +245,7 @@ export class UploadManager {
           file_size: session.fileSize,
           original_filename: session.originalFilename,
           status: "uploaded",
+          teacher_profile_id: sessionMetadata.teacher_profile_id ?? sessionMetadata.user_id ?? null,
           metadata: documentMetadata,
         })
         .eq("id", documentId);
@@ -255,6 +260,7 @@ export class UploadManager {
           file_size: session.fileSize,
           storage_path: session.storagePath,
           status: "uploaded",
+          teacher_profile_id: sessionMetadata.teacher_profile_id ?? sessionMetadata.user_id ?? null,
           metadata: documentMetadata,
         })
         .select("*")

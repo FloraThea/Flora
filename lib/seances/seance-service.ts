@@ -1,5 +1,10 @@
 import { supabase } from "@/lib/supabase";
 import {
+  insertWithOptionalColumnFallback,
+  updateWithOptionalColumnFallback,
+} from "@/lib/supabase/schema-compat";
+import { requireTeacherScope } from "@/lib/tenant/teacher-context";
+import {
   buildIndependentSeanceDraft,
   resolveSeanceLinkMode,
 } from "./independent-seance-factory";
@@ -146,46 +151,51 @@ async function insertSeanceRecord(input: {
   linkMode: "linked" | "independent";
   metadata?: Record<string, unknown>;
 }): Promise<SeancePayload> {
-  const { data: seance, error } = await supabase
-    .from("seances")
-    .insert({
-      sequence_session_id: input.sequenceSessionId,
-      sequence_id: input.sequenceId,
-      progression_id: input.progressionId,
-      progression_row_id: input.progressionRowId,
-      programmation_id: input.programmationId,
-      teacher_profile_id: input.teacherProfileId ?? null,
-      link_mode: input.linkMode,
-      title: input.draft.title,
-      matiere: input.draft.matiere,
-      sous_matiere: input.draft.sousMatiere,
-      niveau: input.draft.niveau,
-      cycle: input.draft.cycle,
-      period_number: input.draft.periodNumber,
-      week_number: input.draft.weekNumber,
-      session_date: input.draft.sessionDate,
-      duree_minutes: input.draft.dureeMinutes,
-      competence_bo: input.draft.competenceBo,
-      objectif: input.draft.objectif,
-      prerequis: input.draft.prerequis,
-      methode: input.draft.methode,
-      resource_ids: input.draft.resourceIds,
-      referentiel_ids: input.draft.referentielIds,
-      resources: input.draft.resources,
-      materiel: input.draft.materiel,
-      differentiation: input.draft.differentiation,
-      evaluation: input.draft.evaluation,
-      homework: input.draft.homework,
-      trace_ecrite: input.draft.traceEcrite,
-      pedagogical_choices: input.draft.pedagogicalChoices,
-      status: "validated",
-      metadata: {
-        generated_at: new Date().toISOString(),
-        ...input.metadata,
-      },
-    })
-    .select("*")
-    .single();
+  const seanceRow = {
+    sequence_session_id: input.sequenceSessionId,
+    sequence_id: input.sequenceId,
+    progression_id: input.progressionId,
+    progression_row_id: input.progressionRowId,
+    programmation_id: input.programmationId,
+    teacher_profile_id: input.teacherProfileId ?? null,
+    link_mode: input.linkMode,
+    title: input.draft.title,
+    matiere: input.draft.matiere,
+    sous_matiere: input.draft.sousMatiere,
+    niveau: input.draft.niveau,
+    cycle: input.draft.cycle,
+    period_number: input.draft.periodNumber,
+    week_number: input.draft.weekNumber,
+    session_date: input.draft.sessionDate,
+    duree_minutes: input.draft.dureeMinutes,
+    competence_bo: input.draft.competenceBo,
+    objectif: input.draft.objectif,
+    prerequis: input.draft.prerequis,
+    methode: input.draft.methode,
+    resource_ids: input.draft.resourceIds,
+    referentiel_ids: input.draft.referentielIds,
+    resources: input.draft.resources,
+    materiel: input.draft.materiel,
+    differentiation: input.draft.differentiation,
+    evaluation: input.draft.evaluation,
+    homework: input.draft.homework,
+    trace_ecrite: input.draft.traceEcrite,
+    pedagogical_choices: input.draft.pedagogicalChoices,
+    status: "validated",
+    metadata: {
+      generated_at: new Date().toISOString(),
+      ...input.metadata,
+    },
+  };
+
+  const { data: seance, error } = await insertWithOptionalColumnFallback<
+    typeof seanceRow,
+    Record<string, unknown>
+  >(
+    (row) => supabase.from("seances").insert(row).select("*").single(),
+    seanceRow,
+    "link_mode",
+  );
 
   if (error || !seance) {
     throw error ?? new Error("Impossible d'enregistrer la séance.");
@@ -265,6 +275,7 @@ export async function createIndependentSeance(
 
   const linkMode = resolveSeanceLinkMode(input);
   const draft = buildIndependentSeanceDraft(input);
+  const scope = await requireTeacherScope();
 
   if (linkMode === "linked" && input.sequenceSessionId) {
     const { data: existing } = await supabase
@@ -285,7 +296,7 @@ export async function createIndependentSeance(
     progressionId: input.progressionId ?? null,
     progressionRowId: input.progressionRowId ?? null,
     programmationId: input.programmationId ?? null,
-    teacherProfileId: input.teacherProfileId ?? null,
+    teacherProfileId: input.teacherProfileId ?? scope.profileId,
     linkMode,
     metadata: {
       source_type: linkMode === "independent" ? "manual_independent" : "manual_linked",
@@ -295,18 +306,21 @@ export async function createIndependentSeance(
 }
 
 export async function linkSeanceToSequence(input: SeanceLinkInput): Promise<SeancePayload> {
-  const { error } = await supabase
-    .from("seances")
-    .update({
-      sequence_id: input.sequenceId,
-      sequence_session_id: input.sequenceSessionId,
-      progression_id: input.progressionId ?? null,
-      progression_row_id: input.progressionRowId ?? null,
-      programmation_id: input.programmationId ?? null,
-      link_mode: "linked",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", input.seanceId);
+  const updateRow = {
+    sequence_id: input.sequenceId,
+    sequence_session_id: input.sequenceSessionId,
+    progression_id: input.progressionId ?? null,
+    progression_row_id: input.progressionRowId ?? null,
+    programmation_id: input.programmationId ?? null,
+    link_mode: "linked" as const,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await updateWithOptionalColumnFallback(
+    (row) => supabase.from("seances").update(row).eq("id", input.seanceId).select("id").single(),
+    updateRow,
+    "link_mode",
+  );
 
   if (error) throw error;
 
@@ -316,18 +330,21 @@ export async function linkSeanceToSequence(input: SeanceLinkInput): Promise<Sean
 }
 
 export async function dissociateSeance(seanceId: string): Promise<SeancePayload> {
-  const { error } = await supabase
-    .from("seances")
-    .update({
-      sequence_id: null,
-      sequence_session_id: null,
-      progression_id: null,
-      progression_row_id: null,
-      programmation_id: null,
-      link_mode: "independent",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", seanceId);
+  const updateRow = {
+    sequence_id: null,
+    sequence_session_id: null,
+    progression_id: null,
+    progression_row_id: null,
+    programmation_id: null,
+    link_mode: "independent" as const,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await updateWithOptionalColumnFallback(
+    (row) => supabase.from("seances").update(row).eq("id", seanceId).select("id").single(),
+    updateRow,
+    "link_mode",
+  );
 
   if (error) throw error;
 
@@ -337,11 +354,14 @@ export async function dissociateSeance(seanceId: string): Promise<SeancePayload>
 }
 
 export async function listIndependentSeances() {
+  const scope = await requireTeacherScope();
+
   const { data, error } = await supabase
     .from("seances")
     .select(
       "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, sequence_id, sequence_session_id, status, link_mode",
     )
+    .eq("teacher_profile_id", scope.profileId)
     .or("link_mode.eq.independent,sequence_id.is.null")
     .order("created_at", { ascending: false });
 

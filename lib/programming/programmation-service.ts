@@ -1,5 +1,6 @@
 import type { FloraAccent } from "@/lib/theme";
 import { supabase } from "@/lib/supabase";
+import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import {
   getProgrammationIdForCell,
   syncCellReferentielIds,
@@ -32,9 +33,12 @@ export async function saveProgrammation(input: {
     competencyMatches?: Record<string, unknown>;
   };
 }): Promise<ProgrammationPayload> {
+  const scope = await requireTeacherScope();
+
   const { data: programmation, error } = await supabase
     .from("programmations")
     .insert({
+      teacher_profile_id: scope.profileId,
       title: input.title,
       school_year: input.generationInput.schoolYear,
       academic_zone: input.generationInput.academicZone,
@@ -268,9 +272,13 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
 }
 
 export async function listValidatedProgrammations() {
+  const scope = await requireTeacherScope();
+
   const { data, error } = await supabase
     .from("programmations")
     .select("id, title, school_year, matiere, methode, levels, status")
+    .eq("teacher_profile_id", scope.profileId)
+    .eq("school_year", scope.schoolYear)
     .eq("status", "validated")
     .order("created_at", { ascending: false });
 

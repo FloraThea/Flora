@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonRouteError, toErrorMessage } from "@/lib/api/route-diagnostics";
-import { listPendingReminders, markReminderSent } from "@/lib/agenda/agenda-service";
-import { supabase } from "@/lib/supabase";
+import { dismissAgendaReminder, listPendingReminders, markReminderSent } from "@/lib/agenda/agenda-service";
 
 const ROUTE_PATH = "/api/agenda/reminders";
 
@@ -19,10 +18,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as { reminderId?: string; action?: string };
 
     if (body.action === "dismiss" && body.reminderId) {
-      await supabase
-        .from("agenda_reminders")
-        .update({ status: "dismissed" })
-        .eq("id", body.reminderId);
+      await dismissAgendaReminder(body.reminderId);
       return NextResponse.json({ route: ROUTE_PATH, success: true });
     }
 

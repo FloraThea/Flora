@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { logStructuredError, serializeError } from "@/lib/api/error-diagnostics";
 import { devLog } from "@/lib/logger";
+import { getSupabaseErrorMessage, isSupabaseError } from "@/lib/supabase-errors";
 
 export function toErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
+  if (isSupabaseError(error)) {
+    return getSupabaseErrorMessage(error, "Erreur base de données");
+  }
   try {
     return JSON.stringify(error);
   } catch {

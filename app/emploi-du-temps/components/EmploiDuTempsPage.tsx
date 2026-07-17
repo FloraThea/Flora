@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useCallback, useEffect, useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
@@ -96,14 +97,14 @@ export function EmploiDuTempsPage() {
   }, [loadMeta, resetHistory]);
 
   useEffect(() => {
-    void loadTimetable();
+    deferEffect(() => loadTimetable());
   }, [loadTimetable]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("import") === "1") {
-      setShowImportWizard(true);
+      deferEffect(() => setShowImportWizard(true));
     }
   }, []);
 

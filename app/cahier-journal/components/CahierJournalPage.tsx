@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
@@ -99,13 +100,12 @@ export function CahierJournalPage() {
   );
 
   useEffect(() => {
-    void loadJournal(selectedDate);
+    deferEffect(() => loadJournal(selectedDate));
   }, [selectedDate, loadJournal]);
 
   useEffect(() => {
-    if (payload) {
-      void loadRange(selectedDate, viewMode);
-    }
+    if (!payload) return;
+    deferEffect(() => loadRange(selectedDate, viewMode));
   }, [viewMode, selectedDate, payload, loadRange]);
 
   const handleCreateManualDay = useCallback(async () => {
@@ -221,7 +221,7 @@ export function CahierJournalPage() {
     });
     if (!response.ok) return;
     await loadJournal(selectedDate);
-  }, [loadJournal, payload?.journal.id, selectedDate]);
+  }, [loadJournal, payload, selectedDate]);
 
   const handleAdjustmentResponse = useCallback(
     async (adjustmentId: string, status: "accepted" | "rejected") => {

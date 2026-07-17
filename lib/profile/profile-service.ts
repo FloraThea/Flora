@@ -1,4 +1,3 @@
-import { DEFAULT_TIMETABLE } from "@/app/programmation/types";
 import { supabase } from "@/lib/supabase";
 import type { TimetableInput } from "@/lib/programming/types";
 import {
@@ -30,22 +29,8 @@ const DEFAULT_PERSONALIZATION: PersonalizationSettings = {
 };
 
 function mapProfile(row: Record<string, unknown>): StoredTeacherProfile {
-  let timetables = (row.timetables as TimetableEntry[]) ?? [];
-  let defaultTimetableId = String(row.default_timetable_id ?? "");
-
-  if (timetables.length === 0) {
-    const defaultEntry: TimetableEntry = {
-      id: "default-edt",
-      name: "Emploi du temps principal",
-      timetable: DEFAULT_TIMETABLE,
-    };
-    timetables = [defaultEntry];
-    defaultTimetableId = defaultEntry.id;
-  }
-
-  if (!defaultTimetableId && timetables.length > 0) {
-    defaultTimetableId = timetables[0].id;
-  }
+  const timetables = (row.timetables as TimetableEntry[]) ?? [];
+  const defaultTimetableId = String(row.default_timetable_id ?? "");
 
   return {
     id: String(row.id),
@@ -154,12 +139,24 @@ async function loadBundleForProfile(profileRow: Record<string, unknown>): Promis
 }
 
 export async function loadTeacherProfileBundle(): Promise<TeacherProfileBundle | null> {
-  const { data } = await supabase
-    .from("teacher_profiles")
-    .select("*")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  let userId: string | null = null;
+  if (typeof window === "undefined") {
+    try {
+      const { getServerAuthUserId } = await import("@/lib/supabase/auth-server");
+      userId = await getServerAuthUserId();
+    } catch {
+      userId = null;
+    }
+  }
+
+  let query = supabase.from("teacher_profiles").select("*");
+  if (userId) {
+    query = query.eq("user_id", userId);
+  } else {
+    query = query.order("created_at", { ascending: true });
+  }
+
+  const { data } = await query.limit(1).maybeSingle();
 
   if (!data) return null;
   return loadBundleForProfile(data);
@@ -169,9 +166,30 @@ export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle>
   const existing = await loadTeacherProfileBundle();
   if (existing) return existing;
 
+  let userId: string | null = null;
+  if (typeof window === "undefined") {
+    try {
+      const { getServerAuthUserId, linkTeacherProfileToAuthUser } = await import(
+        "@/lib/supabase/auth-server"
+      );
+      userId = await getServerAuthUserId();
+      if (userId) {
+        const profileId = await linkTeacherProfileToAuthUser(userId);
+        const { data: linked } = await supabase
+          .from("teacher_profiles")
+          .select("*")
+          .eq("id", profileId)
+          .single();
+        if (linked) return loadBundleForProfile(linked);
+      }
+    } catch {
+      userId = null;
+    }
+  }
+
   const { data: profile, error } = await supabase
     .from("teacher_profiles")
-    .insert({ status: "draft" })
+    .insert({ status: "draft", user_id: userId })
     .select("*")
     .single();
 
@@ -189,8 +207,7 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
     input.prenom.trim().length > 0 &&
     input.schoolYear.trim().length > 0 &&
     input.levels.length > 0 &&
-    input.methods.length > 0 &&
-    Boolean(input.defaultTimetableId);
+    input.methods.length > 0;
 
   const { data: profile, error } = await supabase
     .from("teacher_profiles")
@@ -215,8 +232,8 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
         input.workQuotaLabel.trim() ||
         resolveWorkQuotaLabel(input.workQuotaPercentage, input.workQuotaPreset),
       working_days: normalizeWorkingDays(input.workingDays),
-      timetables: input.timetables,
-      default_timetable_id: input.defaultTimetableId,
+      timetables: [],
+      default_timetable_id: "",
       personalization: input.personalization,
       status: isComplete ? "complete" : "draft",
       updated_at: new Date().toISOString(),
@@ -276,11 +293,9 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
   return loadBundleForProfile(profile);
 }
 
-export function getDefaultTimetableFromProfile(bundle: TeacherProfileBundle): TimetableInput {
-  const entry = bundle.profile.timetables.find(
-    (item) => item.id === bundle.profile.defaultTimetableId,
-  );
-  return entry?.timetable ?? bundle.profile.timetables[0]?.timetable ?? { slots: [], weeklyHoursBySubject: {} };
+export async function getDefaultTimetableFromProfile(bundle: TeacherProfileBundle): Promise<TimetableInput> {
+  const { loadActiveTimetableInput } = await import("@/lib/timetable/active-timetable");
+  return loadActiveTimetableInput(bundle.profile.id);
 }
 
 export function bundleToFormValues(bundle: TeacherProfileBundle): ProfilSaveInput {
@@ -307,8 +322,8 @@ export function bundleToFormValues(bundle: TeacherProfileBundle): ProfilSaveInpu
     workQuotaLabel: bundle.profile.workQuotaLabel,
     workQuotaPreset: detectWorkQuotaPreset(bundle.profile.workQuotaPercentage),
     workingDays: bundle.profile.workingDays,
-    timetables: bundle.profile.timetables,
-    defaultTimetableId: bundle.profile.defaultTimetableId,
+    timetables: [],
+    defaultTimetableId: "",
     methods: bundle.methods.map((method) => method.methodName),
     primaryMethod: primary,
     pedagogyStyles: bundle.preferences.pedagogyStyles,

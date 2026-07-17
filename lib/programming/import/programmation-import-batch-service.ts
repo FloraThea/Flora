@@ -567,13 +567,25 @@ export async function analyzeProgrammingImportBatch(
   if (pageResults.length === 0) {
     const failedPages = statuses.filter((item) => item.status === "error");
     const firstError = failedPages[0]?.error ?? "Analyse impossible.";
-    throw new ProgrammingImportError(
-      "no_pages_analyzed",
+    const emptyParsed = mergeProgrammationPages(batchId, []);
+    if (emptyParsed.batchMeta) emptyParsed.batchMeta.mergeMode = mergeMode;
+    emptyParsed.warnings.push(
       failedPages.length > 0
         ? `La page ${failedPages[0]?.pageOrder ?? "?"} n'a pas pu être lue : ${firstError}`
         : "Les images ont été téléversées, mais leur analyse a échoué.",
-      { details: firstError },
+      "Les fichiers restent téléversés. Vous pouvez réessayer l'analyse ou continuer vers l'étape suivante.",
     );
+
+    await supabase
+      .from("programming_import_batches")
+      .update({
+        status: "error",
+        parsed_snapshot: emptyParsed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", batchId);
+
+    return { parsed: emptyParsed, files: statuses };
   }
 
   await supabase
@@ -689,13 +701,16 @@ export async function analyzeProgrammingImportBatchInline(input: {
   if (pageResults.length === 0) {
     const failedPages = statuses.filter((item) => item.status === "error");
     const firstError = failedPages[0]?.error ?? "Analyse impossible.";
-    throw new ProgrammingImportError(
-      "no_pages_analyzed",
+    const parsed = mergeProgrammationPages(input.batchId, []);
+    if (parsed.batchMeta) parsed.batchMeta.mergeMode = mergeMode;
+    parsed.warnings.push(
       failedPages.length > 0
         ? `La page ${failedPages[0]?.pageOrder ?? "?"} n'a pas pu être lue : ${firstError}`
-        : "Aucune page n'a pu être analysée. Vérifiez le format (PNG, JPG, PDF, Excel) et réessayez.",
-      { details: firstError, fileId: failedPages[0]?.fileId, pageOrder: failedPages[0]?.pageOrder },
+        : "Aucune page n'a pu être analysée automatiquement.",
+      "Les fichiers restent téléversés. Vous pouvez réessayer l'analyse ou continuer vers l'étape suivante.",
     );
+    devLog("[ProgrammingImport] analyze-completed-empty", { batchId: input.batchId });
+    return { parsed, files: statuses };
   }
 
   devLog("[ProgrammingImport] analyze-completed", { batchId: input.batchId, rows: parsed.rowCount });

@@ -70,9 +70,9 @@ function badgesFromCell(input: {
     });
   };
 
-  for (const module of input.modules) {
-    const kind = detectBadgeKind(module) ?? "sequence";
-    push(kind, module);
+  for (const plannerModule of input.modules) {
+    const kind = detectBadgeKind(plannerModule) ?? "sequence";
+    push(kind, plannerModule);
   }
 
   const contentKind = detectBadgeKind(input.content);

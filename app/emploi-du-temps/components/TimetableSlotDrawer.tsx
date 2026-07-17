@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useEffect, useMemo, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { TimetableSlotCard } from "./TimetableSlotCard";
@@ -85,25 +86,27 @@ export function TimetableSlotDrawer({
   const [showSplit, setShowSplit] = useState(false);
 
   useEffect(() => {
-    const meta = readSlotMeta(slot);
-    setDay(slot.day);
-    setStart(slot.start);
-    setEnd(slot.end);
-    setSubject(normalizeSubject(slot.subject));
-    setSubSubject(slot.subSubject);
-    setDisplayText(meta.displayText ?? "");
-    setCustomText(slot.customText ?? "");
-    setLevels(meta.levels ?? []);
-    setIcon(meta.icon ?? defaultIconForSlot(slot.subject, slot.subSubject, slot.slotType));
-    setUseCustomColor(meta.useCustomColor ?? false);
-    setCustomColor(slot.color || "#9caf88");
-    setRoom(slot.room ?? "");
-    setTeacherName(meta.teacherName ?? slot.intervenant ?? "");
-    setNotes(meta.notes ?? "");
-    setShiftFollowing(false);
-    setShowDeleteConfirm(false);
-    setDeleteReorganize(null);
-    setShowSplit(false);
+    deferEffect(() => {
+      const meta = readSlotMeta(slot);
+      setDay(slot.day);
+      setStart(slot.start);
+      setEnd(slot.end);
+      setSubject(normalizeSubject(slot.subject));
+      setSubSubject(slot.subSubject);
+      setDisplayText(meta.displayText ?? "");
+      setCustomText(slot.customText ?? "");
+      setLevels(meta.levels ?? []);
+      setIcon(meta.icon ?? defaultIconForSlot(slot.subject, slot.subSubject, slot.slotType));
+      setUseCustomColor(meta.useCustomColor ?? false);
+      setCustomColor(slot.color || "#9caf88");
+      setRoom(slot.room ?? "");
+      setTeacherName(meta.teacherName ?? slot.intervenant ?? "");
+      setNotes(meta.notes ?? "");
+      setShiftFollowing(false);
+      setShowDeleteConfirm(false);
+      setDeleteReorganize(null);
+      setShowSplit(false);
+    });
   }, [slot]);
 
   const subSubjects = useMemo(() => getSubSubjectsForSubject(subject), [subject]);

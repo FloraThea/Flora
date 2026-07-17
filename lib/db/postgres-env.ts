@@ -1,5 +1,3 @@
-import "server-only";
-
 export type PostgresEnvStatus = {
   configured: boolean;
   connectionString: string | null;

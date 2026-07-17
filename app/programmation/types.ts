@@ -42,22 +42,12 @@ export const METHODE_OPTIONS = [
   "Apprentilangue",
 ] as const;
 
-export const DEFAULT_TIMETABLE: TimetableInput = {
-  slots: [
-    { day: "Lundi", start: "08:30", end: "10:30", subject: "Français", hours: 2 },
-    { day: "Lundi", start: "10:45", end: "11:45", subject: "Mathématiques", hours: 1 },
-    { day: "Mardi", start: "08:30", end: "10:30", subject: "Français", hours: 2 },
-    { day: "Mercredi", start: "08:30", end: "09:30", subject: "Questionner le monde", hours: 1 },
-    { day: "Jeudi", start: "08:30", end: "09:30", subject: "Mathématiques", hours: 1 },
-    { day: "Vendredi", start: "08:30", end: "09:30", subject: "Arts plastiques", hours: 1 },
-  ],
-  weeklyHoursBySubject: {
-    Français: 4,
-    Mathématiques: 2,
-    "Questionner le monde": 1,
-    "Arts plastiques": 1,
-  },
+export const EMPTY_TIMETABLE: TimetableInput = {
+  slots: [],
+  weeklyHoursBySubject: {},
 };
+
+export const DEFAULT_TIMETABLE: TimetableInput = EMPTY_TIMETABLE;
 
 export { buildSchoolYearOptions, getDefaultSchoolYear } from "@/lib/programming/vacation-registry";
 

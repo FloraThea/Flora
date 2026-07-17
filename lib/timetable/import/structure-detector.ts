@@ -176,7 +176,7 @@ export function detectStructure(
   const dayRowCandidates = scanDayRows(grid);
   const dayColumnCandidates = scanDayColumns(grid);
 
-  let structure: TimetableStructure = {
+  const structure: TimetableStructure = {
     layout: "days_in_row",
     headerRow: -1,
     timeColumn: 0,

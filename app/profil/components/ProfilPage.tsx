@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
@@ -35,7 +36,6 @@ import { useFloraTheme } from "@/components/theme/ThemeProvider";
 import type { FloraAppThemeId } from "@/lib/themes/types";
 import {
   CLASS_TYPE_OPTIONS,
-  createTimetableEntry,
   emptyProject,
   ensureDefaultTimetableId,
   initialProfilValues,
@@ -496,70 +496,18 @@ export function ProfilPage() {
 
       <FloraCard padding="lg" accent="sage">
         <SectionTitle number={4} title="Emploi du temps" />
-        <div className="mb-4 flex flex-wrap gap-2">
-          <FloraButton
-            variant="secondary"
-            onClick={() => {
-              const entry = createTimetableEntry(`Emploi du temps ${values.timetables.length + 1}`);
-              setValues((current) => ({
-                ...current,
-                timetables: [...current.timetables, entry],
-                defaultTimetableId: current.defaultTimetableId || entry.id,
-              }));
-            }}
-          >
-            Ajouter un emploi du temps
-          </FloraButton>
-        </div>
-        <div className="grid gap-4">
-          {values.timetables.map((entry) => (
-            <div key={entry.id} className="rounded-2xl border border-white/70 bg-white/45 p-4">
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <input
-                  value={entry.name}
-                  onChange={(event) => {
-                    setValues((current) => ({
-                      ...current,
-                      timetables: current.timetables.map((item) =>
-                        item.id === entry.id ? { ...item, name: event.target.value } : item,
-                      ),
-                    }));
-                  }}
-                  className={inputClassName}
-                />
-                <label className="flex items-center gap-2 text-sm font-light text-flora-text-muted">
-                  <input
-                    type="radio"
-                    name="defaultTimetable"
-                    checked={values.defaultTimetableId === entry.id}
-                    onChange={() => update("defaultTimetableId", entry.id)}
-                  />
-                  Par défaut
-                </label>
-              </div>
-              <textarea
-                rows={6}
-                value={JSON.stringify(entry.timetable.weeklyHoursBySubject, null, 2)}
-                onChange={(event) => {
-                  try {
-                    const weeklyHoursBySubject = JSON.parse(event.target.value) as Record<string, number>;
-                    setValues((current) => ({
-                      ...current,
-                      timetables: current.timetables.map((item) =>
-                        item.id === entry.id
-                          ? { ...item, timetable: { ...item.timetable, weeklyHoursBySubject } }
-                          : item,
-                      ),
-                    }));
-                  } catch {
-                    // ignore invalid JSON while typing
-                  }
-                }}
-                className={`${inputClassName} font-mono text-xs`}
-              />
-            </div>
-          ))}
-        </div>
+        <p className="mb-4 text-sm font-light text-flora-text-muted">
+          L&apos;emploi du temps est géré dans le module dédié. Les créneaux sont enregistrés en base
+          (table <code className="text-xs">timetable_schedules</code> /{" "}
+          <code className="text-xs">timetable_slots</code>) et partagés avec le cahier journal,
+          l&apos;agenda et la programmation.
+        </p>
+        <Link
+          href="/emploi-du-temps"
+          className="inline-flex items-center justify-center rounded-full border border-white/70 bg-white/60 px-5 py-2.5 text-sm font-medium text-flora-text transition hover:bg-white/80"
+        >
+          Ouvrir l&apos;emploi du temps
+        </Link>
       </FloraCard>
 
       <FloraCard padding="lg" accent="peach">

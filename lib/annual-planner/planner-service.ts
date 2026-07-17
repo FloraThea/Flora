@@ -2,15 +2,17 @@ import { supabase } from "@/lib/supabase";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import { loadProgrammation, listValidatedProgrammations } from "@/lib/programming/programmation-service";
 import { loadProgression } from "@/lib/progression/progression-service";
-import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { loadActiveTimetableInput } from "@/lib/timetable/active-timetable";
+import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { analyzePlanner } from "./intelligence-engine";
 import { buildPlannerPayload } from "./planner-data-builder";
 import type { PlannerPayload } from "./types";
 
 export async function loadAnnualPlannerPayload(): Promise<PlannerPayload> {
-  const bundle = await loadTeacherProfileBundle();
-  const schoolYear = bundle?.profile.schoolYear ?? "2025-2026";
-  const zone = bundle?.profile.zoneScolaire ?? "A";
+  const scope = await requireTeacherScope();
+  const bundle = scope.bundle;
+  const schoolYear = scope.schoolYear;
+  const zone = bundle.profile.zoneScolaire ?? "A";
 
   const calendar = schoolWeeksCalculator.calculate(schoolYear, zone, {
     includeBridgeDays: true,
@@ -30,6 +32,7 @@ export async function loadAnnualPlannerPayload(): Promise<PlannerPayload> {
     const { data: progressions } = await supabase
       .from("progressions")
       .select("id")
+      .eq("teacher_profile_id", scope.profileId)
       .eq("programmation_id", programmation.programmation.id)
       .eq("status", "validated")
       .order("created_at", { ascending: false })
@@ -43,14 +46,15 @@ export async function loadAnnualPlannerPayload(): Promise<PlannerPayload> {
   const { data: agendaEvents } = await supabase
     .from("agenda_events")
     .select("*")
+    .eq("teacher_profile_id", scope.profileId)
     .gte("start_at", `${calendar.rentree}T00:00:00`)
     .lte("start_at", `${calendar.finAnnee}T23:59:59`)
     .order("start_at");
 
+  const activeTimetable = await loadActiveTimetableInput(scope.profileId);
   const timetableHours =
     (programmation?.programmation.timetable as { weeklyHoursBySubject?: Record<string, number> })
-      ?.weeklyHoursBySubject ??
-    bundle?.profile.timetables?.[0]?.timetable?.weeklyHoursBySubject;
+      ?.weeklyHoursBySubject ?? activeTimetable.weeklyHoursBySubject;
 
   const base = buildPlannerPayload({
     calendar,

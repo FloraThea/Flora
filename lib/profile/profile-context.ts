@@ -9,7 +9,9 @@ import { filterTimetableByWorkingDays } from "./work-schedule";
 export const PROFILE_REQUIRED_MESSAGE =
   "Configurez votre profil pédagogique sur /profil avant de générer.";
 
-export function getProfileCompletionStatus(bundle: TeacherProfileBundle): ProfilCompletionStatus {
+export async function getProfileCompletionStatus(
+  bundle: TeacherProfileBundle,
+): Promise<ProfilCompletionStatus> {
   const missing: string[] = [];
 
   if (!bundle.profile.nom.trim()) missing.push("Nom");
@@ -17,7 +19,10 @@ export function getProfileCompletionStatus(bundle: TeacherProfileBundle): Profil
   if (!bundle.profile.schoolYear.trim()) missing.push("Année scolaire");
   if (bundle.profile.levels.length === 0) missing.push("Niveau(x)");
   if (bundle.methods.length === 0) missing.push("Méthode pédagogique");
-  if (!bundle.profile.defaultTimetableId) missing.push("Emploi du temps par défaut");
+  const { hasActiveTimetableWithSlots } = await import("@/lib/timetable/active-timetable");
+  if (!(await hasActiveTimetableWithSlots(bundle.profile.id))) {
+    missing.push("Emploi du temps actif (module Emploi du temps)");
+  }
   if (bundle.profile.workingDays.length === 0) missing.push("Jours travaillés");
 
   return { complete: missing.length === 0, missing };
@@ -30,7 +35,7 @@ export async function loadTeacherProfileForGeneration(): Promise<TeacherProfileB
     throw new Error(PROFILE_REQUIRED_MESSAGE);
   }
 
-  const status = getProfileCompletionStatus(bundle);
+  const status = await getProfileCompletionStatus(bundle);
   if (!status.complete) {
     throw new Error(
       `${PROFILE_REQUIRED_MESSAGE} Champs manquants : ${status.missing.join(", ")}.`,
@@ -56,12 +61,12 @@ export function getAnnualProject(bundle: TeacherProfileBundle): string {
   );
 }
 
-export function applyProfileToProgrammingInput(
+export async function applyProfileToProgrammingInput(
   input: ProgrammingGenerationInput,
   bundle: TeacherProfileBundle,
-): ProgrammingGenerationInput {
+): Promise<ProgrammingGenerationInput> {
   const defaultTimetable = filterTimetableByWorkingDays(
-    getDefaultTimetableFromProfile(bundle),
+    await getDefaultTimetableFromProfile(bundle),
     bundle.profile.workingDays,
   );
   const primaryMethod = getPrimaryMethod(bundle);

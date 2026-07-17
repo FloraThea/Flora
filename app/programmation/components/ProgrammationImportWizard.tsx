@@ -167,7 +167,7 @@ export function ProgrammationImportWizard({
     } finally {
       setIsLoading(false);
     }
-  }, [parsed, schoolYear, academicZone, formValues.levels, formValues.matiere, formatConfig]);
+  }, [parsed, schoolYear, academicZone, formValues, formatConfig]);
 
   const runSave = useCallback(async () => {
     if (!parsed) return;
@@ -206,14 +206,13 @@ export function ProgrammationImportWizard({
     parsed,
     schoolYear,
     academicZone,
-    formValues.levels,
-    formValues.matiere,
+    formValues,
     formatConfig,
     title,
     storagePath,
     storagePaths,
     batchId,
-    file?.name,
+    file,
     onComplete,
   ]);
 
@@ -409,7 +408,10 @@ export function ProgrammationImportWizard({
             </div>
           ) : (
             <div className="rounded-2xl bg-white/50 p-3 text-sm font-light text-flora-text-muted">
-              {parsed.extractedTextPreview}
+              {parsed.extractedTextPreview ||
+                (parsed.batchMeta?.sourceFiles?.length
+                  ? `${parsed.batchMeta.sourceFiles.length} fichier(s) téléversé(s). Aucune ligne n'a été extraite automatiquement — vous pouvez continuer ou réimporter un export Excel.`
+                  : "Aucune donnée extraite.")}
             </div>
           )}
 
@@ -451,9 +453,12 @@ export function ProgrammationImportWizard({
           <FloraButton
             className="!w-full sm:!w-auto"
             onClick={() => setStep(2)}
-            disabled={parsed.rowCount === 0 || parsed.needsColumnMapping}
+            disabled={
+              parsed.needsColumnMapping ||
+              (parsed.rowCount === 0 && (parsed.batchMeta?.sourceFiles?.length ?? 0) === 0)
+            }
           >
-            Continuer
+            {parsed.rowCount === 0 ? "Continuer sans lignes détectées" : "Continuer"}
           </FloraButton>
         </div>
       ) : null}

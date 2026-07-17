@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
@@ -67,7 +68,7 @@ export function AdministrationPage() {
   }, []);
 
   useEffect(() => {
-    void loadStatus();
+    deferEffect(() => loadStatus());
   }, [loadStatus]);
 
   async function handleApply() {

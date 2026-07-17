@@ -47,7 +47,7 @@ export class ProgrammingGenerator {
     });
 
     const teacherProfile = await loadTeacherProfileForGeneration();
-    const mergedInput = applyProfileToProgrammingInput(input, teacherProfile);
+    const mergedInput = await applyProfileToProgrammingInput(input, teacherProfile);
     const context = await pedagogicalPlanner.buildContext(mergedInput);
     const skeletons = pedagogicalPlanner.buildTableSkeletons(
       mergedInput,
