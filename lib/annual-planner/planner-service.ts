@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import { loadProgrammation, listValidatedProgrammations } from "@/lib/programming/programmation-service";
 import { loadProgression } from "@/lib/progression/progression-service";
@@ -7,6 +7,10 @@ import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { analyzePlanner } from "./intelligence-engine";
 import { buildPlannerPayload } from "./planner-data-builder";
 import type { PlannerPayload } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 export async function loadAnnualPlannerPayload(): Promise<PlannerPayload> {
   const scope = await requireTeacherScope();
@@ -29,7 +33,7 @@ export async function loadAnnualPlannerPayload(): Promise<PlannerPayload> {
 
   let progression = null;
   if (programmation) {
-    const { data: progressions } = await supabase
+    const { data: progressions } = await (await floraDb())
       .from("progressions")
       .select("id")
       .eq("teacher_profile_id", scope.profileId)
@@ -43,7 +47,7 @@ export async function loadAnnualPlannerPayload(): Promise<PlannerPayload> {
     }
   }
 
-  const { data: agendaEvents } = await supabase
+  const { data: agendaEvents } = await (await floraDb())
     .from("agenda_events")
     .select("*")
     .eq("teacher_profile_id", scope.profileId)

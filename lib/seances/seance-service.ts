@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import {
   insertWithOptionalColumnFallback,
   updateWithOptionalColumnFallback,
@@ -20,6 +20,10 @@ import type {
   SeanceUpdateInput,
   StoredSeance,
 } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 function mapStoredSeance(row: Record<string, unknown>): StoredSeance {
   return {
@@ -130,7 +134,7 @@ async function recordHistory(input: {
   previousValue: unknown;
   newValue: unknown;
 }) {
-  await supabase.from("seance_edit_history").insert({
+  await (await floraDb()).from("seance_edit_history").insert({
     seance_id: input.seanceId,
     entity_type: input.entityType,
     entity_id: input.entityId,
@@ -192,7 +196,7 @@ async function insertSeanceRecord(input: {
     typeof seanceRow,
     Record<string, unknown>
   >(
-    (row) => supabase.from("seances").insert(row).select("*").single(),
+    async (row) => (await floraDb()).from("seances").insert(row).select("*").single(),
     seanceRow,
     "link_mode",
   );
@@ -202,7 +206,7 @@ async function insertSeanceRecord(input: {
   }
 
   for (const phase of input.draft.phases) {
-    const { data: phaseRow, error: phaseError } = await supabase
+    const { data: phaseRow, error: phaseError } = await (await floraDb())
       .from("seance_phases")
       .insert({
         seance_id: seance.id,
@@ -218,7 +222,7 @@ async function insertSeanceRecord(input: {
     if (phaseError || !phaseRow) throw phaseError;
 
     for (const activity of phase.activities) {
-      const { error: activityError } = await supabase.from("seance_activities").insert({
+      const { error: activityError } = await (await floraDb()).from("seance_activities").insert({
         seance_id: seance.id,
         phase_id: phaseRow.id,
         sort_order: activity.sortOrder,
@@ -278,7 +282,7 @@ export async function createIndependentSeance(
   const scope = await requireTeacherScope();
 
   if (linkMode === "linked" && input.sequenceSessionId) {
-    const { data: existing } = await supabase
+    const { data: existing } = await (await floraDb())
       .from("seances")
       .select("id")
       .eq("sequence_session_id", input.sequenceSessionId)
@@ -317,7 +321,7 @@ export async function linkSeanceToSequence(input: SeanceLinkInput): Promise<Sean
   };
 
   const { error } = await updateWithOptionalColumnFallback(
-    (row) => supabase.from("seances").update(row).eq("id", input.seanceId).select("id").single(),
+    async (row) => (await floraDb()).from("seances").update(row).eq("id", input.seanceId).select("id").single(),
     updateRow,
     "link_mode",
   );
@@ -341,7 +345,7 @@ export async function dissociateSeance(seanceId: string): Promise<SeancePayload>
   };
 
   const { error } = await updateWithOptionalColumnFallback(
-    (row) => supabase.from("seances").update(row).eq("id", seanceId).select("id").single(),
+    async (row) => (await floraDb()).from("seances").update(row).eq("id", seanceId).select("id").single(),
     updateRow,
     "link_mode",
   );
@@ -356,7 +360,7 @@ export async function dissociateSeance(seanceId: string): Promise<SeancePayload>
 export async function listIndependentSeances() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("seances")
     .select(
       "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, sequence_id, sequence_session_id, status, link_mode",
@@ -386,12 +390,12 @@ export async function listIndependentSeances() {
 }
 
 export async function loadSeance(id: string): Promise<SeancePayload | null> {
-  const { data: seance, error } = await supabase.from("seances").select("*").eq("id", id).single();
+  const { data: seance, error } = await (await floraDb()).from("seances").select("*").eq("id", id).single();
   if (error || !seance) return null;
 
   const [{ data: phaseRows }, { data: activityRows }] = await Promise.all([
-    supabase.from("seance_phases").select("*").eq("seance_id", id).order("sort_order"),
-    supabase.from("seance_activities").select("*").eq("seance_id", id).order("sort_order"),
+    (await floraDb()).from("seance_phases").select("*").eq("seance_id", id).order("sort_order"),
+    (await floraDb()).from("seance_activities").select("*").eq("seance_id", id).order("sort_order"),
   ]);
 
   const activitiesByPhase = new Map<string, SeanceActivity[]>();
@@ -413,7 +417,7 @@ export async function loadSeance(id: string): Promise<SeancePayload | null> {
 }
 
 export async function listSeancesBySequence(sequenceId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("seances")
     .select(
       "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, sequence_id, sequence_session_id, status",
@@ -424,7 +428,7 @@ export async function listSeancesBySequence(sequenceId: string) {
   if (error) throw error;
 
   const sessionNumbers = new Map<string, number>();
-  const { data: sessions } = await supabase
+  const { data: sessions } = await (await floraDb())
     .from("sequence_sessions")
     .select("id, session_number")
     .eq("sequence_id", sequenceId);
@@ -451,7 +455,7 @@ export async function listSeancesBySequence(sequenceId: string) {
 }
 
 export async function listSequencesWithSeances() {
-  const { data: sequences, error } = await supabase
+  const { data: sequences, error } = await (await floraDb())
     .from("sequences")
     .select("id, title, matiere, sous_matiere, session_count, period_number, status")
     .eq("status", "validated")
@@ -462,7 +466,7 @@ export async function listSequencesWithSeances() {
   const results = [];
 
   for (const sequence of sequences ?? []) {
-    const { count } = await supabase
+    const { count } = await (await floraDb())
       .from("seances")
       .select("*", { count: "exact", head: true })
       .eq("sequence_id", sequence.id);
@@ -482,13 +486,13 @@ export async function listSequencesWithSeances() {
 }
 
 export async function listSequenceSessions(sequenceId: string) {
-  const { data: sequence } = await supabase
+  const { data: sequence } = await (await floraDb())
     .from("sequences")
     .select("title, matiere, sous_matiere, period_number, week_numbers")
     .eq("id", sequenceId)
     .single();
 
-  const { data: sessions, error } = await supabase
+  const { data: sessions, error } = await (await floraDb())
     .from("sequence_sessions")
     .select("*")
     .eq("sequence_id", sequenceId)
@@ -501,7 +505,7 @@ export async function listSequenceSessions(sequenceId: string) {
   const results = [];
 
   for (const session of sessions ?? []) {
-    const { data: seance } = await supabase
+    const { data: seance } = await (await floraDb())
       .from("seances")
       .select("id")
       .eq("sequence_session_id", session.id)
@@ -528,7 +532,7 @@ export async function listSequenceSessions(sequenceId: string) {
 }
 
 export async function getSeanceBySessionId(sequenceSessionId: string) {
-  const { data } = await supabase
+  const { data } = await (await floraDb())
     .from("seances")
     .select("id")
     .eq("sequence_session_id", sequenceSessionId)
@@ -578,7 +582,7 @@ export async function updateSeanceField(input: SeanceUpdateInput): Promise<Seanc
     if (!column) throw new Error("Champ séance non modifiable.");
 
     const previousValue = (current.seance as Record<string, unknown>)[input.field];
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("seances")
       .update({ [column]: input.value, updated_at: new Date().toISOString() })
       .eq("id", input.seanceId);
@@ -602,7 +606,7 @@ export async function updateSeanceField(input: SeanceUpdateInput): Promise<Seanc
     const phase = current.phases.find((item) => item.id === input.entityId);
     const previousValue = phase ? (phase as Record<string, unknown>)[input.field] : null;
 
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("seance_phases")
       .update({ [column]: input.value })
       .eq("id", input.entityId);
@@ -632,7 +636,7 @@ export async function updateSeanceField(input: SeanceUpdateInput): Promise<Seanc
       }
     }
 
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("seance_activities")
       .update({ [column]: input.value })
       .eq("id", input.entityId);
@@ -666,7 +670,7 @@ export async function applySeanceEditAction(action: SeanceEditAction): Promise<S
     }
     if (!source || !source.phaseId) throw new Error("Activité introuvable.");
 
-    const { error } = await supabase.from("seance_activities").insert({
+    const { error } = await (await floraDb()).from("seance_activities").insert({
       seance_id: action.seanceId,
       phase_id: source.phaseId,
       sort_order: source.sortOrder + 1,
@@ -686,7 +690,7 @@ export async function applySeanceEditAction(action: SeanceEditAction): Promise<S
   }
 
   if (action.type === "move_activity") {
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("seance_activities")
       .update({ phase_id: action.targetPhaseId, sort_order: action.targetSortOrder })
       .eq("id", action.activityId);
@@ -702,12 +706,12 @@ export async function applySeanceEditAction(action: SeanceEditAction): Promise<S
     const target = payload.phases.find((phase) => phase.id === action.targetPhaseId);
     if (!source || !target) throw new Error("Phases introuvables.");
 
-    await supabase
+    await (await floraDb())
       .from("seance_activities")
       .update({ phase_id: action.targetPhaseId })
       .eq("phase_id", action.sourcePhaseId);
 
-    await supabase
+    await (await floraDb())
       .from("seance_phases")
       .update({
         summary: `${target.summary}\n\n${source.summary}`,
@@ -715,7 +719,7 @@ export async function applySeanceEditAction(action: SeanceEditAction): Promise<S
       })
       .eq("id", action.targetPhaseId);
 
-    await supabase.from("seance_phases").delete().eq("id", action.sourcePhaseId);
+    await (await floraDb()).from("seance_phases").delete().eq("id", action.sourcePhaseId);
   }
 
   if (action.type === "split_phase") {
@@ -725,7 +729,7 @@ export async function applySeanceEditAction(action: SeanceEditAction): Promise<S
     const source = payload.phases.find((phase) => phase.id === action.phaseId);
     if (!source) throw new Error("Phase introuvable.");
 
-    const { data: newPhase, error } = await supabase
+    const { data: newPhase, error } = await (await floraDb())
       .from("seance_phases")
       .insert({
         seance_id: action.seanceId,
@@ -740,12 +744,12 @@ export async function applySeanceEditAction(action: SeanceEditAction): Promise<S
 
     if (error || !newPhase) throw error;
 
-    await supabase
+    await (await floraDb())
       .from("seance_activities")
       .update({ phase_id: newPhase.id })
       .in("id", action.activityIds);
 
-    await supabase
+    await (await floraDb())
       .from("seance_phases")
       .update({ duree_minutes: Math.round(source.dureeMinutes / 2) })
       .eq("id", action.phaseId);
@@ -757,7 +761,7 @@ export async function applySeanceEditAction(action: SeanceEditAction): Promise<S
 }
 
 export async function undoLastSeanceEdit(seanceId: string): Promise<SeancePayload | null> {
-  const { data: history } = await supabase
+  const { data: history } = await (await floraDb())
     .from("seance_edit_history")
     .select("*")
     .eq("seance_id", seanceId)
@@ -785,13 +789,13 @@ export async function undoLastSeanceEdit(seanceId: string): Promise<SeancePayloa
   const column = fieldMap[history.field_path];
 
   if (table && column) {
-    await supabase
+    await (await floraDb())
       .from(table)
       .update({ [column]: history.previous_value })
       .eq("id", history.entity_id);
   }
 
-  await supabase.from("seance_edit_history").delete().eq("id", history.id);
+  await (await floraDb()).from("seance_edit_history").delete().eq("id", history.id);
 
   return loadSeance(seanceId);
 }

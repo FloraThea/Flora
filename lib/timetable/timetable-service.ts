@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 import {
   createBlankSlot,
@@ -43,6 +43,10 @@ import type {
   TimetableVersion,
 } from "./types";
 import { createDefaultTimetableSettings as defaultSettings } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 function mapSchedule(row: Record<string, unknown>): StoredTimetableSchedule {
   return {
@@ -146,13 +150,13 @@ async function upsertScheduleSlotRows(
     buildSlotInsertRow(slot, scheduleId, index, true),
   );
 
-  let { error } = await supabase.from("timetable_slots").upsert(rows, { onConflict: "id" });
+  let { error } = await (await floraDb()).from("timetable_slots").upsert(rows, { onConflict: "id" });
 
   if (error && isMissingDisplayColumnError(error)) {
     rows = slots.map((slot, index) =>
       buildSlotInsertRow(slot, scheduleId, index, false),
     );
-    const retry = await supabase.from("timetable_slots").upsert(rows, { onConflict: "id" });
+    const retry = await (await floraDb()).from("timetable_slots").upsert(rows, { onConflict: "id" });
     error = retry.error;
   }
 
@@ -164,7 +168,7 @@ async function deleteOrphanScheduleSlots(
   slotIds: string[],
 ): Promise<void> {
   if (slotIds.length === 0) {
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("timetable_slots")
       .delete()
       .eq("schedule_id", scheduleId);
@@ -172,7 +176,7 @@ async function deleteOrphanScheduleSlots(
     return;
   }
 
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("timetable_slots")
     .delete()
     .eq("schedule_id", scheduleId)
@@ -219,7 +223,7 @@ function slotsToTimetableInput(slots: SmartTimetableSlot[]): TimetableInput {
 }
 
 export async function loadScheduleSlots(scheduleId: string): Promise<SmartTimetableSlot[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_slots")
     .select("*")
     .eq("schedule_id", scheduleId)
@@ -230,7 +234,7 @@ export async function loadScheduleSlots(scheduleId: string): Promise<SmartTimeta
 }
 
 export async function loadTimetablePayload(scheduleId: string): Promise<TimetablePayload | null> {
-  const { data: scheduleRow, error } = await supabase
+  const { data: scheduleRow, error } = await (await floraDb())
     .from("timetable_schedules")
     .select("*")
     .eq("id", scheduleId)
@@ -256,7 +260,7 @@ export async function loadActiveSchedule(): Promise<TimetablePayload | null> {
     return loadActiveScheduleForProfile(bundle.profile.id);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_schedules")
     .select("*")
     .eq("is_active", true)
@@ -273,7 +277,7 @@ export async function loadActiveSchedule(): Promise<TimetablePayload | null> {
 export async function loadActiveScheduleForProfile(
   teacherProfileId: string,
 ): Promise<TimetablePayload | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_schedules")
     .select("*")
     .eq("is_active", true)
@@ -287,7 +291,7 @@ export async function loadActiveScheduleForProfile(
     return loadTimetablePayload(String(data.id));
   }
 
-  const { data: legacy, error: legacyError } = await supabase
+  const { data: legacy, error: legacyError } = await (await floraDb())
     .from("timetable_schedules")
     .select("*")
     .eq("is_active", true)
@@ -299,7 +303,7 @@ export async function loadActiveScheduleForProfile(
   if (legacyError) throw legacyError;
   if (!legacy) return null;
 
-  await supabase
+  await (await floraDb())
     .from("timetable_schedules")
     .update({ teacher_profile_id: teacherProfileId, updated_at: new Date().toISOString() })
     .eq("id", legacy.id);
@@ -308,7 +312,7 @@ export async function loadActiveScheduleForProfile(
 }
 
 export async function listSchedules(teacherProfileId?: string | null): Promise<StoredTimetableSchedule[]> {
-  let query = supabase.from("timetable_schedules").select("*");
+  let query = (await floraDb()).from("timetable_schedules").select("*");
   if (teacherProfileId) {
     query = query.eq("teacher_profile_id", teacherProfileId);
   }
@@ -323,7 +327,7 @@ async function appendHistory(
   action: string,
   details: Record<string, unknown>,
 ): Promise<void> {
-  const { error } = await supabase.from("timetable_history").insert({
+  const { error } = await (await floraDb()).from("timetable_history").insert({
     schedule_id: scheduleId,
     action,
     details,
@@ -339,7 +343,7 @@ export async function ensureActiveSchedule(): Promise<TimetablePayload> {
   const profile = bundle?.profile;
   const schoolDays = getSchoolDaysFromWorkingDays(profile?.workingDays ?? []);
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_schedules")
     .insert({
       teacher_profile_id: profile?.id ?? null,
@@ -374,7 +378,7 @@ export async function saveScheduleSettings(
   settings: TimetableSettings,
   weeklyHours?: Record<string, number>,
 ): Promise<TimetablePayload> {
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("timetable_schedules")
     .update({
       settings,
@@ -401,7 +405,7 @@ export async function replaceScheduleSlots(
   await deleteOrphanScheduleSlots(scheduleId, slotIds);
 
   const weeklyHours = timetableValidator.computeWeeklyHours(slots);
-  const { error: updateError } = await supabase
+  const { error: updateError } = await (await floraDb())
     .from("timetable_schedules")
     .update({
       weekly_hours: weeklyHours,
@@ -420,7 +424,7 @@ export async function replaceScheduleSlots(
 }
 
 async function loadProgrammationWeeklyHours(profileId: string, schoolYear: string): Promise<Record<string, number>[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("programmations")
     .select("timetable")
     .eq("teacher_profile_id", profileId)
@@ -471,7 +475,7 @@ export async function generateTimetable(input: TimetableGenerateInput): Promise<
   const { slots, validation } = timetableGenerator.generate(context, input);
 
   if (input.variantType && input.variantType !== base.schedule.variantType) {
-    await supabase
+    await (await floraDb())
       .from("timetable_schedules")
       .update({ variant_type: input.variantType })
       .eq("id", base.schedule.id);
@@ -708,7 +712,7 @@ export async function createScheduleVersion(
   const payload = await loadTimetablePayload(scheduleId);
   if (!payload) throw new Error("Emploi du temps introuvable.");
 
-  const { data: existing } = await supabase
+  const { data: existing } = await (await floraDb())
     .from("timetable_versions")
     .select("version_number")
     .eq("schedule_id", scheduleId)
@@ -717,7 +721,7 @@ export async function createScheduleVersion(
 
   const versionNumber = (existing?.[0]?.version_number ?? 0) + 1;
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_versions")
     .insert({
       schedule_id: scheduleId,
@@ -737,7 +741,7 @@ export async function createScheduleVersion(
 }
 
 export async function listScheduleVersions(scheduleId: string): Promise<TimetableVersion[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_versions")
     .select("*")
     .eq("schedule_id", scheduleId)
@@ -748,7 +752,7 @@ export async function listScheduleVersions(scheduleId: string): Promise<Timetabl
 }
 
 export async function restoreScheduleVersion(versionId: string): Promise<TimetablePayload> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_versions")
     .select("*")
     .eq("id", versionId)
@@ -757,7 +761,7 @@ export async function restoreScheduleVersion(versionId: string): Promise<Timetab
   if (error || !data) throw error ?? new Error("Version introuvable.");
 
   const snapshot = data.snapshot as TimetablePayload;
-  await supabase
+  await (await floraDb())
     .from("timetable_schedules")
     .update({
       variant_type: snapshot.schedule.variantType,
@@ -771,7 +775,7 @@ export async function restoreScheduleVersion(versionId: string): Promise<Timetab
 }
 
 export async function listScheduleHistory(scheduleId: string): Promise<TimetableHistoryEntry[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_history")
     .select("*")
     .eq("schedule_id", scheduleId)
@@ -789,7 +793,7 @@ export async function activateScheduleVariant(
   const bundle = await loadTeacherProfileBundle();
   const profileId = bundle?.profile.id ?? null;
 
-  let deactivateQuery = supabase.from("timetable_schedules").update({ is_active: false }).eq("is_active", true);
+  let deactivateQuery = (await floraDb()).from("timetable_schedules").update({ is_active: false }).eq("is_active", true);
   if (profileId) {
     deactivateQuery = deactivateQuery.eq("teacher_profile_id", profileId);
   }
@@ -797,7 +801,7 @@ export async function activateScheduleVariant(
 
   const activeBase = profileId ? await loadActiveScheduleForProfile(profileId) : await loadActiveSchedule();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("timetable_schedules")
     .insert({
       teacher_profile_id: profileId,

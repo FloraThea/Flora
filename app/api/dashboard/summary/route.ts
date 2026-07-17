@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getProfileCompletionStatus } from "@/lib/profile/profile-context";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
+
+async function floraDb() {
+  return getDb();
+}
 
 const ROUTE_PATH = "/api/dashboard/summary";
 
@@ -19,25 +23,25 @@ export async function GET() {
       { count: seancesToday },
     ] = await Promise.all([
       profileId
-        ? supabase
+        ? (await floraDb())
             .from("documents")
             .select("id", { count: "exact", head: true })
             .eq("teacher_profile_id", profileId)
-        : supabase.from("documents").select("id", { count: "exact", head: true }).limit(0),
+        : (await floraDb()).from("documents").select("id", { count: "exact", head: true }).limit(0),
       profileId
-        ? supabase
+        ? (await floraDb())
             .from("programmations")
             .select("id", { count: "exact", head: true })
             .eq("teacher_profile_id", profileId)
-        : supabase.from("programmations").select("id", { count: "exact", head: true }).limit(0),
-      supabase.from("bo_documents").select("id", { count: "exact", head: true }),
+        : (await floraDb()).from("programmations").select("id", { count: "exact", head: true }).limit(0),
+      (await floraDb()).from("bo_documents").select("id", { count: "exact", head: true }),
       profileId
-        ? supabase
+        ? (await floraDb())
             .from("seances")
             .select("id", { count: "exact", head: true })
             .eq("session_date", today)
             .eq("teacher_profile_id", profileId)
-        : supabase.from("seances").select("id", { count: "exact", head: true }).limit(0),
+        : (await floraDb()).from("seances").select("id", { count: "exact", head: true }).limit(0),
     ]);
 
     if (!bundle) {

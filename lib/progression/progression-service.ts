@@ -1,5 +1,5 @@
 import type { FloraAccent } from "@/lib/theme";
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import { insertWithOptionalColumnFallback } from "@/lib/supabase/schema-compat";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { logPedagogicalChange } from "@/lib/pedagogical/change-history";
@@ -12,6 +12,10 @@ import type {
   ProgressionValidationResult,
   StoredProgression,
 } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 export async function saveProgression(input: {
   title: string;
@@ -59,7 +63,7 @@ export async function saveProgression(input: {
     typeof progressionRow,
     StoredProgression
   >(
-    (row) => supabase.from("progressions").insert(row).select("*").single(),
+    async (row) => (await floraDb()).from("progressions").insert(row).select("*").single(),
     progressionRow,
     "link_mode",
   );
@@ -71,7 +75,7 @@ export async function saveProgression(input: {
   const savedTabs: ProgressionTab[] = [];
 
   for (const tab of input.tabs) {
-    const { data: savedTab, error: tabError } = await supabase
+    const { data: savedTab, error: tabError } = await (await floraDb())
       .from("progression_tabs")
       .insert({
         progression_id: progression.id,
@@ -114,7 +118,7 @@ export async function saveProgression(input: {
       metadata: row.metadata ?? {},
     }));
 
-    const { data: savedRows, error: rowsError } = await supabase
+    const { data: savedRows, error: rowsError } = await (await floraDb())
       .from("progression_rows")
       .insert(rowPayloads)
       .select("*");
@@ -159,7 +163,7 @@ export async function saveProgression(input: {
   }
 
   const { data: programmation } = input.programmationId
-    ? await supabase
+    ? await (await floraDb())
         .from("programmations")
         .select("*")
         .eq("id", input.programmationId)
@@ -200,7 +204,7 @@ export async function updateProgressionRow(
     | "referentielIds"
   >,
 ): Promise<void> {
-  const { data: previous } = await supabase
+  const { data: previous } = await (await floraDb())
     .from("progression_rows")
     .select("competence_bo, referentiel_ids, progression_id")
     .eq("id", rowId)
@@ -210,7 +214,7 @@ export async function updateProgressionRow(
     row.referentielIds ??
     (row.competenceBo ? await resolveReferentielIds([row.competenceBo]) : []);
 
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("progression_rows")
     .update({
       objectifs: row.objectifs,
@@ -246,7 +250,7 @@ export async function updateProgressionRow(
 }
 
 export async function loadProgression(id: string): Promise<ProgressionPayload | null> {
-  const { data: progression, error } = await supabase
+  const { data: progression, error } = await (await floraDb())
     .from("progressions")
     .select("*")
     .eq("id", id)
@@ -254,7 +258,7 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
 
   if (error || !progression) return null;
 
-  const { data: tabs } = await supabase
+  const { data: tabs } = await (await floraDb())
     .from("progression_tabs")
     .select("*")
     .eq("progression_id", id)
@@ -263,7 +267,7 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
   const progressionTabs: ProgressionTab[] = [];
 
   for (const tab of tabs ?? []) {
-    const { data: rows } = await supabase
+    const { data: rows } = await (await floraDb())
       .from("progression_rows")
       .select("*")
       .eq("tab_id", tab.id)
@@ -305,7 +309,7 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
   }
 
   const { data: programmation } = progression.programmation_id
-    ? await supabase
+    ? await (await floraDb())
         .from("programmations")
         .select("*")
         .eq("id", progression.programmation_id)
@@ -323,7 +327,7 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
 export async function listValidatedProgressions() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("progressions")
     .select("id, title, methode, status, programmation_id")
     .eq("teacher_profile_id", scope.profileId)
@@ -335,7 +339,7 @@ export async function listValidatedProgressions() {
   const progressions = data ?? [];
   const enriched = await Promise.all(
     progressions.map(async (progression) => {
-      const { count } = await supabase
+      const { count } = await (await floraDb())
         .from("progression_rows")
         .select("*", { count: "exact", head: true })
         .eq("progression_id", progression.id);
@@ -351,7 +355,7 @@ export async function listValidatedProgressions() {
 }
 
 export async function listProgressionRows(progressionId: string) {
-  const { data: tabs } = await supabase
+  const { data: tabs } = await (await floraDb())
     .from("progression_tabs")
     .select("id, subject_label, sub_subject_label")
     .eq("progression_id", progressionId)
@@ -360,14 +364,14 @@ export async function listProgressionRows(progressionId: string) {
   const rows = [];
 
   for (const tab of tabs ?? []) {
-    const { data: tabRows } = await supabase
+    const { data: tabRows } = await (await floraDb())
       .from("progression_rows")
       .select("id, period_number, week_number, seance_label, competence_bo, sequence_module")
       .eq("tab_id", tab.id)
       .order("sort_order");
 
     for (const row of tabRows ?? []) {
-      const { data: existingSequence } = await supabase
+      const { data: existingSequence } = await (await floraDb())
         .from("sequences")
         .select("id")
         .eq("progression_row_id", row.id)

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { resolveAgendaProfile, isMissingAgendaTableError, toAgendaUserMessage } from "./agenda-profile";
@@ -28,6 +28,10 @@ import {
 } from "./hours-108";
 import { REMINDER_OFFSETS } from "./event-types";
 import type { FloraAccent } from "@/lib/theme";
+
+async function floraDb() {
+  return getDb();
+}
 
 function mapEvent(row: Record<string, unknown>): AgendaEvent {
   return {
@@ -122,7 +126,7 @@ export async function listAgendaEvents(input: {
   const bundle = await getProfileContext();
   const profileId = input.teacherProfileId ?? bundle.profile.id;
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("agenda_events")
     .select("*")
     .eq("teacher_profile_id", profileId)
@@ -141,7 +145,7 @@ export async function createAgendaEvent(input: CreateAgendaEventInput): Promise<
   const bundle = await getProfileContext();
   const def = getEventTypeDefinition(input.eventType);
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("agenda_events")
     .insert({
       teacher_profile_id: bundle.profile.id,
@@ -182,7 +186,7 @@ export async function createAgendaEvent(input: CreateAgendaEventInput): Promise<
 
 export async function deleteAgendaEvent(eventId: string): Promise<void> {
   const bundle = await getProfileContext();
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("agenda_events")
     .delete()
     .eq("id", eventId)
@@ -192,7 +196,7 @@ export async function deleteAgendaEvent(eventId: string): Promise<void> {
 
 export async function moveAgendaEvent(eventId: string, targetDate: string): Promise<AgendaEvent> {
   const bundle = await getProfileContext();
-  const { data: row, error: fetchError } = await supabase
+  const { data: row, error: fetchError } = await (await floraDb())
     .from("agenda_events")
     .select("*")
     .eq("id", eventId)
@@ -212,7 +216,7 @@ export async function moveAgendaEvent(eventId: string, targetDate: string): Prom
   const newStartAt = `${targetDate}T${startTime}.000Z`;
   const newEndAt = `${targetDate}T${endTime}.000Z`;
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("agenda_events")
     .update({
       start_at: newStartAt,
@@ -238,7 +242,7 @@ export async function moveAgendaEvent(eventId: string, targetDate: string): Prom
 
 export async function markReminderSent(reminderId: string): Promise<void> {
   const bundle = await getProfileContext();
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("agenda_reminders")
     .update({ status: "sent" })
     .eq("id", reminderId)
@@ -251,7 +255,7 @@ export async function markReminderSent(reminderId: string): Promise<void> {
 
 export async function dismissAgendaReminder(reminderId: string): Promise<void> {
   const bundle = await getProfileContext();
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("agenda_reminders")
     .update({ status: "dismissed" })
     .eq("id", reminderId)
@@ -266,7 +270,7 @@ export async function listAgendaTasks(teacherProfileId?: string): Promise<Agenda
   const bundle = await getProfileContext();
   const profileId = teacherProfileId ?? bundle.profile.id;
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("agenda_tasks")
     .select("*")
     .eq("teacher_profile_id", profileId)
@@ -279,7 +283,7 @@ export async function listAgendaTasks(teacherProfileId?: string): Promise<Agenda
 export async function createAgendaTask(input: CreateAgendaTaskInput): Promise<AgendaTask> {
   const bundle = await getProfileContext();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("agenda_tasks")
     .insert({
       teacher_profile_id: bundle.profile.id,
@@ -306,7 +310,7 @@ export async function updateAgendaTask(
   patch: Partial<CreateAgendaTaskInput & { status: AgendaTask["status"]; eventId?: string | null }>,
 ): Promise<AgendaTask> {
   const bundle = await getProfileContext();
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("agenda_tasks")
     .update({
       title: patch.title,
@@ -332,7 +336,7 @@ export async function updateAgendaTask(
 
 export async function convertTaskToEvent(taskId: string): Promise<AgendaEvent> {
   const bundle = await getProfileContext();
-  const { data: taskRow, error } = await supabase
+  const { data: taskRow, error } = await (await floraDb())
     .from("agenda_tasks")
     .select("*")
     .eq("id", taskId)
@@ -378,7 +382,7 @@ async function createDefaultReminders(event: AgendaEvent): Promise<void> {
     metadata: { eventTitle: event.title },
   }));
 
-  await supabase.from("agenda_reminders").insert(rows);
+  await (await floraDb()).from("agenda_reminders").insert(rows);
 }
 
 export async function listPendingReminders(teacherProfileId?: string): Promise<AgendaReminder[]> {
@@ -386,7 +390,7 @@ export async function listPendingReminders(teacherProfileId?: string): Promise<A
   const profileId = teacherProfileId ?? bundle.profile.id;
   const now = new Date().toISOString();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("agenda_reminders")
     .select("*")
     .eq("teacher_profile_id", profileId)
@@ -406,7 +410,7 @@ export async function listUpcomingReminders(
   const profileId = teacherProfileId ?? bundle.profile.id;
   const now = new Date().toISOString();
 
-  const { data } = await supabase
+  const { data } = await (await floraDb())
     .from("agenda_reminders")
     .select("*")
     .eq("teacher_profile_id", profileId)
@@ -421,7 +425,7 @@ export async function listUpcomingReminders(
 export async function createHours108Entry(input: CreateHours108EntryInput): Promise<Hours108Entry> {
   const bundle = await getProfileContext();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("teacher_108h_entries")
     .insert({
       teacher_profile_id: bundle.profile.id,
@@ -457,7 +461,7 @@ async function createHours108EntryFromEvent(event: AgendaEvent, categoryCode: st
     sourceEventId: event.id,
   });
 
-  await supabase
+  await (await floraDb())
     .from("agenda_events")
     .update({ hours_108_entry_id: entry.id, updated_at: new Date().toISOString() })
     .eq("id", event.id);
@@ -468,7 +472,7 @@ export async function refreshHours108Summary(
   schoolYear: string,
   workQuotaPercentage: number,
 ): Promise<void> {
-  const { data: entries } = await supabase
+  const { data: entries } = await (await floraDb())
     .from("teacher_108h_entries")
     .select("category_code, duration_minutes")
     .eq("teacher_profile_id", teacherProfileId)
@@ -484,7 +488,7 @@ export async function refreshHours108Summary(
     const planned = computePlannedMinutesForCategory(category.code, workQuotaPercentage);
     const completed = completedByCategory.get(category.code) ?? 0;
 
-    await supabase.from("teacher_108h_summary").upsert(
+    await (await floraDb()).from("teacher_108h_summary").upsert(
       {
         teacher_profile_id: teacherProfileId,
         school_year: schoolYear,
@@ -507,7 +511,7 @@ export async function getHours108Dashboard(): Promise<Hours108Dashboard> {
     bundle.profile.workQuotaPercentage,
   );
 
-  const { data: entries } = await supabase
+  const { data: entries } = await (await floraDb())
     .from("teacher_108h_entries")
     .select("entry_date, category_code, duration_minutes")
     .eq("teacher_profile_id", bundle.profile.id)
@@ -642,7 +646,7 @@ export async function buildMaJournee(date: string): Promise<MaJourneePayload> {
     timetableSlots = [];
   }
 
-  const { data: seanceRows } = await supabase
+  const { data: seanceRows } = await (await floraDb())
     .from("seances")
     .select("id, title, matiere, duree_minutes, materiel")
     .eq("teacher_profile_id", bundle.profile.id)

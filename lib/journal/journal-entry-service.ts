@@ -1,7 +1,7 @@
 import "server-only";
 
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import { enrichJournalPayload } from "./journal-view-flags";
 import { journalEntryGenerator } from "./JournalEntryGenerator";
 import { journalGenerator } from "./JournalGenerator";
@@ -11,6 +11,10 @@ import {
   refreshJournalDashboard,
 } from "./journal-service";
 import type { JournalEntry, JournalMateriel, JournalPayload, JournalResources } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 export type JournalEntryRef = {
   entryId?: string;
@@ -82,7 +86,7 @@ function resolveEntry(entries: JournalEntry[], ref: JournalEntryRef): JournalEnt
 }
 
 async function assertEntryOwnedByProfile(entryId: string, teacherProfileId: string): Promise<void> {
-  const { data: entryRow, error: entryError } = await supabase
+  const { data: entryRow, error: entryError } = await (await floraDb())
     .from("journal_entries")
     .select("journal_id")
     .eq("id", entryId)
@@ -92,7 +96,7 @@ async function assertEntryOwnedByProfile(entryId: string, teacherProfileId: stri
     throw new Error("Créneau introuvable.");
   }
 
-  const { data: journalRow, error: journalError } = await supabase
+  const { data: journalRow, error: journalError } = await (await floraDb())
     .from("journals")
     .select("teacher_profile_id")
     .eq("id", entryRow.journal_id)
@@ -125,7 +129,7 @@ async function patchJournalEntry(
 ): Promise<void> {
   await assertEntryOwnedByProfile(entry.id, teacherProfileId);
 
-  const { error } = await supabase.from("journal_entries").update(patch).eq("id", entry.id);
+  const { error } = await (await floraDb()).from("journal_entries").update(patch).eq("id", entry.id);
 
   if (error) throw new Error(error.message);
 }

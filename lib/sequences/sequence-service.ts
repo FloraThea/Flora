@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import {
   insertWithOptionalColumnFallback,
   updateWithOptionalColumnFallback,
@@ -17,6 +17,10 @@ import type {
   SequenceSession,
   StoredSequence,
 } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 async function insertSequenceRecord(input: {
   draft: SequenceDraft;
@@ -70,7 +74,7 @@ async function insertSequenceRecord(input: {
     typeof sequenceRow,
     Record<string, unknown>
   >(
-    (row) => supabase.from("sequences").insert(row).select("*").single(),
+    async (row) => (await floraDb()).from("sequences").insert(row).select("*").single(),
     sequenceRow,
     "link_mode",
   );
@@ -79,7 +83,7 @@ async function insertSequenceRecord(input: {
     throw error ?? new Error("Impossible d'enregistrer la séquence.");
   }
 
-  const { data: sessions, error: sessionsError } = await supabase
+  const { data: sessions, error: sessionsError } = await (await floraDb())
     .from("sequence_sessions")
     .insert(
       input.draft.sessions.map((session) => ({
@@ -96,7 +100,7 @@ async function insertSequenceRecord(input: {
 
   if (sessionsError) throw sessionsError;
 
-  const { data: evaluations, error: evaluationsError } = await supabase
+  const { data: evaluations, error: evaluationsError } = await (await floraDb())
     .from("sequence_evaluations")
     .insert(
       input.draft.evaluations.map((evaluation) => ({
@@ -166,7 +170,7 @@ export async function createIndependentSequence(
   const draft = buildIndependentSequenceDraft(input);
 
   if (linkMode === "linked" && input.progressionRowId) {
-    const { data: existing } = await supabase
+    const { data: existing } = await (await floraDb())
       .from("sequences")
       .select("id")
       .eq("progression_row_id", input.progressionRowId)
@@ -201,7 +205,7 @@ export async function linkSequenceToProgression(input: SequenceLinkInput): Promi
   };
 
   const { data: sequence, error } = await updateWithOptionalColumnFallback(
-    (row) => supabase.from("sequences").update(row).eq("id", input.sequenceId).select("*").single(),
+    async (row) => (await floraDb()).from("sequences").update(row).eq("id", input.sequenceId).select("*").single(),
     updateRow,
     "link_mode",
   );
@@ -226,7 +230,7 @@ export async function dissociateSequence(sequenceId: string): Promise<SequencePa
   };
 
   const { error } = await updateWithOptionalColumnFallback(
-    (row) => supabase.from("sequences").update(row).eq("id", sequenceId).select("id").single(),
+    async (row) => (await floraDb()).from("sequences").update(row).eq("id", sequenceId).select("id").single(),
     updateRow,
     "link_mode",
   );
@@ -293,7 +297,7 @@ function mapSequencePayload(
 }
 
 export async function loadSequence(id: string): Promise<SequencePayload | null> {
-  const { data: sequence, error } = await supabase
+  const { data: sequence, error } = await (await floraDb())
     .from("sequences")
     .select("*")
     .eq("id", id)
@@ -302,12 +306,12 @@ export async function loadSequence(id: string): Promise<SequencePayload | null> 
   if (error || !sequence) return null;
 
   const [{ data: sessions }, { data: evaluations }] = await Promise.all([
-    supabase
+    (await floraDb())
       .from("sequence_sessions")
       .select("*")
       .eq("sequence_id", id)
       .order("session_number"),
-    supabase.from("sequence_evaluations").select("*").eq("sequence_id", id),
+    (await floraDb()).from("sequence_evaluations").select("*").eq("sequence_id", id),
   ]);
 
   return mapSequencePayload(
@@ -335,7 +339,7 @@ export async function loadSequence(id: string): Promise<SequencePayload | null> 
 }
 
 export async function listSequencesByProgression(progressionId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("sequences")
     .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, progression_row_id, status, link_mode")
     .eq("progression_id", progressionId)
@@ -348,7 +352,7 @@ export async function listSequencesByProgression(progressionId: string) {
 export async function listIndependentSequences() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("sequences")
     .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, status, link_mode, created_at")
     .eq("teacher_profile_id", scope.profileId)
@@ -369,7 +373,7 @@ export async function listIndependentSequences() {
 }
 
 export async function getSequenceByRowId(progressionRowId: string) {
-  const { data } = await supabase
+  const { data } = await (await floraDb())
     .from("sequences")
     .select("id")
     .eq("progression_row_id", progressionRowId)

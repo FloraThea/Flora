@@ -1,5 +1,5 @@
 import type { FloraAccent } from "@/lib/theme";
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import {
   getProgrammationIdForCell,
@@ -14,6 +14,10 @@ import type {
   StoredProgrammation,
   ValidationResult,
 } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 export async function saveProgrammation(input: {
   title: string;
@@ -35,7 +39,7 @@ export async function saveProgrammation(input: {
 }): Promise<ProgrammationPayload> {
   const scope = await requireTeacherScope();
 
-  const { data: programmation, error } = await supabase
+  const { data: programmation, error } = await (await floraDb())
     .from("programmations")
     .insert({
       teacher_profile_id: scope.profileId,
@@ -76,7 +80,7 @@ export async function saveProgrammation(input: {
   const savedTables: ProgrammingTable[] = [];
 
   for (const table of input.tables) {
-    const { data: savedTable, error: tableError } = await supabase
+    const { data: savedTable, error: tableError } = await (await floraDb())
       .from("programming_tables")
       .insert({
         programmation_id: programmation.id,
@@ -96,7 +100,7 @@ export async function saveProgrammation(input: {
     const savedPeriods = [];
 
     for (const period of table.periods) {
-      const { data: savedPeriod, error: periodError } = await supabase
+      const { data: savedPeriod, error: periodError } = await (await floraDb())
         .from("programming_periods")
         .insert({
           table_id: savedTable.id,
@@ -113,7 +117,7 @@ export async function saveProgrammation(input: {
         throw periodError ?? new Error("Impossible d'enregistrer une période.");
       }
 
-      const { data: savedCell, error: cellError } = await supabase
+      const { data: savedCell, error: cellError } = await (await floraDb())
         .from("programming_cells")
         .insert({
           table_id: savedTable.id,
@@ -160,7 +164,7 @@ export async function updateProgrammingCell(
   cellId: string,
   cell: ProgrammingTable["periods"][number]["cell"],
 ): Promise<void> {
-  const { data: previous } = await supabase
+  const { data: previous } = await (await floraDb())
     .from("programming_cells")
     .select("competences, content, modules")
     .eq("id", cellId)
@@ -168,7 +172,7 @@ export async function updateProgrammingCell(
 
   const referentielIds = await syncCellReferentielIds(cellId, cell.competences);
 
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("programming_cells")
     .update({
       competences: cell.competences,
@@ -202,7 +206,7 @@ export async function updateProgrammingCell(
 }
 
 export async function loadProgrammation(id: string): Promise<ProgrammationPayload | null> {
-  const { data: programmation, error } = await supabase
+  const { data: programmation, error } = await (await floraDb())
     .from("programmations")
     .select("*")
     .eq("id", id)
@@ -210,7 +214,7 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
 
   if (error || !programmation) return null;
 
-  const { data: tables } = await supabase
+  const { data: tables } = await (await floraDb())
     .from("programming_tables")
     .select("*")
     .eq("programmation_id", id)
@@ -219,7 +223,7 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
   const programmingTables: ProgrammingTable[] = [];
 
   for (const table of tables ?? []) {
-    const { data: periods } = await supabase
+    const { data: periods } = await (await floraDb())
       .from("programming_periods")
       .select("*")
       .eq("table_id", table.id)
@@ -228,7 +232,7 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
     const periodColumns = [];
 
     for (const period of periods ?? []) {
-      const { data: cell } = await supabase
+      const { data: cell } = await (await floraDb())
         .from("programming_cells")
         .select("*")
         .eq("period_id", period.id)
@@ -274,7 +278,7 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
 export async function listValidatedProgrammations() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("programmations")
     .select("id, title, school_year, matiere, methode, levels, status")
     .eq("teacher_profile_id", scope.profileId)

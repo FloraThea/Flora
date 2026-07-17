@@ -1,12 +1,16 @@
 import { searchEngine } from "@/lib/knowledge/SearchEngine";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import type {
   DocumentSearchFilters,
   DocumentWithRelations,
   FloraDocument,
 } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 const DOCUMENT_SELECT = `
   *,
@@ -20,7 +24,7 @@ type DocumentWithOptionalRelations = FloraDocument & {
 };
 
 async function fetchDocumentsForSearch(profileId: string): Promise<DocumentWithOptionalRelations[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("documents")
     .select(DOCUMENT_SELECT)
     .eq("teacher_profile_id", profileId)
@@ -33,7 +37,7 @@ async function fetchDocumentsForSearch(profileId: string): Promise<DocumentWithO
   const supabaseError = serializeSupabaseError(error);
   console.warn("[documents] Jointure tags/compétences indisponible, repli sur select('*')", supabaseError);
 
-  const fallback = await supabase
+  const fallback = await (await floraDb())
     .from("documents")
     .select("*")
     .eq("teacher_profile_id", profileId)
@@ -123,7 +127,7 @@ function matchesDocumentSearch(
 export async function listDocuments(): Promise<FloraDocument[]> {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("documents")
     .select("*")
     .eq("teacher_profile_id", scope.profileId)
@@ -177,7 +181,7 @@ export async function getDocumentDetails(
 ): Promise<DocumentWithRelations | null> {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("documents")
     .select(
       `
@@ -209,7 +213,7 @@ export async function getDocumentDetails(
     );
   }
 
-  const fallback = await supabase
+  const fallback = await (await floraDb())
     .from("documents")
     .select("*")
     .eq("id", documentId)
@@ -241,7 +245,7 @@ export async function archiveDocument(documentId: string): Promise<FloraDocument
     throw new Error("Document introuvable.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("documents")
     .update({
       metadata: {

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Session invalide." }, { status: 401 });
     }
 
-    const profileId = await linkTeacherProfileToAuthUser(data.user.id);
+    const profileId = await linkTeacherProfileToAuthUser(data.user.id, accessToken);
 
     const response = NextResponse.json({
       ok: true,

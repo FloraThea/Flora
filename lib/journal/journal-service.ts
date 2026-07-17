@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import { computeProgressPercents } from "./ProgressCalculator";
 import { teachingDashboard } from "./TeachingDashboard";
 import type {
@@ -11,6 +11,10 @@ import type {
   JournalResources,
   StoredJournal,
 } from "./types";
+
+async function floraDb() {
+  return getDb();
+}
 
 type ObservationSnapshot = {
   matiere: string;
@@ -70,7 +74,7 @@ export async function refreshJournalDashboard(journalId: string): Promise<void> 
     periodNumber: payload.journal.periodNumber,
   });
 
-  await supabase
+  await (await floraDb())
     .from("journals")
     .update({
       dashboard: { ...dashboard, ...progress },
@@ -83,7 +87,7 @@ async function afterObservationSaved(
   journalEntryId: string,
   status: JournalObservation["status"],
 ): Promise<void> {
-  const { data: entryRow } = await supabase
+  const { data: entryRow } = await (await floraDb())
     .from("journal_entries")
     .select("journal_id, seance_id")
     .eq("id", journalEntryId)
@@ -94,7 +98,7 @@ async function afterObservationSaved(
   }
 
   if (entryRow?.seance_id) {
-    await supabase
+    await (await floraDb())
       .from("seances")
       .update({
         metadata: {
@@ -187,7 +191,7 @@ export async function findJournalByDate(
   date: string,
   teacherProfileId?: string | null,
 ): Promise<StoredJournal | null> {
-  let query = supabase.from("journals").select("*").eq("journal_date", date);
+  let query = (await floraDb()).from("journals").select("*").eq("journal_date", date);
 
   if (teacherProfileId) {
     query = query.eq("teacher_profile_id", teacherProfileId);
@@ -200,7 +204,7 @@ export async function findJournalByDate(
 }
 
 export async function loadJournalPayload(journalId: string): Promise<JournalPayload | null> {
-  const { data: journalRow, error } = await supabase
+  const { data: journalRow, error } = await (await floraDb())
     .from("journals")
     .select("*")
     .eq("id", journalId)
@@ -209,18 +213,18 @@ export async function loadJournalPayload(journalId: string): Promise<JournalPayl
   if (error || !journalRow) return null;
 
   const [{ data: entryRows }, { data: adjustmentRows }] = await Promise.all([
-    supabase
+    (await floraDb())
       .from("journal_entries")
       .select("*")
       .eq("journal_id", journalId)
       .order("sort_order", { ascending: true }),
-    supabase.from("journal_adjustments").select("*").eq("journal_id", journalId),
+    (await floraDb()).from("journal_adjustments").select("*").eq("journal_id", journalId),
   ]);
 
   const entryIds = (entryRows ?? []).map((row) => String(row.id));
   const { data: observationRows } =
     entryIds.length > 0
-      ? await supabase.from("journal_observations").select("*").in("journal_entry_id", entryIds)
+      ? await (await floraDb()).from("journal_observations").select("*").in("journal_entry_id", entryIds)
       : { data: [] };
 
   const observationByEntry = new Map<string, JournalObservation>();
@@ -288,11 +292,11 @@ export async function saveJournalPayload(input: {
       : [];
 
   if (journalId) {
-    const { error } = await supabase.from("journals").update(journalPatch).eq("id", journalId);
+    const { error } = await (await floraDb()).from("journals").update(journalPatch).eq("id", journalId);
     if (error) throw new Error(error.message);
-    await supabase.from("journal_entries").delete().eq("journal_id", journalId);
+    await (await floraDb()).from("journal_entries").delete().eq("journal_id", journalId);
   } else {
-    const { data, error } = await supabase
+    const { data, error } = await (await floraDb())
       .from("journals")
       .insert(journalPatch)
       .select("*")
@@ -324,7 +328,7 @@ export async function saveJournalPayload(input: {
   }));
 
   if (rows.length > 0) {
-    const { error } = await supabase.from("journal_entries").insert(rows);
+    const { error } = await (await floraDb()).from("journal_entries").insert(rows);
     if (error) throw new Error(error.message);
   }
 
@@ -349,7 +353,7 @@ export async function upsertObservation(input: {
   successes?: string;
   followUp?: string;
 }): Promise<JournalObservation> {
-  const { data: existing } = await supabase
+  const { data: existing } = await (await floraDb())
     .from("journal_observations")
     .select("id")
     .eq("journal_entry_id", input.journalEntryId)
@@ -367,7 +371,7 @@ export async function upsertObservation(input: {
   };
 
   if (existing?.id) {
-    const { data, error } = await supabase
+    const { data, error } = await (await floraDb())
       .from("journal_observations")
       .update(patch)
       .eq("id", existing.id)
@@ -389,7 +393,7 @@ export async function upsertObservation(input: {
     };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("journal_observations")
     .insert(patch)
     .select("*")
@@ -415,7 +419,7 @@ export async function saveAdjustments(
   journalId: string,
   adjustments: Omit<JournalAdjustment, "id" | "journalId">[],
 ): Promise<void> {
-  await supabase.from("journal_adjustments").delete().eq("journal_id", journalId).eq("status", "pending");
+  await (await floraDb()).from("journal_adjustments").delete().eq("journal_id", journalId).eq("status", "pending");
 
   if (adjustments.length === 0) return;
 
@@ -429,7 +433,7 @@ export async function saveAdjustments(
     status: item.status,
   }));
 
-  const { error } = await supabase.from("journal_adjustments").insert(rows);
+  const { error } = await (await floraDb()).from("journal_adjustments").insert(rows);
   if (error) throw new Error(error.message);
 }
 
@@ -437,7 +441,7 @@ export async function updateAdjustmentStatus(
   adjustmentId: string,
   status: JournalAdjustment["status"],
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("journal_adjustments")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", adjustmentId);
@@ -450,7 +454,7 @@ export async function saveJournalExport(input: {
   exportVariant: JournalExportVariant;
   content: string;
 }): Promise<void> {
-  const { error } = await supabase.from("journal_exports").insert({
+  const { error } = await (await floraDb()).from("journal_exports").insert({
     journal_id: input.journalId,
     export_format: input.exportFormat,
     export_variant: input.exportVariant,
@@ -465,7 +469,7 @@ export async function listSeancesForJournal(input: {
   weekNumber: number;
   teacherProfileId?: string | null;
 }): Promise<Record<string, unknown>[]> {
-  let byDateQuery = supabase.from("seances").select("*").eq("session_date", input.date);
+  let byDateQuery = (await floraDb()).from("seances").select("*").eq("session_date", input.date);
   if (input.teacherProfileId) {
     byDateQuery = byDateQuery.eq("teacher_profile_id", input.teacherProfileId);
   }
@@ -473,7 +477,7 @@ export async function listSeancesForJournal(input: {
   const { data: byDate } = await byDateQuery;
   if (byDate && byDate.length > 0) return byDate;
 
-  let byWeekQuery = supabase
+  let byWeekQuery = (await floraDb())
     .from("seances")
     .select("*")
     .eq("period_number", input.periodNumber)
@@ -488,7 +492,7 @@ export async function listSeancesForJournal(input: {
 }
 
 export async function loadLibraryResourcesByMatiere(): Promise<Record<string, JournalResources>> {
-  const { data: documents } = await supabase
+  const { data: documents } = await (await floraDb())
     .from("documents")
     .select("id, title, matiere, document_type, methode, resume")
     .eq("status", "analysed");
@@ -530,7 +534,7 @@ export async function listJournalsInRange(
   endDate: string,
   teacherProfileId?: string | null,
 ): Promise<StoredJournal[]> {
-  let query = supabase
+  let query = (await floraDb())
     .from("journals")
     .select("*")
     .gte("journal_date", startDate)

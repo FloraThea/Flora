@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { getDb } from "@/lib/supabase/get-db";
 import type { TimetableInput } from "@/lib/programming/types";
 import {
   clampWorkQuotaPercentage,
@@ -102,17 +103,20 @@ function mapProject(row: Record<string, unknown>): TeacherProject {
   };
 }
 
-async function loadBundleForProfile(profileRow: Record<string, unknown>): Promise<TeacherProfileBundle> {
+async function loadBundleForProfile(
+  profileRow: Record<string, unknown>,
+  client: Awaited<ReturnType<typeof getDb>>,
+): Promise<TeacherProfileBundle> {
   const profile = mapProfile(profileRow);
 
   const [{ data: preferencesRow }, { data: methodsRows }, { data: projectsRows }] = await Promise.all([
-    supabase.from("teacher_preferences").select("*").eq("profile_id", profile.id).maybeSingle(),
-    supabase
+    client.from("teacher_preferences").select("*").eq("profile_id", profile.id).maybeSingle(),
+    client
       .from("teacher_methods")
       .select("*")
       .eq("profile_id", profile.id)
       .order("sort_order"),
-    supabase
+    client
       .from("teacher_projects")
       .select("*")
       .eq("profile_id", profile.id)
@@ -122,7 +126,7 @@ async function loadBundleForProfile(profileRow: Record<string, unknown>): Promis
   let preferences = preferencesRow;
 
   if (!preferences) {
-    const { data: created } = await supabase
+    const { data: created } = await client
       .from("teacher_preferences")
       .insert({ profile_id: profile.id })
       .select("*")
@@ -139,6 +143,7 @@ async function loadBundleForProfile(profileRow: Record<string, unknown>): Promis
 }
 
 export async function loadTeacherProfileBundle(): Promise<TeacherProfileBundle | null> {
+  const client = await getDb();
   let userId: string | null = null;
   if (typeof window === "undefined") {
     try {
@@ -149,7 +154,7 @@ export async function loadTeacherProfileBundle(): Promise<TeacherProfileBundle |
     }
   }
 
-  let query = supabase.from("teacher_profiles").select("*");
+  let query = client.from("teacher_profiles").select("*");
   if (userId) {
     query = query.eq("user_id", userId);
   } else {
@@ -159,10 +164,11 @@ export async function loadTeacherProfileBundle(): Promise<TeacherProfileBundle |
   const { data } = await query.limit(1).maybeSingle();
 
   if (!data) return null;
-  return loadBundleForProfile(data);
+  return loadBundleForProfile(data, client);
 }
 
 export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle> {
+  const client = await getDb();
   const existing = await loadTeacherProfileBundle();
   if (existing) return existing;
 
@@ -175,19 +181,19 @@ export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle>
       userId = await getServerAuthUserId();
       if (userId) {
         const profileId = await linkTeacherProfileToAuthUser(userId);
-        const { data: linked } = await supabase
+        const { data: linked } = await client
           .from("teacher_profiles")
           .select("*")
           .eq("id", profileId)
           .single();
-        if (linked) return loadBundleForProfile(linked);
+        if (linked) return loadBundleForProfile(linked, client);
       }
     } catch {
       userId = null;
     }
   }
 
-  const { data: profile, error } = await supabase
+  const { data: profile, error } = await client
     .from("teacher_profiles")
     .insert({ status: "draft", user_id: userId })
     .select("*")
@@ -197,10 +203,11 @@ export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle>
     throw error ?? new Error("Impossible de créer le profil pédagogique.");
   }
 
-  return loadBundleForProfile(profile);
+  return loadBundleForProfile(profile, client);
 }
 
 export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<TeacherProfileBundle> {
+  const client = await getDb();
   const current = await getOrCreateTeacherProfile();
   const isComplete =
     input.nom.trim().length > 0 &&
@@ -209,7 +216,7 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
     input.levels.length > 0 &&
     input.methods.length > 0;
 
-  const { data: profile, error } = await supabase
+  const { data: profile, error } = await client
     .from("teacher_profiles")
     .update({
       nom: input.nom,
@@ -246,7 +253,7 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
     throw error ?? new Error("Impossible d'enregistrer le profil.");
   }
 
-  const { error: preferencesError } = await supabase
+  const { error: preferencesError } = await client
     .from("teacher_preferences")
     .update({
       pedagogy_styles: input.pedagogyStyles,
@@ -262,11 +269,11 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
 
   if (preferencesError) throw preferencesError;
 
-  await supabase.from("teacher_methods").delete().eq("profile_id", current.profile.id);
-  await supabase.from("teacher_projects").delete().eq("profile_id", current.profile.id);
+  await client.from("teacher_methods").delete().eq("profile_id", current.profile.id);
+  await client.from("teacher_projects").delete().eq("profile_id", current.profile.id);
 
   if (input.methods.length > 0) {
-    const { error: methodsError } = await supabase.from("teacher_methods").insert(
+    const { error: methodsError } = await client.from("teacher_methods").insert(
       input.methods.map((methodName, index) => ({
         profile_id: current.profile.id,
         method_name: methodName,
@@ -278,7 +285,7 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
   }
 
   if (input.projects.length > 0) {
-    const { error: projectsError } = await supabase.from("teacher_projects").insert(
+    const { error: projectsError } = await client.from("teacher_projects").insert(
       input.projects.map((project, index) => ({
         profile_id: current.profile.id,
         project_type: project.projectType,
@@ -290,7 +297,7 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
     if (projectsError) throw projectsError;
   }
 
-  return loadBundleForProfile(profile);
+  return loadBundleForProfile(profile, client);
 }
 
 export async function getDefaultTimetableFromProfile(bundle: TeacherProfileBundle): Promise<TimetableInput> {
