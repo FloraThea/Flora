@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { ResourceContext } from "@/lib/programming/types";
 import type { SequenceContext } from "./types";
 
@@ -36,7 +36,7 @@ export class ResourcePlanner {
       );
     }
 
-    const { data: documents } = await supabase
+    const { data: documents } = await (await floraDb())
       .from("documents")
       .select("id, title, matiere, methode, document_type")
       .in("id", ids);
@@ -45,8 +45,8 @@ export class ResourcePlanner {
 
     for (const document of documents ?? []) {
       const [{ data: competences }, { data: entities }] = await Promise.all([
-        supabase.from("document_competences").select("competence").eq("document_id", document.id),
-        supabase
+        (await floraDb()).from("document_competences").select("competence").eq("document_id", document.id),
+        (await floraDb())
           .from("pedagogical_entities")
           .select("label, entity_type")
           .eq("document_id", document.id),

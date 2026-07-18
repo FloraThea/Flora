@@ -1,5 +1,5 @@
 import type { FloraAccent } from "@/lib/theme";
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import { insertWithOptionalColumnFallback } from "@/lib/supabase/schema-compat";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { logPedagogicalChange } from "@/lib/pedagogical/change-history";
@@ -13,9 +13,6 @@ import type {
   StoredProgression,
 } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 export async function saveProgression(input: {
   title: string;
@@ -43,7 +40,12 @@ export async function saveProgression(input: {
     methode: input.methode,
     validation: input.validation,
     calendar_snapshot: input.calendarSnapshot,
-    status: input.validation.valid ? "validated" : "draft",
+    status:
+      input.importMeta?.sourceType === "imported"
+        ? "validated"
+        : input.validation.valid
+          ? "validated"
+          : "draft",
     link_mode: input.linkMode ?? (input.programmationId ? "linked" : "independent"),
     metadata: {
       generated_at: new Date().toISOString(),
@@ -324,6 +326,19 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
   };
 }
 
+export async function listProgressionsForProfile() {
+  const scope = await requireTeacherScope();
+
+  const { data, error } = await (await floraDb())
+    .from("progressions")
+    .select("id, title, methode, status, programmation_id, created_at")
+    .eq("teacher_profile_id", scope.profileId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function listValidatedProgressions() {
   const scope = await requireTeacherScope();
 
@@ -331,7 +346,7 @@ export async function listValidatedProgressions() {
     .from("progressions")
     .select("id, title, methode, status, programmation_id")
     .eq("teacher_profile_id", scope.profileId)
-    .eq("status", "validated")
+    .in("status", ["validated", "draft"])
     .order("created_at", { ascending: false });
 
   if (error) throw error;

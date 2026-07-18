@@ -3,10 +3,22 @@ import type {
   ParsedProgrammationImport,
   ProgrammationColumnField,
 } from "./types";
+import {
+  dayOfWeekFromIsoDate,
+  detectDateContradiction,
+  extractSchoolYearFromText,
+  forwardFillGridRows,
+  parseCalendarDateCell,
+  parseFrenchDayOfWeek,
+  parsePartialFrenchDate,
+  parseSequenceSeanceCell,
+} from "./spreadsheet-deterministic";
 
 export const COLUMN_FIELD_LABELS: Record<ProgrammationColumnField, string> = {
   period: "Période",
   week: "Semaine",
+  date: "Date",
+  day: "Jour",
   discipline: "Discipline / Matière",
   niveau: "Niveau",
   sequence: "Séquence",
@@ -40,6 +52,8 @@ export function buildPreviewText(headers: string[], rows: string[][]): string {
 const MAPPABLE_FIELDS: ProgrammationColumnField[] = [
   "period",
   "week",
+  "date",
+  "day",
   "discipline",
   "niveau",
   "sequence",
@@ -105,7 +119,9 @@ function normalizeHeader(header: string): string {
   return header
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/œ/g, "oe")
+    .replace(/æ/g, "ae");
 }
 
 export function mapHeaderIndex(headers: string[]): Partial<Record<ProgrammationColumnField, number>> {
@@ -115,12 +131,18 @@ export function mapHeaderIndex(headers: string[]): Partial<Record<ProgrammationC
     const normalized = normalizeHeader(header);
 
     if (normalized.includes("periode") || normalized === "p") index.period = position;
-    if (normalized.includes("semaine") || normalized === "s") index.week = position;
+    if (normalized.includes("semaine") || normalized.includes("week")) index.week = position;
+    if (normalized.includes("date")) index.date = position;
+    if (normalized.includes("jour") || normalized.includes("day")) index.day = position;
     if (normalized.includes("discipline") || normalized.includes("matiere")) index.discipline = position;
     if (normalized.includes("niveau") || normalized.includes("classe")) index.niveau = position;
-    if (normalized.includes("sequence")) index.sequence = position;
-    if (normalized.includes("seance")) index.seance = position;
-    if (normalized.includes("objectif")) index.objectif = position;
+    if (normalized.includes("sequence") || normalized.includes("module")) index.sequence = position;
+    if (normalized.includes("seance") || normalized.includes("lecon")) index.seance = position;
+    if (normalized.includes("objectif") || normalized.includes("oeuvre") || normalized.includes("theme")) {
+      index.objectif = position;
+    }
+    if (normalized.includes("artiste") || normalized.includes("auteur")) index.remarques = position;
+    if (normalized.includes("epoque") || normalized.includes("mouvement")) index.domaine = position;
     if (normalized.includes("competence")) index.competence = position;
     if (normalized.includes("notion")) index.notion = position;
     if (normalized.includes("materiel")) index.materiel = position;
@@ -139,6 +161,14 @@ function rowFromCells(
   cells: string[],
   headerIndex: Partial<Record<ProgrammationColumnField, number>>,
   rawLine: string,
+  context?: {
+    sourceSheet?: string;
+    sourceRowIndex?: number;
+    periodNumber?: number | null;
+    periodTitle?: string;
+    schoolYear?: string | null;
+    discipline?: string;
+  },
 ): ImportedProgrammationRow {
   const get = (key: ProgrammationColumnField) => {
     const position = headerIndex[key];
@@ -148,17 +178,71 @@ function rowFromCells(
   const periodRaw = get("period");
   const weekRaw = get("week");
   const parsed = parsePeriodWeek(`${periodRaw} ${weekRaw}`);
+  const weekParsed = parseSequenceSeanceCell(
+    weekRaw,
+    headerIndex.week !== undefined ? "week" : "unknown",
+  );
+
+  const dateRaw = get("date");
+  const dayRaw = get("day");
+  const schoolYear = context?.schoolYear ?? null;
+  const calendarDate =
+    parseCalendarDateCell(dateRaw, undefined, schoolYear) ??
+    parsePartialFrenchDate(dateRaw, schoolYear);
+  const dayFromCell = parseFrenchDayOfWeek(dayRaw);
+  const dayFromDate = calendarDate ? dayOfWeekFromIsoDate(calendarDate) : null;
+  const dayOfWeek = dayFromCell ?? dayFromDate;
+  const parseNotes: string[] = [];
+  const contradiction = detectDateContradiction(calendarDate, dayRaw);
+  if (contradiction) parseNotes.push(contradiction);
+
+  const seqRaw = get("sequence");
+  const seanceRaw = get("seance");
+  const seqParsed = parseSequenceSeanceCell(
+    seqRaw,
+    headerIndex.sequence !== undefined ? "sequence" : "unknown",
+  );
+  const seanceParsed = parseSequenceSeanceCell(
+    seanceRaw,
+    headerIndex.seance !== undefined ? "seance" : "unknown",
+  );
+
+  let weekNumber =
+    weekParsed.weekNumber ??
+    parsed.week ??
+    (weekRaw && /^\d+$/.test(weekRaw) ? Number(weekRaw) : null);
+  if (seqParsed.weekNumber !== null && weekNumber === null) weekNumber = seqParsed.weekNumber;
+  if (seanceParsed.weekNumber !== null && weekNumber === null) {
+    weekNumber = seanceParsed.weekNumber;
+    parseNotes.push("S interprété comme semaine (colonne semaine absente).");
+  }
+
+  const sequence = seqParsed.sequence || get("sequence");
+  const seance = seanceParsed.seance || get("seance");
+  const objectif = get("objectif");
+  const periodNumber =
+    context?.periodNumber ??
+    parsed.period ??
+    (periodRaw ? Number(periodRaw.replace(/\D/g, "")) || null : null);
+  const confidence = Math.max(
+    weekParsed.confidence,
+    seqParsed.confidence,
+    seanceParsed.confidence,
+    calendarDate ? 0.9 : 0.5,
+  );
 
   return {
     id: `row-${Math.random().toString(36).slice(2, 10)}`,
-    periodNumber: parsed.period ?? (periodRaw ? Number(periodRaw) || null : null),
-    weekNumber: parsed.week ?? (weekRaw ? Number(weekRaw) || null : null),
-    weekLabel: weekRaw || "",
-    discipline: get("discipline"),
+    periodNumber,
+    weekNumber,
+    weekLabel: weekRaw || (weekNumber ? `S${weekNumber}` : ""),
+    calendarDate,
+    dayOfWeek,
+    discipline: get("discipline") || context?.discipline || "",
     niveau: get("niveau"),
-    sequence: get("sequence"),
-    seance: get("seance") || get("objectif"),
-    objectif: get("objectif"),
+    sequence,
+    seance,
+    objectif,
     competences: splitList(get("competence")),
     notions: splitList(get("notion")),
     materiel: splitList(get("materiel")),
@@ -169,6 +253,14 @@ function rowFromCells(
     differenciation: get("differenciation"),
     domaine: get("domaine"),
     rawLine,
+    sourceSheet: context?.sourceSheet,
+    sourceRowIndex: context?.sourceRowIndex,
+    rawCells: [...cells],
+    parseConfidence: confidence,
+    parseNotes:
+      parseNotes.length > 0 || context?.periodTitle
+        ? [...parseNotes, ...(context?.periodTitle ? [`period:${context.periodTitle}`] : [])]
+        : undefined,
   };
 }
 
@@ -180,7 +272,7 @@ function findHeaderRow(grid: string[][]): {
   let bestScore = 0;
   let bestHeaderIndex: Partial<Record<ProgrammationColumnField, number>> = {};
 
-  for (let rowIndex = 0; rowIndex < Math.min(grid.length, 8); rowIndex += 1) {
+  for (let rowIndex = 0; rowIndex < grid.length; rowIndex += 1) {
     const headerIndex = mapHeaderIndex(grid[rowIndex]);
     const score = Object.keys(headerIndex).length;
     if (score > bestScore) {
@@ -193,9 +285,131 @@ function findHeaderRow(grid: string[][]): {
   return { headerRowIndex: bestIndex, headerIndex: bestHeaderIndex };
 }
 
+function gridHasPeriodSections(grid: string[][]): boolean {
+  return grid.some((row) => /p[ée]riode\s*\d+/i.test(row.join(" ")));
+}
+
+function parsePeriodBanner(row: string[]): { periodNumber: number; title: string } | null {
+  const text = String(row.find((cell) => String(cell ?? "").trim()) ?? "").trim();
+  const match = text.match(/p[ée]riode\s*(\d+)\s*[—–-]\s*(.+)$/i);
+  if (!match) return null;
+  return { periodNumber: Number(match[1]), title: match[2].trim() };
+}
+
+function isTableHeaderRow(row: string[]): boolean {
+  const headerIndex = mapHeaderIndex(row);
+  return (
+    Object.keys(headerIndex).length >= 2 &&
+    headerIndex.week !== undefined &&
+    headerIndex.date !== undefined
+  );
+}
+
+function isSkippedImportRow(row: string[]): boolean {
+  const text = row.join(" ").trim();
+  if (!text) return true;
+  if (/^[⛔⚠]/u.test(text)) return true;
+  if (/vacances|armistice|fête du travail|fin de l'année scolaire|fichier entièrement modifiable/i.test(text)) {
+    return true;
+  }
+  if (/^p[ée]riode\s*\d+/i.test(text)) return true;
+  if (isTableHeaderRow(row)) return true;
+  return false;
+}
+
+function isDataRow(row: string[], headerIndex: Partial<Record<ProgrammationColumnField, number>>): boolean {
+  const weekRaw =
+    headerIndex.week !== undefined ? String(row[headerIndex.week] ?? "").trim() : "";
+  return /^s\d+$/i.test(weekRaw) || /semaine\s*\d+/i.test(weekRaw);
+}
+
+function inferDisciplineFromGrid(grid: string[][]): string {
+  const haystack = grid
+    .slice(0, 5)
+    .map((row) => row.join(" "))
+    .join("\n");
+  if (/histoire\s+des\s+arts|\bhda\b/i.test(haystack)) return "Histoire des arts";
+  if (/emc|enseignement moral/i.test(haystack)) return "EMC";
+  if (/fran[çc]ais/i.test(haystack)) return "Français";
+  if (/math/i.test(haystack)) return "Mathématiques";
+  return "";
+}
+
+function inferSchoolYearFromGrid(grid: string[][]): string | null {
+  const haystack = grid
+    .slice(0, 6)
+    .map((row) => row.join(" "))
+    .join("\n");
+  return extractSchoolYearFromText(haystack);
+}
+
+function rowsFromGridWithSections(
+  grid: string[][],
+  columnMapping?: Partial<Record<ProgrammationColumnField, number>>,
+  context?: { sourceSheet?: string },
+): {
+  headers: string[];
+  headerRowIndex: number;
+  headerIndex: Partial<Record<ProgrammationColumnField, number>>;
+  rows: ImportedProgrammationRow[];
+  dataRows: string[][];
+} {
+  const schoolYear = inferSchoolYearFromGrid(grid);
+  const discipline = inferDisciplineFromGrid(grid);
+  let currentPeriod: number | null = null;
+  let currentPeriodTitle = "";
+  let currentHeaderIndex: Partial<Record<ProgrammationColumnField, number>> =
+    columnMapping && Object.keys(columnMapping).length > 0 ? columnMapping : {};
+  let headerRowIndex = 0;
+  let headers: string[] = [];
+  const rows: ImportedProgrammationRow[] = [];
+  const dataRows: string[][] = [];
+
+  for (let rowIndex = 0; rowIndex < grid.length; rowIndex += 1) {
+    const cells = grid[rowIndex];
+    if (!cells?.some((cell) => String(cell ?? "").trim())) continue;
+
+    const banner = parsePeriodBanner(cells);
+    if (banner) {
+      currentPeriod = banner.periodNumber;
+      currentPeriodTitle = banner.title;
+      continue;
+    }
+
+    if (isTableHeaderRow(cells)) {
+      currentHeaderIndex =
+        columnMapping && Object.keys(columnMapping).length > 0
+          ? columnMapping
+          : mapHeaderIndex(cells);
+      headerRowIndex = rowIndex;
+      headers = [...cells];
+      continue;
+    }
+
+    if (Object.keys(currentHeaderIndex).length < 2) continue;
+    if (!isDataRow(cells, currentHeaderIndex)) continue;
+    if (isSkippedImportRow(cells)) continue;
+
+    dataRows.push(cells);
+    rows.push(
+      rowFromCells(cells, currentHeaderIndex, cells.join(" | "), {
+        sourceSheet: context?.sourceSheet,
+        sourceRowIndex: rowIndex,
+        periodNumber: currentPeriod,
+        periodTitle: currentPeriodTitle,
+        schoolYear,
+        discipline,
+      }),
+    );
+  }
+
+  return { headers, headerRowIndex, headerIndex: currentHeaderIndex, rows, dataRows };
+}
+
 export function rowsFromGrid(
   grid: string[][],
   columnMapping?: Partial<Record<ProgrammationColumnField, number>>,
+  context?: { sourceSheet?: string },
 ): {
   headers: string[];
   headerRowIndex: number;
@@ -213,19 +427,31 @@ export function rowsFromGrid(
     };
   }
 
-  const { headerRowIndex, headerIndex: detectedIndex } = findHeaderRow(grid);
-  const headers = grid[headerRowIndex] ?? [];
+  const filledGrid = gridHasPeriodSections(grid) ? grid : forwardFillGridRows(grid);
+
+  if (gridHasPeriodSections(filledGrid)) {
+    return rowsFromGridWithSections(filledGrid, columnMapping, context);
+  }
+
+  const { headerRowIndex, headerIndex: detectedIndex } = findHeaderRow(filledGrid);
+  const headers = filledGrid[headerRowIndex] ?? [];
   const headerIndex =
     columnMapping && Object.keys(columnMapping).length > 0 ? columnMapping : detectedIndex;
   const hasHeader = Object.keys(headerIndex).length >= 2;
-  const dataRows = hasHeader ? grid.slice(headerRowIndex + 1) : grid;
+  const dataRows = hasHeader ? filledGrid.slice(headerRowIndex + 1) : filledGrid;
   const rows: ImportedProgrammationRow[] = [];
 
-  for (const cells of dataRows) {
+  for (let rowOffset = 0; rowOffset < dataRows.length; rowOffset += 1) {
+    const cells = dataRows[rowOffset];
     if (cells.every((cell) => !String(cell ?? "").trim())) continue;
 
     if (hasHeader) {
-      rows.push(rowFromCells(cells, headerIndex, cells.join(" | ")));
+      rows.push(
+        rowFromCells(cells, headerIndex, cells.join(" | "), {
+          sourceSheet: context?.sourceSheet,
+          sourceRowIndex: headerRowIndex + 1 + rowOffset,
+        }),
+      );
       continue;
     }
 
@@ -236,6 +462,8 @@ export function rowsFromGrid(
       periodNumber: period,
       weekNumber: week,
       weekLabel: week ? `S${week}` : "",
+      calendarDate: null,
+      dayOfWeek: null,
       discipline: cells[0] ?? "",
       niveau: "",
       sequence: "",
@@ -251,6 +479,9 @@ export function rowsFromGrid(
       differenciation: "",
       domaine: "",
       rawLine: cells.join(" | "),
+      sourceSheet: context?.sourceSheet,
+      sourceRowIndex: headerRowIndex + 1 + rowOffset,
+      rawCells: [...cells],
     });
   }
 

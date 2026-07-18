@@ -11,3 +11,6 @@ export async function getDb(): Promise<SupabaseClient> {
     return supabase;
   }
 }
+
+/** Alias explicite pour les services serveur tenant-scopés. */
+export const floraDb = getDb;

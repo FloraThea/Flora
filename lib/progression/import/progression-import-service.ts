@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 import {
   applyCompetencyMatchesToRows,
@@ -126,7 +126,7 @@ export async function uploadProgressionImportFile(
   const bucket = getStorageBucketName();
   const storagePath = buildProgressionStoragePath(profileId, file.name);
 
-  const { error } = await supabase.storage.from(bucket).upload(storagePath, file, {
+  const { error } = await (await floraDb()).storage.from(bucket).upload(storagePath, file, {
     contentType: file.type || "application/octet-stream",
     upsert: false,
   });
@@ -135,7 +135,7 @@ export async function uploadProgressionImportFile(
     throw new Error(getSupabaseErrorMessage(error, "Impossible d'archiver le fichier source."));
   }
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+  const { data } = (await floraDb()).storage.from(bucket).getPublicUrl(storagePath);
 
   return {
     storagePath,

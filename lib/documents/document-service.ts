@@ -1,6 +1,6 @@
 import { searchEngine } from "@/lib/knowledge/SearchEngine";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import type {
   DocumentSearchFilters,
@@ -8,9 +8,6 @@ import type {
   FloraDocument,
 } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 const DOCUMENT_SELECT = `
   *,

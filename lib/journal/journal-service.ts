@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import { computeProgressPercents } from "./ProgressCalculator";
 import { teachingDashboard } from "./TeachingDashboard";
 import type {
@@ -12,9 +12,6 @@ import type {
   StoredJournal,
 } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 type ObservationSnapshot = {
   matiere: string;

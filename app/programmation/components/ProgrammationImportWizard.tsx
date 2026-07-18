@@ -20,8 +20,11 @@ import { applyProgrammationColumnMapping, COLUMN_FIELD_LABELS } from "@/lib/prog
 import { getFormatsAcceptesLabel } from "@/lib/import/accepted-formats";
 import type { ProgrammationFormValues } from "../types";
 import { ProgrammationImportBatchPanel } from "./ProgrammationImportBatchPanel";
+import { ImportPreviewTable } from "@/components/import/ImportPreviewTable";
 
 const MAPPING_FIELDS: ProgrammationColumnField[] = [
+  "date",
+  "day",
   "period",
   "week",
   "discipline",
@@ -381,7 +384,9 @@ export function ProgrammationImportWizard({
             </p>
           ))}
 
-          {parsed.columns.length > 0 ? (
+          {parsed.rows.length > 0 ? (
+            <ImportPreviewTable rows={parsed.rows} fileName={parsed.fileName} />
+          ) : parsed.columns.length > 0 ? (
             <div className="overflow-x-auto rounded-2xl border border-white/60 bg-white/50">
               <table className="min-w-full text-left text-xs">
                 <thead>

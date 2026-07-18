@@ -29,6 +29,8 @@ function row(seance: string, week = "S1"): ParsedProgrammationImport["rows"][num
     periodNumber: 1,
     weekNumber: 1,
     weekLabel: week,
+    calendarDate: null,
+    dayOfWeek: null,
     discipline: "Mathématiques",
     niveau: "CM2",
     sequence: "",

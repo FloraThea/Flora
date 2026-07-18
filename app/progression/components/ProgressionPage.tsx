@@ -24,6 +24,8 @@ import {
   type ValidatedProgrammationOption,
 } from "../types";
 
+const LAST_PROGRESSION_KEY = "flora:last-progression-id";
+
 type ProgressionPageMode = null | "menu" | "generate" | "import" | "manual";
 
 export function ProgressionPage() {
@@ -38,6 +40,21 @@ export function ProgressionPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedProgressions, setSavedProgressions] = useState<
+    Array<{ id: string; title: string; status: string }>
+  >([]);
+
+  const loadSavedProgression = useCallback(async (progressionId: string) => {
+    const response = await fetch(`/api/progression/details?id=${encodeURIComponent(progressionId)}`);
+    if (!response.ok) return;
+    const data = (await response.json()) as ProgressionPayload;
+    setPayload(data);
+    setActiveTabKey(data.tabs[0]?.subjectKey ?? "");
+    setMode(null);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(LAST_PROGRESSION_KEY, progressionId);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,13 +63,16 @@ export function ProgressionPage() {
       setIsLoadingProgrammations(true);
 
       try {
-        const response = await fetch("/api/progression/programmations");
-        const data = (await response.json()) as {
+        const [progResponse, listResponse] = await Promise.all([
+          fetch("/api/progression/programmations"),
+          fetch("/api/progression/list"),
+        ]);
+        const data = (await progResponse.json()) as {
           programmations?: ValidatedProgrammationOption[];
           error?: string;
         };
 
-        if (!response.ok) {
+        if (!progResponse.ok) {
           throw new Error(data.error || "Impossible de charger les programmations.");
         }
 
@@ -65,6 +85,20 @@ export function ProgressionPage() {
               programmationId: items[0].id,
               methode: items[0].methode ?? current.methode,
             }));
+          }
+        }
+
+        if (listResponse.ok && !cancelled) {
+          const listData = (await listResponse.json()) as {
+            progressions?: Array<{ id: string; title: string; status: string }>;
+          };
+          const progressions = listData.progressions ?? [];
+          setSavedProgressions(progressions);
+          const lastId =
+            typeof window !== "undefined" ? sessionStorage.getItem(LAST_PROGRESSION_KEY) : null;
+          const targetId = progressions.find((p) => p.id === lastId)?.id ?? progressions[0]?.id;
+          if (targetId) {
+            await loadSavedProgression(targetId);
           }
         }
       } catch (loadError) {
@@ -87,7 +121,7 @@ export function ProgressionPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadSavedProgression]);
 
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
@@ -108,6 +142,9 @@ export function ProgressionPage() {
 
       setPayload(data);
       setActiveTabKey(data.tabs[0]?.subjectKey ?? "");
+      if (data.progression?.id && typeof window !== "undefined") {
+        sessionStorage.setItem(LAST_PROGRESSION_KEY, data.progression.id);
+      }
     } catch (generateError) {
       setError(
         generateError instanceof Error
@@ -167,6 +204,30 @@ export function ProgressionPage() {
           </Link>
         }
       />
+
+      {savedProgressions.length > 0 ? (
+        <FloraCard padding="md" accent="cream">
+          <label className="block text-sm font-light text-flora-text-muted">
+            Progressions enregistrées
+            <select
+              className="mt-2 w-full rounded-2xl border border-white/70 bg-white/60 px-4 py-2.5 text-sm"
+              value={payload?.progression.id ?? ""}
+              disabled={isLoadingProgrammations}
+              onChange={(event) => {
+                const id = event.target.value;
+                if (id) void loadSavedProgression(id);
+              }}
+            >
+              <option value="">— Choisir —</option>
+              {savedProgressions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title} — {item.status}
+                </option>
+              ))}
+            </select>
+          </label>
+        </FloraCard>
+      ) : null}
 
       {mode === "menu" && !payload ? (
         <PedagogicalStartMenu
@@ -228,6 +289,17 @@ export function ProgressionPage() {
             setShowImportWizard(false);
             setMode(null);
             setError(null);
+            if (imported.progression?.id) {
+              sessionStorage.setItem(LAST_PROGRESSION_KEY, imported.progression.id);
+              void loadSavedProgression(imported.progression.id);
+              void fetch("/api/progression/list")
+                .then((response) => (response.ok ? response.json() : null))
+                .then((listData: { progressions?: Array<{ id: string; title: string; status: string }> } | null) => {
+                  if (listData?.progressions) {
+                    setSavedProgressions(listData.progressions);
+                  }
+                });
+            }
           }}
           onClose={() => {
             setShowImportWizard(false);

@@ -1,5 +1,5 @@
-import { supabase } from "@/lib/supabase";
-import { getDb } from "@/lib/supabase/get-db";
+import { cache } from "react";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { TimetableInput } from "@/lib/programming/types";
 import {
   clampWorkQuotaPercentage,
@@ -105,7 +105,7 @@ function mapProject(row: Record<string, unknown>): TeacherProject {
 
 async function loadBundleForProfile(
   profileRow: Record<string, unknown>,
-  client: Awaited<ReturnType<typeof getDb>>,
+  client: Awaited<ReturnType<typeof floraDb>>,
 ): Promise<TeacherProfileBundle> {
   const profile = mapProfile(profileRow);
 
@@ -142,8 +142,8 @@ async function loadBundleForProfile(
   };
 }
 
-export async function loadTeacherProfileBundle(): Promise<TeacherProfileBundle | null> {
-  const client = await getDb();
+export const loadTeacherProfileBundle = cache(async (): Promise<TeacherProfileBundle | null> => {
+  const client = await floraDb();
   let userId: string | null = null;
   if (typeof window === "undefined") {
     try {
@@ -157,6 +157,8 @@ export async function loadTeacherProfileBundle(): Promise<TeacherProfileBundle |
   let query = client.from("teacher_profiles").select("*");
   if (userId) {
     query = query.eq("user_id", userId);
+  } else if (process.env.NODE_ENV === "production") {
+    return null;
   } else {
     query = query.order("created_at", { ascending: true });
   }
@@ -165,10 +167,10 @@ export async function loadTeacherProfileBundle(): Promise<TeacherProfileBundle |
 
   if (!data) return null;
   return loadBundleForProfile(data, client);
-}
+});
 
 export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle> {
-  const client = await getDb();
+  const client = await floraDb();
   const existing = await loadTeacherProfileBundle();
   if (existing) return existing;
 
@@ -207,7 +209,7 @@ export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle>
 }
 
 export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<TeacherProfileBundle> {
-  const client = await getDb();
+  const client = await floraDb();
   const current = await getOrCreateTeacherProfile();
   const isComplete =
     input.nom.trim().length > 0 &&

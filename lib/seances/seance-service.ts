@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import {
   insertWithOptionalColumnFallback,
   updateWithOptionalColumnFallback,
@@ -21,9 +21,6 @@ import type {
   StoredSeance,
 } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 function mapStoredSeance(row: Record<string, unknown>): StoredSeance {
   return {

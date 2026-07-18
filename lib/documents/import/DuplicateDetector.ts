@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { FloraDocument } from "../types";
 
 export class DuplicateDetector {
@@ -9,7 +9,7 @@ export class DuplicateDetector {
   }): Promise<FloraDocument[]> {
     const baseName = input.filename.replace(/\.[^.]+$/, "").toLowerCase();
 
-    const { data: byName } = await supabase
+    const { data: byName } = await (await floraDb())
       .from("documents")
       .select("*")
       .ilike("original_filename", `%${baseName}%`)
@@ -18,7 +18,7 @@ export class DuplicateDetector {
     const candidates = (byName ?? []) as FloraDocument[];
 
     if (input.checksum) {
-      const { data: byChecksum } = await supabase
+      const { data: byChecksum } = await (await floraDb())
         .from("documents")
         .select("*")
         .contains("metadata", { file_checksum: input.checksum })

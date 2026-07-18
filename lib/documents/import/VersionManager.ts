@@ -1,11 +1,11 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 
 export class VersionManager {
   async createVersion(
     documentId: string,
     input: { storagePath: string; fileSize: number; originalFilename: string },
   ): Promise<number> {
-    const { data: latest } = await supabase
+    const { data: latest } = await (await floraDb())
       .from("document_versions")
       .select("version_number")
       .eq("document_id", documentId)
@@ -15,7 +15,7 @@ export class VersionManager {
 
     const versionNumber = (latest?.version_number ?? 0) + 1;
 
-    await supabase.from("document_versions").insert({
+    await (await floraDb()).from("document_versions").insert({
       document_id: documentId,
       version_number: versionNumber,
       storage_path: input.storagePath,
@@ -28,7 +28,7 @@ export class VersionManager {
   }
 
   async listVersions(documentId: string) {
-    const { data } = await supabase
+    const { data } = await (await floraDb())
       .from("document_versions")
       .select("*")
       .eq("document_id", documentId)
@@ -38,7 +38,7 @@ export class VersionManager {
   }
 
   async restoreVersion(documentId: string, versionNumber: number): Promise<void> {
-    const { data: version } = await supabase
+    const { data: version } = await (await floraDb())
       .from("document_versions")
       .select("*")
       .eq("document_id", documentId)
@@ -47,7 +47,7 @@ export class VersionManager {
 
     if (!version) throw new Error("Version introuvable.");
 
-    await supabase
+    await (await floraDb())
       .from("documents")
       .update({
         storage_path: version.storage_path,

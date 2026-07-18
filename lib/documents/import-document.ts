@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { chunkDocumentText } from "@/lib/documents/chunk-text";
 import {
   canAnalyzeExtension,
@@ -50,7 +50,7 @@ async function insertCompetences(
 
   if (rows.length === 0) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("document_competences")
     .insert(
       rows.map((item) => ({
@@ -73,12 +73,12 @@ async function insertCompetences(
 
 async function loadDocumentRelations(documentId: string) {
   const [{ data: chunks }, { data: tags }] = await Promise.all([
-    supabase
+    (await floraDb())
       .from("document_chunks")
       .select("*")
       .eq("document_id", documentId)
       .order("chunk_index"),
-    supabase.from("document_tags").select("*").eq("document_id", documentId),
+    (await floraDb()).from("document_tags").select("*").eq("document_id", documentId),
   ]);
 
   return {
@@ -99,7 +99,7 @@ export async function importDocumentFromFile(
   const extension = getFileExtension(file.name);
   const storagePath = buildStoragePath(file.name);
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await (await floraDb()).storage
     .from(getStorageBucketName())
     .upload(storagePath, file, {
       contentType: file.type || "application/octet-stream",
@@ -110,7 +110,7 @@ export async function importDocumentFromFile(
     throw uploadError;
   }
 
-  const { data: createdDocument, error: createError } = await supabase
+  const { data: createdDocument, error: createError } = await (await floraDb())
     .from("documents")
     .insert({
       title: file.name.replace(/\.[^.]+$/, ""),
@@ -185,7 +185,7 @@ export async function importDocumentFromFile(
   try {
     const analysis = await analyseResourceWithThea(extractedText);
 
-    const { data: updatedDocument, error: updateError } = await supabase
+    const { data: updatedDocument, error: updateError } = await (await floraDb())
       .from("documents")
       .update({
         title: analysis.title || document.title,
@@ -244,9 +244,9 @@ export async function importDocumentFromFile(
 
     try {
       const fallbackChunks = chunkDocumentText(extractedText);
-      await supabase.from("document_chunks").delete().eq("document_id", document.id);
+      await (await floraDb()).from("document_chunks").delete().eq("document_id", document.id);
       if (fallbackChunks.length > 0) {
-        await supabase.from("document_chunks").insert(
+        await (await floraDb()).from("document_chunks").insert(
           fallbackChunks.map((chunk) => ({
             document_id: document.id,
             chunk_index: chunk.chunk_index,

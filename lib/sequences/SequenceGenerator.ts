@@ -1,7 +1,7 @@
 import { askThea } from "@/lib/thea/services/gemini";
 import { buildTheaInstructionBlock, loadTeacherProfileForGeneration } from "@/lib/profile";
 import { loadReferentielCompetences } from "@/lib/referentiel/referentiel-service";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { ReferentielCompetence } from "@/lib/programming/types";
 import { loadProgression } from "@/lib/progression/progression-service";
 import type { ProgressionRow, ProgressionTab } from "@/lib/progression/types";
@@ -43,7 +43,7 @@ async function loadReferentiel(
 async function findRowContext(
   progressionRowId: string,
 ): Promise<{ row: ProgressionRow; tab: ProgressionTab; progressionId: string } | null> {
-  const { data: rowData } = await supabase
+  const { data: rowData } = await (await floraDb())
     .from("progression_rows")
     .select("*")
     .eq("id", progressionRowId)
@@ -51,7 +51,7 @@ async function findRowContext(
 
   if (!rowData) return null;
 
-  const { data: tabData } = await supabase
+  const { data: tabData } = await (await floraDb())
     .from("progression_tabs")
     .select("*")
     .eq("id", rowData.tab_id)

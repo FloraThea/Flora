@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { sequenceGenerator } from "@/lib/sequences/SequenceGenerator";
 import { saveSequence } from "@/lib/sequences/sequence-service";
 import type { SequenceGenerationInput } from "@/lib/sequences/types";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "progressionRowId requis." }, { status: 400 });
     }
 
-    const { data: existing } = await supabase
+    const { data: existing } = await (await floraDb())
       .from("sequences")
       .select("id")
       .eq("progression_row_id", body.progressionRowId)

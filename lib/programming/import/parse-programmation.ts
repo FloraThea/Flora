@@ -110,7 +110,7 @@ export async function parseProgrammationFile(input: {
       .filter(Boolean)
       .map((line) => parseCsvLine(line, delimiter));
 
-    const parsedGrid = rowsFromGrid(sourceGrid, input.columnMapping);
+    const parsedGrid = rowsFromGrid(sourceGrid, input.columnMapping, { sourceSheet: activeSheetName });
     rows = parsedGrid.rows;
     columns = parsedGrid.headers;
     previewRows = parsedGrid.dataRows.slice(0, 8);
@@ -127,7 +127,9 @@ export async function parseProgrammationFile(input: {
     activeSheetName = workbook.sheetName;
     sourceGrid = workbook.grid;
 
-    const parsedGrid = rowsFromGrid(workbook.grid, input.columnMapping);
+    const parsedGrid = rowsFromGrid(workbook.grid, input.columnMapping, {
+      sourceSheet: workbook.sheetName,
+    });
     rows = parsedGrid.rows;
     columns = parsedGrid.headers;
     previewRows = parsedGrid.dataRows.slice(0, 8);
@@ -147,7 +149,7 @@ export async function parseProgrammationFile(input: {
       .filter(Boolean)
       .map((line) => parseCsvLine(line, delimiter));
 
-    const parsedGrid = rowsFromGrid(sourceGrid, input.columnMapping);
+    const parsedGrid = rowsFromGrid(sourceGrid, input.columnMapping, { sourceSheet: activeSheetName });
     rows = parsedGrid.rows;
     columns = parsedGrid.headers;
     previewRows = parsedGrid.dataRows.slice(0, 8);

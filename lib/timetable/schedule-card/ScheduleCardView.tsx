@@ -269,12 +269,12 @@ export function ScheduleCardView({
             {display.subSubject}
           </p>
         ) : null}
-        {display.complementaryText && typography.showSecondary ? (
+        {display.complementaryText && typography.showComplementaryText ? (
           <p
             className={`schedule-card-secondary mt-0.5 leading-snug opacity-95 ${
               isGrid ? "" : "text-xs font-light"
             }`}
-            style={isGrid ? { WebkitLineClamp: typography.compact ? 1 : 3 } : undefined}
+            style={isGrid ? { WebkitLineClamp: typography.complementaryLineClamp } : undefined}
           >
             {display.complementaryText}
           </p>

@@ -11,7 +11,7 @@ import {
 import { reportEngine } from "@/lib/journal/ReportEngine";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 
 const ROUTE_PATH = "/api/cahier-journal/adjustments";
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
         return jsonRouteError(ROUTE_PATH, 400, "adjustmentId et status requis.");
       }
 
-      const { data: adjustmentRow } = await supabase
+      const { data: adjustmentRow } = await (await floraDb())
         .from("journal_adjustments")
         .select("*")
         .eq("id", body.adjustmentId)

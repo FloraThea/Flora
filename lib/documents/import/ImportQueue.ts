@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { IMPORT_CONFIG } from "./config";
 import { documentAnalyzer } from "./DocumentAnalyzer";
 import { failImportPipeline, importErrorToApiPayload } from "./import-error-diagnostics";
@@ -33,14 +33,14 @@ function isDeferredJobReady(job: ImportJob): boolean {
 
 export class ImportQueue {
   async enqueue(documentId: string, sessionId?: string): Promise<ImportJob> {
-    const { count } = await supabase
+    const { count } = await (await floraDb())
       .from("document_import_jobs")
       .select("*", { count: "exact", head: true })
       .in("status", ["queued", "extracting", "ocr", "analyzing", "indexing", "waiting_ai"]);
 
     const queuePosition = (count ?? 0) + 1;
 
-    const { data, error } = await supabase
+    const { data, error } = await (await floraDb())
       .from("document_import_jobs")
       .insert({
         document_id: documentId,
@@ -69,7 +69,7 @@ export class ImportQueue {
   }
 
   async getJob(jobId: string): Promise<ImportJob | null> {
-    const { data } = await supabase
+    const { data } = await (await floraDb())
       .from("document_import_jobs")
       .select("*")
       .eq("id", jobId)
@@ -79,7 +79,7 @@ export class ImportQueue {
   }
 
   async getJobForDocument(documentId: string): Promise<ImportJob | null> {
-    const { data } = await supabase
+    const { data } = await (await floraDb())
       .from("document_import_jobs")
       .select("*")
       .eq("document_id", documentId)
@@ -91,7 +91,7 @@ export class ImportQueue {
   }
 
   async listActiveJobs(): Promise<ImportJob[]> {
-    const { data } = await supabase
+    const { data } = await (await floraDb())
       .from("document_import_jobs")
       .select("*")
       .in("status", ["queued", "extracting", "ocr", "analyzing", "indexing", "paused", "waiting_ai"])
@@ -101,14 +101,14 @@ export class ImportQueue {
   }
 
   async pauseJob(jobId: string): Promise<void> {
-    await supabase
+    await (await floraDb())
       .from("document_import_jobs")
       .update({ paused: true, status: "paused", updated_at: new Date().toISOString() })
       .eq("id", jobId);
   }
 
   async resumeJob(jobId: string): Promise<void> {
-    await supabase
+    await (await floraDb())
       .from("document_import_jobs")
       .update({ paused: false, status: "queued", updated_at: new Date().toISOString() })
       .eq("id", jobId);
@@ -116,25 +116,23 @@ export class ImportQueue {
   }
 
   async cancelJob(jobId: string): Promise<void> {
-    await supabase
+    await (await floraDb())
       .from("document_import_jobs")
       .update({ status: "cancelled", updated_at: new Date().toISOString() })
       .eq("id", jobId);
   }
 
   async reorder(jobIdsInOrder: string[]): Promise<void> {
+    const db = await floraDb();
     await Promise.all(
       jobIdsInOrder.map((jobId, index) =>
-        supabase
-          .from("document_import_jobs")
-          .update({ queue_position: index + 1 })
-          .eq("id", jobId),
+        db.from("document_import_jobs").update({ queue_position: index + 1 }).eq("id", jobId),
       ),
     );
   }
 
   async processDeferredReady(): Promise<void> {
-    const { data: deferredJobs } = await supabase
+    const { data: deferredJobs } = await (await floraDb())
       .from("document_import_jobs")
       .select("*")
       .eq("status", "waiting_ai")
@@ -145,7 +143,7 @@ export class ImportQueue {
     const ready = (deferredJobs ?? []).map(mapJob).find(isDeferredJobReady);
     if (!ready) return;
 
-    await supabase
+    await (await floraDb())
       .from("document_import_jobs")
       .update({
         status: "analyzing",
@@ -158,7 +156,7 @@ export class ImportQueue {
       await documentAnalyzer.analyzeDocument(ready.documentId, ready);
     } catch (error) {
       const payload = importErrorToApiPayload(error);
-      await supabase
+      await (await floraDb())
         .from("document_import_jobs")
         .update({
           status: "failed",
@@ -167,7 +165,7 @@ export class ImportQueue {
         })
         .eq("id", ready.id);
 
-      await supabase.from("documents").update({ status: "error" }).eq("id", ready.documentId);
+      await (await floraDb()).from("documents").update({ status: "error" }).eq("id", ready.documentId);
 
       await notificationManager.notify({
         documentId: ready.documentId,
@@ -185,7 +183,7 @@ export class ImportQueue {
     try {
       await this.processDeferredReady();
 
-      const { data: running } = await supabase
+      const { data: running } = await (await floraDb())
         .from("document_import_jobs")
         .select("id")
         .in("status", ["extracting", "ocr", "analyzing", "indexing"])
@@ -193,7 +191,7 @@ export class ImportQueue {
 
       if ((running?.length ?? 0) >= IMPORT_CONFIG.maxParallelJobs) return;
 
-      const { data: nextJob } = await supabase
+      const { data: nextJob } = await (await floraDb())
         .from("document_import_jobs")
         .select("*")
         .eq("status", "queued")
@@ -206,7 +204,7 @@ export class ImportQueue {
 
       const job = mapJob(nextJob);
 
-      await supabase
+      await (await floraDb())
         .from("document_import_jobs")
         .update({
           status: "extracting",
@@ -227,7 +225,7 @@ export class ImportQueue {
       } catch (error) {
         const payload = importErrorToApiPayload(error);
         const message = payload.error;
-        await supabase
+        await (await floraDb())
           .from("document_import_jobs")
           .update({
             status: "failed",
@@ -236,7 +234,7 @@ export class ImportQueue {
           })
           .eq("id", job.id);
 
-        await supabase.from("documents").update({ status: "error" }).eq("id", job.documentId);
+        await (await floraDb()).from("documents").update({ status: "error" }).eq("id", job.documentId);
 
         await notificationManager.notify({
           documentId: job.documentId,

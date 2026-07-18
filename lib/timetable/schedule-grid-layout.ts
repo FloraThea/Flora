@@ -9,8 +9,11 @@ export const VISUAL_BREAK_DURATION_MINUTES = 30;
 
 export const BREAK_SLOT_TYPES = new Set<string>(["recreation", "pause_meridienne"]);
 
-/** Seuil en dessous duquel la carte masque les infos secondaires (pas la taille de police). */
+/** Seuil en dessous duquel la carte masque les infos secondaires (pas le texte complémentaire). */
 export const COMPACT_SLOT_HEIGHT_PX = 44;
+
+/** Hauteur minimale quand un texte complémentaire est présent (évite le masquage). */
+export const MIN_SLOT_HEIGHT_WITH_COMPLEMENTARY_PX = 56;
 
 /** Marge interne entre cartes voisines dans une colonne. */
 export const SLOT_GAP_PX = 3;
@@ -283,7 +286,10 @@ export function layoutSlotsOnScale(
     const realDuration = slotDurationMinutes(slot);
     const visualDuration = getVisualDurationMinutes(slot);
     const topPx = getVisualTopPx(startMinutes, timeline);
-    const heightPx = durationToHeightPx(visualDuration, scale);
+    let heightPx = durationToHeightPx(visualDuration, scale);
+    if (slot.customText?.trim()) {
+      heightPx = Math.max(heightPx, MIN_SLOT_HEIGHT_WITH_COMPLEMENTARY_PX);
+    }
 
     positioned.push({
       slot,
@@ -292,7 +298,7 @@ export function layoutSlotsOnScale(
       heightPx,
       durationMinutes: realDuration,
       visualDurationMinutes: visualDuration,
-      compact: isCompactSlotHeight(heightPx),
+      compact: isCompactSlotHeight(heightPx) && !slot.customText?.trim(),
     });
   }
 

@@ -38,8 +38,8 @@ export async function buildImportStatusPayload(input: {
 
   let document = null;
   if (input.documentId || job?.documentId) {
-    const { supabase } = await import("@/lib/supabase");
-    const { data } = await supabase
+    const { floraDb } = await import("@/lib/supabase/get-db");
+    const { data } = await (await floraDb())
       .from("documents")
       .select("*")
       .eq("id", input.documentId ?? job?.documentId)

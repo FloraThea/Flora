@@ -1,5 +1,5 @@
 import type { FloraAccent } from "@/lib/theme";
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import {
   getProgrammationIdForCell,
@@ -15,9 +15,6 @@ import type {
   ValidationResult,
 } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 export async function saveProgrammation(input: {
   title: string;
@@ -53,7 +50,12 @@ export async function saveProgrammation(input: {
       timetable: input.generationInput.timetable,
       calendar_snapshot: input.calendarSnapshot,
       validation: input.validation,
-      status: input.validation.valid ? "validated" : "draft",
+      status:
+        input.importMeta?.sourceType === "imported"
+          ? "validated"
+          : input.validation.valid
+            ? "validated"
+            : "draft",
       source_type: input.importMeta?.sourceType ?? "generated",
       source_file_name: input.importMeta?.sourceFileName ?? "",
       source_storage_path: input.importMeta?.sourceStoragePath ?? "",
@@ -275,6 +277,19 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
   };
 }
 
+export async function listProgrammationsForProfile() {
+  const scope = await requireTeacherScope();
+
+  const { data, error } = await (await floraDb())
+    .from("programmations")
+    .select("id, title, school_year, matiere, methode, levels, status, created_at")
+    .eq("teacher_profile_id", scope.profileId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function listValidatedProgrammations() {
   const scope = await requireTeacherScope();
 
@@ -282,8 +297,7 @@ export async function listValidatedProgrammations() {
     .from("programmations")
     .select("id, title, school_year, matiere, methode, levels, status")
     .eq("teacher_profile_id", scope.profileId)
-    .eq("school_year", scope.schoolYear)
-    .eq("status", "validated")
+    .in("status", ["validated", "draft"])
     .order("created_at", { ascending: false });
 
   if (error) throw error;

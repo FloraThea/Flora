@@ -1,7 +1,7 @@
 import "server-only";
 
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import { enrichJournalPayload } from "./journal-view-flags";
 import { journalEntryGenerator } from "./JournalEntryGenerator";
 import { journalGenerator } from "./JournalGenerator";
@@ -12,9 +12,6 @@ import {
 } from "./journal-service";
 import type { JournalEntry, JournalMateriel, JournalPayload, JournalResources } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 export type JournalEntryRef = {
   entryId?: string;

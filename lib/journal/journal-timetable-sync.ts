@@ -2,7 +2,7 @@ import "server-only";
 
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { dailyPlanner } from "./DailyPlanner";
 import { findJournalByDate, loadJournalPayload } from "./journal-service";
 import { resolveJournalScheduleSlots } from "./journal-timetable";
@@ -181,7 +181,7 @@ export async function applyTimetableRefresh(date: string): Promise<TimetableRefr
       refreshedFromTimetableAt: new Date().toISOString(),
     };
 
-    await supabase.from("journal_entries").update(patch).eq("id", entry.id);
+    await (await floraDb()).from("journal_entries").update(patch).eq("id", entry.id);
   }
 
   return preview;

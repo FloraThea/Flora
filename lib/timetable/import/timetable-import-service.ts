@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { PostgrestError } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import {
   ensureActiveSchedule,
@@ -48,7 +48,7 @@ export async function loadSubjectMappingOverrides(
 ): Promise<Record<string, string>> {
   if (!teacherProfileId) return {};
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("subject_mappings")
     .select("raw_subject, mapped_subject")
     .eq("teacher_profile_id", teacherProfileId);
@@ -81,7 +81,7 @@ export async function saveSubjectMappings(
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabase.from("subject_mappings").upsert(rows, {
+  const { error } = await (await floraDb()).from("subject_mappings").upsert(rows, {
     onConflict: "teacher_profile_id,raw_subject",
   });
 
@@ -110,7 +110,7 @@ export async function saveImportedTimetable(
     scheduleId = base.schedule.id;
 
     if (input.scheduleName && input.scheduleName !== base.schedule.name) {
-      const { data, error } = await supabase
+      const { data, error } = await (await floraDb())
         .from("timetable_schedules")
         .insert({
           teacher_profile_id: profile?.id ?? null,
@@ -138,7 +138,7 @@ export async function saveImportedTimetable(
   }
 
   if (input.isPrimary && scheduleId) {
-    let deactivateQuery = supabase
+    let deactivateQuery = (await floraDb())
       .from("timetable_schedules")
       .update({ is_active: false })
       .neq("id", scheduleId);
@@ -146,7 +146,7 @@ export async function saveImportedTimetable(
       deactivateQuery = deactivateQuery.eq("teacher_profile_id", profile.id);
     }
     await deactivateQuery;
-    await supabase
+    await (await floraDb())
       .from("timetable_schedules")
       .update({ is_active: true, name: input.scheduleName, updated_at: new Date().toISOString() })
       .eq("id", scheduleId);
@@ -165,7 +165,7 @@ export async function saveImportedTimetable(
 
   const payload = await replaceScheduleSlots(scheduleId!, slots, "import_excel");
 
-  await supabase
+  await (await floraDb())
     .from("timetable_schedules")
     .update({
       name: input.scheduleName,

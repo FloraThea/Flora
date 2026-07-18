@@ -7,7 +7,7 @@ import {
 import { loadProgrammation } from "@/lib/programming/programmation-service";
 import { inferCycleFromLevels } from "@/lib/referentiel/bo-cycle-utils";
 import { loadReferentielCompetences } from "@/lib/referentiel/referentiel-service";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { ReferentielCompetence, ResourceContext } from "@/lib/programming/types";
 import { competenceSequencer } from "./CompetenceSequencer";
 import { learningPathEngine } from "./LearningPathEngine";
@@ -33,7 +33,7 @@ async function loadReferentiel(
 }
 
 async function loadResources(methode: string): Promise<ResourceContext[]> {
-  const { data: documents } = await supabase
+  const { data: documents } = await (await floraDb())
     .from("documents")
     .select("id, title, matiere, methode, document_type")
     .eq("status", "analysed");
@@ -48,8 +48,8 @@ async function loadResources(methode: string): Promise<ResourceContext[]> {
     }
 
     const [{ data: competences }, { data: entities }] = await Promise.all([
-      supabase.from("document_competences").select("competence").eq("document_id", document.id),
-      supabase
+      (await floraDb()).from("document_competences").select("competence").eq("document_id", document.id),
+      (await floraDb())
         .from("pedagogical_entities")
         .select("label, entity_type")
         .eq("document_id", document.id),

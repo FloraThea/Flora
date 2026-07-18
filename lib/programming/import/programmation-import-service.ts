@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 import { loadTeacherProfileForGeneration } from "@/lib/profile/profile-context";
 import { getDefaultTimetableFromProfile } from "@/lib/profile/profile-service";
@@ -118,7 +118,7 @@ export async function uploadImportSourceFile(
   const bucket = getStorageBucketName();
   const storagePath = buildProgrammationStoragePath(profileId, file.name);
 
-  const { error } = await supabase.storage.from(bucket).upload(storagePath, file, {
+  const { error } = await (await floraDb()).storage.from(bucket).upload(storagePath, file, {
     contentType: file.type || "application/octet-stream",
     upsert: false,
   });
@@ -127,6 +127,6 @@ export async function uploadImportSourceFile(
     throw new Error(getSupabaseErrorMessage(error, "Archivage du document source impossible."));
   }
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+  const { data } = (await floraDb()).storage.from(bucket).getPublicUrl(storagePath);
   return { storagePath, publicUrl: data.publicUrl };
 }

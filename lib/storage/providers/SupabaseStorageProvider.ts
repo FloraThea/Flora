@@ -1,6 +1,6 @@
 import "server-only";
 
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getStorageBucketName } from "@/lib/supabase/storage-config";
 import { failStorage } from "../storage-errors";
 import type {
@@ -65,7 +65,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     const { bytes, size } = await resolveBody(input.body);
 
     try {
-      const { error } = await supabase.storage.from(bucket).upload(input.key, bytes, {
+      const { error } = await (await floraDb()).storage.from(bucket).upload(input.key, bytes, {
         contentType,
         upsert: false,
       });
@@ -97,7 +97,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     const bucket = this.getBucket();
 
     try {
-      const { data, error } = await supabase.storage.from(bucket).download(key);
+      const { data, error } = await (await floraDb()).storage.from(bucket).download(key);
       if (error || !data) {
         throw error ?? new Error("Téléchargement Supabase Storage sans données.");
       }
@@ -118,7 +118,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     const bucket = this.getBucket();
 
     try {
-      const { error } = await supabase.storage.from(bucket).remove([key]);
+      const { error } = await (await floraDb()).storage.from(bucket).remove([key]);
       if (error) throw error;
     } catch (error) {
       failStorage(buildFailureContext("delete", key, bucket, context), error);
@@ -131,7 +131,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     try {
       const folder = key.includes("/") ? key.slice(0, key.lastIndexOf("/")) : "";
       const name = key.includes("/") ? key.slice(key.lastIndexOf("/") + 1) : key;
-      const { data, error } = await supabase.storage.from(bucket).list(folder, { search: name, limit: 1 });
+      const { data, error } = await (await floraDb()).storage.from(bucket).list(folder, { search: name, limit: 1 });
 
       if (error) throw error;
       return (data ?? []).some((item) => item.name === name);
@@ -144,7 +144,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     const bucket = this.getBucket();
 
     try {
-      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(
+      const { data, error } = await (await floraDb()).storage.from(bucket).createSignedUrl(
         key,
         options?.expiresInSeconds ?? 3600,
       );
@@ -189,7 +189,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     const bucket = this.getBucket();
 
     try {
-      const { data, error } = await supabase.storage.from(bucket).list(prefix, {
+      const { data, error } = await (await floraDb()).storage.from(bucket).list(prefix, {
         limit: options?.maxKeys ?? 1000,
       });
 

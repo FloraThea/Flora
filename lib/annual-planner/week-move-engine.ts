@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { CalendarSnapshot } from "@/lib/programming/types";
 import { findCalendarWeek } from "./types";
 import type { WeekMoveInput, WeekMoveResult } from "./types";
@@ -70,14 +70,14 @@ async function swapProgressionWeeks(input: {
   from: { periodNumber: number; weekNumber: number };
   to: { periodNumber: number; weekNumber: number };
 }) {
-  const { data: fromRows } = await supabase
+  const { data: fromRows } = await (await floraDb())
     .from("progression_rows")
     .select("id")
     .eq("progression_id", input.progressionId)
     .eq("period_number", input.from.periodNumber)
     .eq("week_number", input.from.weekNumber);
 
-  const { data: toRows } = await supabase
+  const { data: toRows } = await (await floraDb())
     .from("progression_rows")
     .select("id")
     .eq("progression_id", input.progressionId)
@@ -92,14 +92,14 @@ async function swapProgressionWeeks(input: {
   const tempWeek = -1;
 
   if (fromIds.length > 0) {
-    await supabase
+    await (await floraDb())
       .from("progression_rows")
       .update({ week_number: tempWeek, updated_at: new Date().toISOString() })
       .in("id", fromIds);
   }
 
   if (toIds.length > 0) {
-    await supabase
+    await (await floraDb())
       .from("progression_rows")
       .update({
         period_number: input.from.periodNumber,
@@ -110,7 +110,7 @@ async function swapProgressionWeeks(input: {
   }
 
   if (fromIds.length > 0) {
-    await supabase
+    await (await floraDb())
       .from("progression_rows")
       .update({
         period_number: input.to.periodNumber,
@@ -125,13 +125,13 @@ async function swapJournalWeeks(input: {
   from: { periodNumber: number; weekNumber: number; startDate: string; endDate: string };
   to: { periodNumber: number; weekNumber: number; startDate: string; endDate: string };
 }) {
-  const { data: fromEntries } = await supabase
+  const { data: fromEntries } = await (await floraDb())
     .from("journal_entries")
     .select("id, entry_date")
     .gte("entry_date", input.from.startDate)
     .lte("entry_date", input.from.endDate);
 
-  const { data: toEntries } = await supabase
+  const { data: toEntries } = await (await floraDb())
     .from("journal_entries")
     .select("id, entry_date")
     .gte("entry_date", input.to.startDate)
@@ -146,7 +146,7 @@ async function swapJournalWeeks(input: {
 
   for (const entry of fromEntries ?? []) {
     const newDate = shiftDate(String(entry.entry_date), dayOffset);
-    await supabase
+    await (await floraDb())
       .from("journal_entries")
       .update({
         entry_date: newDate,
@@ -159,7 +159,7 @@ async function swapJournalWeeks(input: {
 
   for (const entry of toEntries ?? []) {
     const newDate = shiftDate(String(entry.entry_date), -dayOffset);
-    await supabase
+    await (await floraDb())
       .from("journal_entries")
       .update({
         entry_date: newDate,

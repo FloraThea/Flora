@@ -9,6 +9,8 @@ function makeRow(overrides: Partial<ImportedProgrammationRow>): ImportedProgramm
     periodNumber: overrides.periodNumber ?? 1,
     weekNumber: overrides.weekNumber ?? 1,
     weekLabel: overrides.weekLabel ?? "S1",
+    calendarDate: overrides.calendarDate ?? null,
+    dayOfWeek: overrides.dayOfWeek ?? null,
     discipline: overrides.discipline ?? "",
     niveau: overrides.niveau ?? "",
     sequence: overrides.sequence ?? "Seq A",

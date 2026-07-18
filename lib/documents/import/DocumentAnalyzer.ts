@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { readDocumentStorageProvider, storageService } from "@/lib/storage";
 import { GeminiExhaustedError } from "@/lib/thea/services/gemini-errors";
 import { GEMINI_QUEUE_USER_MESSAGE } from "@/lib/thea/messages";
@@ -58,7 +58,7 @@ export class DocumentAnalyzer {
       return;
     }
 
-    const { data: documentRow, error } = await supabase
+    const { data: documentRow, error } = await (await floraDb())
       .from("documents")
       .select("*")
       .eq("id", documentId)
@@ -183,7 +183,7 @@ export class DocumentAnalyzer {
     job: ImportJob,
     checkpoint: AnalysisCheckpoint,
   ): Promise<void> {
-    const { data: documentRow, error } = await supabase
+    const { data: documentRow, error } = await (await floraDb())
       .from("documents")
       .select("*")
       .eq("id", documentId)
@@ -230,7 +230,7 @@ export class DocumentAnalyzer {
       );
     }
 
-    const { error: documentUpdateError } = await supabase
+    const { error: documentUpdateError } = await (await floraDb())
       .from("documents")
       .update({
         title: analysisResult.title || checkpoint.metadata.title || document.title,
@@ -345,7 +345,7 @@ export class DocumentAnalyzer {
       geminiDeferCount: nextDeferCount,
     };
 
-    await supabase
+    await (await floraDb())
       .from("documents")
       .update({
         status: "uploaded",
@@ -407,7 +407,7 @@ export class DocumentAnalyzer {
       updatePayload.metadata = patch.metadata;
     }
 
-    await supabase.from("document_import_jobs").update(updatePayload).eq("id", jobId);
+    await (await floraDb()).from("document_import_jobs").update(updatePayload).eq("id", jobId);
   }
 }
 

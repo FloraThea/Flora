@@ -6,6 +6,8 @@ export type ProgrammationImportFormat = "pdf" | "word" | "excel" | "csv" | "text
 export type ProgrammationColumnField =
   | "period"
   | "week"
+  | "date"
+  | "day"
   | "discipline"
   | "niveau"
   | "sequence"
@@ -26,6 +28,8 @@ export type ImportedProgrammationRow = {
   periodNumber: number | null;
   weekNumber: number | null;
   weekLabel: string;
+  calendarDate: string | null;
+  dayOfWeek: string | null;
   discipline: string;
   niveau: string;
   sequence: string;
@@ -41,6 +45,11 @@ export type ImportedProgrammationRow = {
   differenciation: string;
   domaine: string;
   rawLine: string;
+  sourceSheet?: string;
+  sourceRowIndex?: number;
+  rawCells?: string[];
+  parseConfidence?: number;
+  parseNotes?: string[];
 };
 
 export type ParsedProgrammationImport = {

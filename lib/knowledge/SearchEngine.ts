@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { IntelligentSearchResult } from "./types";
 
 function normalizeTerm(term: string): string {
@@ -29,7 +29,7 @@ export class SearchEngine {
 
     const tokens = normalizedQuery.split(" ").filter(Boolean);
 
-    const { data, error } = await supabase.from("knowledge_index").select(
+    const { data, error } = await (await floraDb()).from("knowledge_index").select(
       "document_id, term, normalized_term, category, weight",
     );
 
@@ -78,7 +78,7 @@ export class SearchEngine {
     const documentIds = [...scores.keys()];
     if (documentIds.length === 0) return [];
 
-    const { data: documents } = await supabase
+    const { data: documents } = await (await floraDb())
       .from("documents")
       .select("id, title, original_filename, resume, metadata")
       .in("id", documentIds);

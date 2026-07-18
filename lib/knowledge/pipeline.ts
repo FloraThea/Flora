@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { TextChunkDraft } from "@/lib/documents/types";
 import { chunkManager } from "./ChunkManager";
 import { competenceMatcher } from "./CompetenceMatcher";
@@ -18,21 +18,21 @@ import type {
 } from "./types";
 
 async function clearPreviousKnowledge(documentId: string) {
-  await supabase.from("knowledge_index").delete().eq("document_id", documentId);
-  await supabase.from("bo_competence_links").delete().eq("document_id", documentId);
-  await supabase.from("pedagogical_relations").delete().eq("document_id", documentId);
-  await supabase.from("pedagogical_entities").delete().eq("document_id", documentId);
+  await (await floraDb()).from("knowledge_index").delete().eq("document_id", documentId);
+  await (await floraDb()).from("bo_competence_links").delete().eq("document_id", documentId);
+  await (await floraDb()).from("pedagogical_relations").delete().eq("document_id", documentId);
+  await (await floraDb()).from("pedagogical_entities").delete().eq("document_id", documentId);
 }
 
 async function replaceSmartChunks(
   documentId: string,
   chunks: TextChunkDraft[],
 ): Promise<Array<{ id: string; chunk_index: number }>> {
-  await supabase.from("document_chunks").delete().eq("document_id", documentId);
+  await (await floraDb()).from("document_chunks").delete().eq("document_id", documentId);
 
   if (chunks.length === 0) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("document_chunks")
     .insert(
       chunks.map((chunk) => ({
@@ -79,7 +79,7 @@ async function persistKnowledge(
     },
   }));
 
-  const { data: insertedEntities, error: entityError } = await supabase
+  const { data: insertedEntities, error: entityError } = await (await floraDb())
     .from("pedagogical_entities")
     .insert(entityRows)
     .select("*");
@@ -106,7 +106,7 @@ async function persistKnowledge(
   );
 
   if (mappedRelations.length + inferredRelations.length > 0) {
-    await supabase
+    await (await floraDb())
       .from("pedagogical_relations")
       .insert([...mappedRelations, ...inferredRelations]);
   }
@@ -117,8 +117,8 @@ async function persistKnowledge(
   }));
 
   if (tagRows.length > 0) {
-    await supabase.from("document_tags").delete().eq("document_id", documentId);
-    await supabase.from("document_tags").insert(tagRows);
+    await (await floraDb()).from("document_tags").delete().eq("document_id", documentId);
+    await (await floraDb()).from("document_tags").insert(tagRows);
   }
 
   const boRows = result.boLinks
@@ -136,7 +136,7 @@ async function persistKnowledge(
     }));
 
   if (boRows.length > 0) {
-    await supabase.from("bo_competence_links").insert(boRows);
+    await (await floraDb()).from("bo_competence_links").insert(boRows);
   }
 
   const indexRows = result.indexEntries.map((entry) => ({
@@ -156,10 +156,10 @@ async function persistKnowledge(
   }));
 
   if (indexRows.length > 0) {
-    await supabase.from("knowledge_index").insert(indexRows);
+    await (await floraDb()).from("knowledge_index").insert(indexRows);
   }
 
-  await supabase
+  await (await floraDb())
     .from("documents")
     .update({
       document_type: result.parsedResource.documentType,
@@ -232,7 +232,7 @@ export async function runKnowledgePipeline(
 export async function getExplorerPayload(
   documentId: string,
 ): Promise<ExplorerPayload | null> {
-  const { data: document, error } = await supabase
+  const { data: document, error } = await (await floraDb())
     .from("documents")
     .select("*")
     .eq("id", documentId)
@@ -247,15 +247,15 @@ export async function getExplorerPayload(
     { data: relations },
     { data: boLinks },
   ] = await Promise.all([
-    supabase
+    (await floraDb())
       .from("document_chunks")
       .select("*")
       .eq("document_id", documentId)
       .order("chunk_index"),
-    supabase.from("pedagogical_entities").select("*").eq("document_id", documentId),
-    supabase.from("document_tags").select("*").eq("document_id", documentId),
-    supabase.from("pedagogical_relations").select("*").eq("document_id", documentId),
-    supabase.from("bo_competence_links").select("*").eq("document_id", documentId),
+    (await floraDb()).from("pedagogical_entities").select("*").eq("document_id", documentId),
+    (await floraDb()).from("document_tags").select("*").eq("document_id", documentId),
+    (await floraDb()).from("pedagogical_relations").select("*").eq("document_id", documentId),
+    (await floraDb()).from("bo_competence_links").select("*").eq("document_id", documentId),
   ]);
 
   const entityList = (entities ?? []) as StoredPedagogicalEntity[];

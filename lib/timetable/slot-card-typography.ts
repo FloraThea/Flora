@@ -13,13 +13,15 @@ export type SlotCardTypography = {
   secondaryPx: number;
   compact: boolean;
   showSecondary: boolean;
+  showComplementaryText: boolean;
   showTertiary: boolean;
   lineClamp: number;
+  complementaryLineClamp: number;
 };
 
 /**
- * Typographie uniforme : la hauteur de carte ne modifie jamais la taille de police.
- * Le mode compact masque uniquement les informations secondaires.
+ * Typographie uniforme : la hauteur de carte ne réduit jamais la taille de police.
+ * Le texte complémentaire reste toujours visible (jamais masqué en mode compact).
  */
 export function computeSlotCardTypography(heightPx: number): SlotCardTypography {
   const compact = heightPx < 44;
@@ -30,8 +32,10 @@ export function computeSlotCardTypography(heightPx: number): SlotCardTypography 
     secondaryPx: SCHEDULE_SECONDARY_FONT_SIZE_PX,
     compact,
     showSecondary: !compact,
+    showComplementaryText: true,
     showTertiary: !compact,
     lineClamp: compact ? 1 : 2,
+    complementaryLineClamp: compact ? 2 : 4,
   };
 }
 

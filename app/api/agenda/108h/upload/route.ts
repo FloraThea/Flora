@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 import { build108hStoragePath, getStorageBucketName } from "@/lib/supabase/storage-config";
 import { checkStorageBucketExists } from "@/lib/supabase/storage-health";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const storagePath = build108hStoragePath(bundle.profile.id, file.name);
     logRouteInfo(ROUTE_PATH, "Upload pièce jointe 108h", { storagePath });
 
-    const { error: uploadError } = await supabase.storage.from(bucket).upload(storagePath, file, {
+    const { error: uploadError } = await (await floraDb()).storage.from(bucket).upload(storagePath, file, {
       contentType: file.type || "application/octet-stream",
       upsert: false,
     });
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+    const { data: publicData } = (await floraDb()).storage.from(bucket).getPublicUrl(storagePath);
 
     return NextResponse.json({
       route: ROUTE_PATH,

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { resolveJournalTimetable } from "@/lib/journal/JournalTimetableResolver";
 import { getFrenchDayName, normalizeDayName } from "@/lib/journal/date-utils";
@@ -27,7 +27,7 @@ async function eventExists(
   sourceModule: string,
   sourceId: string,
 ): Promise<boolean> {
-  const { data } = await supabase
+  const { data } = await (await floraDb())
     .from("agenda_events")
     .select("id")
     .eq("teacher_profile_id", profileId)
@@ -56,7 +56,7 @@ async function insertSyncedEvent(input: {
   }
 
   const def = getEventTypeDefinition(input.eventType);
-  const { error } = await supabase.from("agenda_events").insert({
+  const { error } = await (await floraDb()).from("agenda_events").insert({
     teacher_profile_id: input.ctx.bundle.profile.id,
     school_year: input.ctx.bundle.profile.schoolYear,
     title: input.title,
@@ -97,7 +97,7 @@ function dateForPeriodWeek(
 export async function syncSeances(ctx: SyncContext): Promise<number> {
   let inserted = 0;
 
-  const { data: seances } = await supabase
+  const { data: seances } = await (await floraDb())
     .from("seances")
     .select("id, title, matiere, session_date, duree_minutes")
     .eq("teacher_profile_id", ctx.bundle.profile.id)
@@ -131,7 +131,7 @@ export async function syncSeances(ctx: SyncContext): Promise<number> {
 export async function syncCahierJournal(ctx: SyncContext): Promise<number> {
   let inserted = 0;
 
-  const { data: journals } = await supabase
+  const { data: journals } = await (await floraDb())
     .from("journals")
     .select("id, journal_date")
     .eq("teacher_profile_id", ctx.bundle.profile.id)
@@ -143,7 +143,7 @@ export async function syncCahierJournal(ctx: SyncContext): Promise<number> {
   const journalDates = new Map(journals.map((j) => [String(j.id), String(j.journal_date)]));
   const journalIds = journals.map((j) => j.id);
 
-  const { data: entries } = await supabase
+  const { data: entries } = await (await floraDb())
     .from("journal_entries")
     .select(
       "id, journal_id, entry_type, start_time, end_time, matiere, objectif, duree_minutes, seance_id, ritual_label, documents",
@@ -254,7 +254,7 @@ export async function syncRituels(ctx: SyncContext): Promise<number> {
 export async function syncProgressions(ctx: SyncContext): Promise<number> {
   let inserted = 0;
 
-  const { data: programmations } = await supabase
+  const { data: programmations } = await (await floraDb())
     .from("programmations")
     .select("id, title, school_year, calendar_snapshot")
     .eq("school_year", ctx.bundle.profile.schoolYear)
@@ -268,7 +268,7 @@ export async function syncProgressions(ctx: SyncContext): Promise<number> {
 
   const programmationIds = programmations.map((p) => p.id);
 
-  const { data: rows } = await supabase
+  const { data: rows } = await (await floraDb())
     .from("progression_rows")
     .select(
       "id, seance_label, competence_bo, period_number, week_number, programmation_id, tab_id, metadata",

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import {
   getImportedDisciplines,
   loadReferentielCompetences,
@@ -240,7 +240,7 @@ export class PedagogicalPlanner {
     matiere: string,
     methode: string,
   ): Promise<ResourceContext[]> {
-    const { data: documents, error } = await supabase
+    const { data: documents, error } = await (await floraDb())
       .from("documents")
       .select("id, title, matiere, methode, document_type, resume")
       .eq("status", "analysed");
@@ -268,11 +268,11 @@ export class PedagogicalPlanner {
 
     for (const document of filtered) {
       const [{ data: competences }, { data: entities }] = await Promise.all([
-        supabase
+        (await floraDb())
           .from("document_competences")
           .select("competence")
           .eq("document_id", document.id),
-        supabase
+        (await floraDb())
           .from("pedagogical_entities")
           .select("label, entity_type")
           .eq("document_id", document.id),

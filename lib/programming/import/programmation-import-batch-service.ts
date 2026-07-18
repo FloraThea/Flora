@@ -7,7 +7,7 @@ import { devLog } from "@/lib/logger";
 import { getOrCreateTeacherProfile } from "@/lib/profile/profile-service";
 import { storageService } from "@/lib/storage";
 import { getStorageProviderName, tryGetR2Config } from "@/lib/storage/config";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 import {
   buildProgrammationBatchStoragePath,
@@ -100,7 +100,7 @@ async function registerUploadedFile(input: {
   storagePath: string;
   fileSize: number;
 }): Promise<boolean> {
-  const { error: insertError } = await supabase.from("programming_import_files").insert({
+  const { error: insertError } = await (await floraDb()).from("programming_import_files").insert({
     id: input.fileId,
     batch_id: input.batchId,
     page_order: input.pageOrder,
@@ -123,7 +123,7 @@ async function registerUploadedFile(input: {
     return false;
   }
 
-  await supabase
+  await (await floraDb())
     .from("programming_import_batches")
     .update({ status: "uploading", updated_at: new Date().toISOString() })
     .eq("id", input.batchId);
@@ -140,7 +140,7 @@ export async function createProgrammingImportBatch(input?: {
 
   const batchId = input?.batchId ?? randomUUID();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("programming_import_batches")
     .insert({
       id: batchId,
@@ -459,7 +459,7 @@ export async function analyzeProgrammingImportBatch(
   let mergeMode: ImportBatchMergeMode = options?.mergeMode ?? "single_document";
   let files: FileRow[] = [];
 
-  const { data: batch, error: batchError } = await supabase
+  const { data: batch, error: batchError } = await (await floraDb())
     .from("programming_import_batches")
     .select("*")
     .eq("id", batchId)
@@ -467,7 +467,7 @@ export async function analyzeProgrammingImportBatch(
 
   if (batch && !batchError) {
     mergeMode = (batch as BatchRow).merge_mode ?? mergeMode;
-    await supabase
+    await (await floraDb())
       .from("programming_import_batches")
       .update({ status: "analyzing", updated_at: new Date().toISOString() })
       .eq("id", batchId);
@@ -476,7 +476,7 @@ export async function analyzeProgrammingImportBatch(
   if (options?.files?.length) {
     files = toFileRows(options.files, batchId);
   } else {
-    const { data: fileRows, error: filesError } = await supabase
+    const { data: fileRows, error: filesError } = await (await floraDb())
       .from("programming_import_files")
       .select("*")
       .eq("batch_id", batchId)
@@ -502,7 +502,7 @@ export async function analyzeProgrammingImportBatch(
   }> = [];
 
   for (const file of files) {
-    await supabase
+    await (await floraDb())
       .from("programming_import_files")
       .update({ analysis_status: "analyzing", updated_at: new Date().toISOString() })
       .eq("id", file.id);
@@ -518,7 +518,7 @@ export async function analyzeProgrammingImportBatch(
         parsed,
       });
 
-      await supabase
+      await (await floraDb())
         .from("programming_import_files")
         .update({
           analysis_status: "analyzed",
@@ -535,7 +535,7 @@ export async function analyzeProgrammingImportBatch(
       });
     } catch (error) {
       const message = mapProgrammingImportErrorMessage(error);
-      await supabase
+      await (await floraDb())
         .from("programming_import_files")
         .update({
           analysis_status: "error",
@@ -576,7 +576,7 @@ export async function analyzeProgrammingImportBatch(
       "Les fichiers restent téléversés. Vous pouvez réessayer l'analyse ou continuer vers l'étape suivante.",
     );
 
-    await supabase
+    await (await floraDb())
       .from("programming_import_batches")
       .update({
         status: "error",
@@ -588,7 +588,7 @@ export async function analyzeProgrammingImportBatch(
     return { parsed: emptyParsed, files: statuses };
   }
 
-  await supabase
+  await (await floraDb())
     .from("programming_import_batches")
     .update({
       status: pageResults.length > 0 ? "ready" : "error",
@@ -718,7 +718,7 @@ export async function analyzeProgrammingImportBatchInline(input: {
 }
 
 export async function loadProgrammingImportBatchDraft(batchId: string) {
-  const { data: batch, error } = await supabase
+  const { data: batch, error } = await (await floraDb())
     .from("programming_import_batches")
     .select("*")
     .eq("id", batchId)
@@ -726,7 +726,7 @@ export async function loadProgrammingImportBatchDraft(batchId: string) {
 
   if (error || !batch) throw new Error("Lot introuvable.");
 
-  const { data: files } = await supabase
+  const { data: files } = await (await floraDb())
     .from("programming_import_files")
     .select("*")
     .eq("batch_id", batchId)
@@ -746,7 +746,7 @@ export async function updateProgrammingImportBatchOrder(
       continue;
     }
 
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("programming_import_files")
       .update({
         page_order: index + 1,

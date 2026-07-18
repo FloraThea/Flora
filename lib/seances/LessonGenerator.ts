@@ -3,7 +3,7 @@ import { buildTheaInstructionBlock, loadTeacherProfileForGeneration } from "@/li
 import { loadProgrammation } from "@/lib/programming/programmation-service";
 import { inferCycleFromLevels } from "@/lib/referentiel/bo-cycle-utils";
 import { loadReferentielCompetences } from "@/lib/referentiel/referentiel-service";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { loadSequence } from "@/lib/sequences/sequence-service";
 import type { ProgressionRow } from "@/lib/progression/types";
 import type { ReferentielCompetence, ResourceContext } from "@/lib/programming/types";
@@ -36,7 +36,7 @@ async function loadReferentiel(
 async function loadResources(resourceIds: string[], methode: string): Promise<ResourceContext[]> {
   if (resourceIds.length === 0) return [];
 
-  const { data: documents } = await supabase
+  const { data: documents } = await (await floraDb())
     .from("documents")
     .select("id, title, matiere, methode, document_type")
     .in("id", resourceIds);
@@ -59,7 +59,7 @@ async function loadResources(resourceIds: string[], methode: string): Promise<Re
 }
 
 async function loadProgressionRow(rowId: string): Promise<ProgressionRow | null> {
-  const { data } = await supabase.from("progression_rows").select("*").eq("id", rowId).single();
+  const { data } = await (await floraDb()).from("progression_rows").select("*").eq("id", rowId).single();
   if (!data) return null;
 
   return {
@@ -93,7 +93,7 @@ export class LessonGenerator {
   async buildContext(sequenceSessionId: string): Promise<SeanceContext> {
     const teacherProfile = await loadTeacherProfileForGeneration();
 
-    const { data: sessionRow } = await supabase
+    const { data: sessionRow } = await (await floraDb())
       .from("sequence_sessions")
       .select("*")
       .eq("id", sequenceSessionId)
@@ -235,7 +235,7 @@ export class LessonGenerator {
     for (const session of sequencePayload.sessions) {
       if (!session.id) continue;
 
-      const { data: existing } = await supabase
+      const { data: existing } = await (await floraDb())
         .from("seances")
         .select("id")
         .eq("sequence_session_id", session.id)

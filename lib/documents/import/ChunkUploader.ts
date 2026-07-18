@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { storageService } from "@/lib/storage";
 import { failImportPipeline } from "./import-error-diagnostics";
 import { computeUploadProgress } from "./progress";
@@ -37,7 +37,7 @@ export class ChunkUploader {
     buffer: Buffer;
     expectedTotalChunks: number;
   }): Promise<ChunkUploadResult> {
-    const { data: sessionRow, error: sessionReadError } = await supabase
+    const { data: sessionRow, error: sessionReadError } = await (await floraDb())
       .from("document_upload_sessions")
       .select("uploaded_chunk_indexes, file_size, original_filename, total_chunks, content_type, storage_path, metadata")
       .eq("id", input.sessionId)
@@ -96,7 +96,7 @@ export class ChunkUploader {
     const checksum = computeBufferChecksum(input.buffer);
     const partRef = `${storageKey}#part-${partNumber}`;
 
-    const { error: chunkInsertError } = await supabase.from("document_upload_chunks").upsert(
+    const { error: chunkInsertError } = await (await floraDb()).from("document_upload_chunks").upsert(
       {
         session_id: input.sessionId,
         chunk_index: input.chunkIndex,
@@ -123,7 +123,7 @@ export class ChunkUploader {
     const indexes = new Set<number>(sessionRow?.uploaded_chunk_indexes ?? []);
     indexes.add(input.chunkIndex);
 
-    const { error: sessionUpdateError } = await supabase
+    const { error: sessionUpdateError } = await (await floraDb())
       .from("document_upload_sessions")
       .update({
         uploaded_chunk_indexes: [...indexes],
@@ -163,7 +163,7 @@ export class ChunkUploader {
   }
 
   async mergeSessionChunks(sessionId: string, finalStoragePath: string): Promise<void> {
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await (await floraDb())
       .from("document_upload_sessions")
       .select("*")
       .eq("id", sessionId)
@@ -191,7 +191,7 @@ export class ChunkUploader {
       );
     }
 
-    const { error: mergingUpdateError } = await supabase
+    const { error: mergingUpdateError } = await (await floraDb())
       .from("document_upload_sessions")
       .update({ status: "merging", updated_at: new Date().toISOString() })
       .eq("id", sessionId);
@@ -203,7 +203,7 @@ export class ChunkUploader {
       );
     }
 
-    const { data: chunkRows, error: chunkQueryError } = await supabase
+    const { data: chunkRows, error: chunkQueryError } = await (await floraDb())
       .from("document_upload_chunks")
       .select("chunk_index, checksum, size")
       .eq("session_id", sessionId)
@@ -296,7 +296,7 @@ export class ChunkUploader {
       );
     }
 
-    const { error: chunkDeleteError } = await supabase
+    const { error: chunkDeleteError } = await (await floraDb())
       .from("document_upload_chunks")
       .delete()
       .eq("session_id", sessionId);
@@ -308,7 +308,7 @@ export class ChunkUploader {
       );
     }
 
-    const { error: completedUpdateError } = await supabase
+    const { error: completedUpdateError } = await (await floraDb())
       .from("document_upload_sessions")
       .update({
         storage_path: storageKey,

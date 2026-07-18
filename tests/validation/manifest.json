@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "description": "Bibliothèque de validation permanente Flora — documents de référence officiels",
+  "documents": [
+    {
+      "id": "programmation_hda",
+      "category": "programmation",
+      "file": "programmation/Programmation_HDA_Editable_2026-2027.xlsx",
+      "expected": "resultats_attendus/programmation_hda.json",
+      "label": "Programmation HDA 2026-2027",
+      "schoolYear": "2026-2027"
+    },
+    {
+      "id": "progression_emc",
+      "category": "progression",
+      "file": "progression/Progression_EMC_Editable_2026-2027.xlsx",
+      "expected": "resultats_attendus/progression_emc.json",
+      "label": "Progression EMC 2026-2027",
+      "schoolYear": "2026-2027"
+    },
+    {
+      "id": "emploi_du_temps_rentree",
+      "category": "emploi_du_temps",
+      "file": "emploi_du_temps/emploi_du_temps_rentree.xlsx",
+      "expected": "resultats_attendus/emploi_du_temps_rentree.json",
+      "label": "Emploi du temps rentrée"
+    },
+    {
+      "id": "guide_mhm_ce1_ce2",
+      "category": "guides_maitre",
+      "file": "guides_maitre/MHM_CE1_CE2_GUIDE.pdf",
+      "expected": "resultats_attendus/guide_mhm_ce1_ce2.json",
+      "label": "MHM CE1 CE2 — Guide du maître"
+    }
+  ]
+}

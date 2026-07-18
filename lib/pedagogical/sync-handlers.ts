@@ -1,6 +1,6 @@
 import { runAgendaSync } from "@/lib/agenda/agenda-sync";
 import { journalPropagationService } from "@/lib/journal/JournalPropagationService";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import {
   getProgrammationIdForCell,
   propagateReferentielIdsToJournal,
@@ -28,7 +28,7 @@ export async function handleProgrammationModified(
   let journalEntries = 0;
 
   if (scope.progression) {
-    const { data: cell } = await supabase
+    const { data: cell } = await (await floraDb())
       .from("programming_cells")
       .select("competences")
       .eq("id", event.cellId)
@@ -43,7 +43,7 @@ export async function handleProgrammationModified(
     );
 
     if (scope.seances) {
-      const { data: rows } = await supabase
+      const { data: rows } = await (await floraDb())
         .from("progression_rows")
         .select("id")
         .eq("programming_cell_id", event.cellId);
@@ -76,7 +76,7 @@ export async function handleProgressionModified(
 ): Promise<number> {
   if (!scope.journal) return 0;
 
-  const { data: row } = await supabase
+  const { data: row } = await (await floraDb())
     .from("progression_rows")
     .select("programmation_id, referentiel_ids, competence_bo")
     .eq("id", event.rowId)
@@ -139,7 +139,7 @@ export async function handleWeekMoved(
   }
 
   if (scope.journal && event.progressionId) {
-    const { data: progression } = await supabase
+    const { data: progression } = await (await floraDb())
       .from("progressions")
       .select("programmation_id")
       .eq("id", event.progressionId)

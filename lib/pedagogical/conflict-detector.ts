@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type { PedagogicalConflict } from "./types";
@@ -30,7 +30,7 @@ export async function detectPedagogicalConflicts(): Promise<PedagogicalConflict[
 }
 
 async function detectSeanceWithoutCompetence(conflicts: PedagogicalConflict[]) {
-  const { data } = await supabase
+  const { data } = await (await floraDb())
     .from("seances")
     .select("id, titre")
     .or("competence_bo.is.null,competence_bo.eq.")
@@ -50,7 +50,7 @@ async function detectSeanceWithoutCompetence(conflicts: PedagogicalConflict[]) {
 }
 
 async function detectEmptyProgrammationCells(conflicts: PedagogicalConflict[]) {
-  const { data } = await supabase.from("programming_cells").select("id, content, competences, modules");
+  const { data } = await (await floraDb()).from("programming_cells").select("id, content, competences, modules");
 
   for (const cell of data ?? []) {
     const competences = (cell.competences as string[]) ?? [];
@@ -72,7 +72,7 @@ async function detectEmptyProgrammationCells(conflicts: PedagogicalConflict[]) {
 }
 
 async function detectDuplicateTimetableSlots(conflicts: PedagogicalConflict[]) {
-  const { data: slots } = await supabase
+  const { data: slots } = await (await floraDb())
     .from("timetable_slots")
     .select("id, day, start, end, subject, schedule_id");
 
@@ -100,7 +100,7 @@ async function detectSeancesDuringVacation(
   conflicts: PedagogicalConflict[],
   vacationRanges: Array<{ start: string; end: string }>,
 ) {
-  const { data: seances } = await supabase
+  const { data: seances } = await (await floraDb())
     .from("seances")
     .select("id, titre, session_date")
     .not("session_date", "is", null);
@@ -125,7 +125,7 @@ async function detectSeancesDuringVacation(
 }
 
 async function detectOverloadedWeeks(conflicts: PedagogicalConflict[]) {
-  const { data: rows } = await supabase
+  const { data: rows } = await (await floraDb())
     .from("progression_rows")
     .select("period_number, week_number");
 
@@ -152,7 +152,7 @@ async function detectOverloadedWeeks(conflicts: PedagogicalConflict[]) {
 }
 
 async function detectIncompleteProgressions(conflicts: PedagogicalConflict[]) {
-  const { data } = await supabase
+  const { data } = await (await floraDb())
     .from("progressions")
     .select("id, title, validation, status")
     .eq("status", "draft");
@@ -177,7 +177,7 @@ async function detectSessionsOnNonWorkingDays(
 ) {
   if (workingDays.length === 0) return;
 
-  const { data: slots } = await supabase.from("timetable_slots").select("id, day, subject");
+  const { data: slots } = await (await floraDb()).from("timetable_slots").select("id, day, subject");
 
   for (const slot of slots ?? []) {
     const day = String(slot.day);

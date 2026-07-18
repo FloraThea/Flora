@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { IMPORT_CONFIG } from "./config";
 import type { ImportNotification } from "./types";
 
@@ -11,7 +11,7 @@ export class NotificationManager {
   }): Promise<ImportNotification | null> {
     if (!IMPORT_CONFIG.notifications.enabled) return null;
 
-    const { data, error } = await supabase
+    const { data, error } = await (await floraDb())
       .from("document_import_notifications")
       .insert({
         document_id: input.documentId ?? null,
@@ -36,7 +36,7 @@ export class NotificationManager {
   }
 
   async listUnread(limit = 20): Promise<ImportNotification[]> {
-    const { data } = await supabase
+    const { data } = await (await floraDb())
       .from("document_import_notifications")
       .select("*")
       .eq("read", false)
@@ -55,7 +55,7 @@ export class NotificationManager {
   }
 
   async markRead(notificationId: string): Promise<void> {
-    await supabase
+    await (await floraDb())
       .from("document_import_notifications")
       .update({ read: true })
       .eq("id", notificationId);

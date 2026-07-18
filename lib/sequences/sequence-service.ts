@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import {
   insertWithOptionalColumnFallback,
   updateWithOptionalColumnFallback,
@@ -18,9 +18,6 @@ import type {
   StoredSequence,
 } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 async function insertSequenceRecord(input: {
   draft: SequenceDraft;

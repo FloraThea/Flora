@@ -1,0 +1,2166 @@
+{
+  "kind": "progression",
+  "fileName": "Progression_EMC_Editable_2026-2027.xlsx",
+  "sheetName": "Progression EMC",
+  "sheetNames": [
+    "Progression EMC"
+  ],
+  "sourceCellCount": 270,
+  "sourceCells": [
+    {
+      "row": 0,
+      "col": 0,
+      "value": "PROGRESSION EMC · CE1 · CE2 · 2026-2027"
+    },
+    {
+      "row": 0,
+      "col": 1,
+      "value": "PROGRESSION EMC · CE1 · CE2 · 2026-2027"
+    },
+    {
+      "row": 0,
+      "col": 2,
+      "value": "PROGRESSION EMC · CE1 · CE2 · 2026-2027"
+    },
+    {
+      "row": 0,
+      "col": 3,
+      "value": "PROGRESSION EMC · CE1 · CE2 · 2026-2027"
+    },
+    {
+      "row": 0,
+      "col": 4,
+      "value": "PROGRESSION EMC · CE1 · CE2 · 2026-2027"
+    },
+    {
+      "row": 2,
+      "col": 0,
+      "value": "PÉRIODE 1"
+    },
+    {
+      "row": 2,
+      "col": 1,
+      "value": "PÉRIODE 1"
+    },
+    {
+      "row": 2,
+      "col": 2,
+      "value": "PÉRIODE 1"
+    },
+    {
+      "row": 2,
+      "col": 3,
+      "value": "PÉRIODE 1"
+    },
+    {
+      "row": 2,
+      "col": 4,
+      "value": "PÉRIODE 1"
+    },
+    {
+      "row": 3,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 3,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 3,
+      "col": 2,
+      "value": "Domaine"
+    },
+    {
+      "row": 3,
+      "col": 3,
+      "value": "Séance"
+    },
+    {
+      "row": 3,
+      "col": 4,
+      "value": "Page"
+    },
+    {
+      "row": 4,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 4,
+      "col": 1,
+      "value": "07/09/2026"
+    },
+    {
+      "row": 4,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 4,
+      "col": 3,
+      "value": "1. Qui suis-je ?"
+    },
+    {
+      "row": 4,
+      "col": 4,
+      "value": "6"
+    },
+    {
+      "row": 5,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 5,
+      "col": 1,
+      "value": "14/09/2026"
+    },
+    {
+      "row": 5,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 5,
+      "col": 3,
+      "value": "2. Que veut dire « être différent » ?"
+    },
+    {
+      "row": 5,
+      "col": 4,
+      "value": "8"
+    },
+    {
+      "row": 6,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 6,
+      "col": 1,
+      "value": "21/09/2026"
+    },
+    {
+      "row": 6,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 6,
+      "col": 3,
+      "value": "3. Comment exprimer ses émotions ?"
+    },
+    {
+      "row": 6,
+      "col": 4,
+      "value": "10"
+    },
+    {
+      "row": 7,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 7,
+      "col": 1,
+      "value": "28/09/2026"
+    },
+    {
+      "row": 7,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 7,
+      "col": 3,
+      "value": "4. Comment prendre soin de soi ?"
+    },
+    {
+      "row": 7,
+      "col": 4,
+      "value": "12"
+    },
+    {
+      "row": 8,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 8,
+      "col": 1,
+      "value": "05/10/2026"
+    },
+    {
+      "row": 8,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 8,
+      "col": 3,
+      "value": "5. Pourquoi faut-il prendre soin de ses affaires ?"
+    },
+    {
+      "row": 8,
+      "col": 4,
+      "value": "14"
+    },
+    {
+      "row": 9,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 9,
+      "col": 1,
+      "value": "12/10/2026"
+    },
+    {
+      "row": 9,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 9,
+      "col": 3,
+      "value": "6. Quelles difficultés rencontrent les enfants handicapés ?"
+    },
+    {
+      "row": 9,
+      "col": 4,
+      "value": "16"
+    },
+    {
+      "row": 10,
+      "col": 0,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 10,
+      "col": 1,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 10,
+      "col": 2,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 10,
+      "col": 3,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 10,
+      "col": 4,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 12,
+      "col": 0,
+      "value": "PÉRIODE 2"
+    },
+    {
+      "row": 12,
+      "col": 1,
+      "value": "PÉRIODE 2"
+    },
+    {
+      "row": 12,
+      "col": 2,
+      "value": "PÉRIODE 2"
+    },
+    {
+      "row": 12,
+      "col": 3,
+      "value": "PÉRIODE 2"
+    },
+    {
+      "row": 12,
+      "col": 4,
+      "value": "PÉRIODE 2"
+    },
+    {
+      "row": 13,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 13,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 13,
+      "col": 2,
+      "value": "Domaine"
+    },
+    {
+      "row": 13,
+      "col": 3,
+      "value": "Séance"
+    },
+    {
+      "row": 13,
+      "col": 4,
+      "value": "Page"
+    },
+    {
+      "row": 14,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 14,
+      "col": 1,
+      "value": "02/11/2026"
+    },
+    {
+      "row": 14,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 14,
+      "col": 3,
+      "value": "7. Quels sont les symboles de la République française ?"
+    },
+    {
+      "row": 14,
+      "col": 4,
+      "value": "18"
+    },
+    {
+      "row": 15,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 15,
+      "col": 1,
+      "value": "09/11/2026"
+    },
+    {
+      "row": 15,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 15,
+      "col": 3,
+      "value": "8. Quelles sont les différentes croyances et convictions ?"
+    },
+    {
+      "row": 15,
+      "col": 4,
+      "value": "20"
+    },
+    {
+      "row": 16,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 16,
+      "col": 1,
+      "value": "16/11/2026"
+    },
+    {
+      "row": 16,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 16,
+      "col": 3,
+      "value": "9. Pourquoi doit-on être poli ?"
+    },
+    {
+      "row": 16,
+      "col": 4,
+      "value": "22"
+    },
+    {
+      "row": 17,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 17,
+      "col": 1,
+      "value": "23/11/2026"
+    },
+    {
+      "row": 17,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 17,
+      "col": 3,
+      "value": "10. Comment lutter contre le racisme ?"
+    },
+    {
+      "row": 17,
+      "col": 4,
+      "value": "24"
+    },
+    {
+      "row": 18,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 18,
+      "col": 1,
+      "value": "30/11/2026"
+    },
+    {
+      "row": 18,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 18,
+      "col": 3,
+      "value": "11. Comment travailler en équipe ?"
+    },
+    {
+      "row": 18,
+      "col": 4,
+      "value": "26"
+    },
+    {
+      "row": 19,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 19,
+      "col": 1,
+      "value": "07/12/2026"
+    },
+    {
+      "row": 19,
+      "col": 2,
+      "value": "Projet de classe"
+    },
+    {
+      "row": 19,
+      "col": 3,
+      "value": "Projet de classe : Réaliser un portrait et un autoportrait"
+    },
+    {
+      "row": 19,
+      "col": 4,
+      "value": "28"
+    },
+    {
+      "row": 20,
+      "col": 0,
+      "value": "S7"
+    },
+    {
+      "row": 20,
+      "col": 1,
+      "value": "14/12/2026"
+    },
+    {
+      "row": 20,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 20,
+      "col": 3,
+      "value": "12. Pourquoi y a-t-il des règles à l'école ?"
+    },
+    {
+      "row": 20,
+      "col": 4,
+      "value": "32"
+    },
+    {
+      "row": 21,
+      "col": 0,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 21,
+      "col": 1,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 21,
+      "col": 2,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 21,
+      "col": 3,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 21,
+      "col": 4,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 23,
+      "col": 0,
+      "value": "PÉRIODE 3"
+    },
+    {
+      "row": 23,
+      "col": 1,
+      "value": "PÉRIODE 3"
+    },
+    {
+      "row": 23,
+      "col": 2,
+      "value": "PÉRIODE 3"
+    },
+    {
+      "row": 23,
+      "col": 3,
+      "value": "PÉRIODE 3"
+    },
+    {
+      "row": 23,
+      "col": 4,
+      "value": "PÉRIODE 3"
+    },
+    {
+      "row": 24,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 24,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 24,
+      "col": 2,
+      "value": "Domaine"
+    },
+    {
+      "row": 24,
+      "col": 3,
+      "value": "Séance"
+    },
+    {
+      "row": 24,
+      "col": 4,
+      "value": "Page"
+    },
+    {
+      "row": 25,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 25,
+      "col": 1,
+      "value": "04/01/2027"
+    },
+    {
+      "row": 25,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 25,
+      "col": 3,
+      "value": "13. Les filles et les garçons sont-ils égaux ?"
+    },
+    {
+      "row": 25,
+      "col": 4,
+      "value": "34"
+    },
+    {
+      "row": 26,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 26,
+      "col": 1,
+      "value": "11/01/2027"
+    },
+    {
+      "row": 26,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 26,
+      "col": 3,
+      "value": "14. Quels sont les droits et les devoirs de l'élève ?"
+    },
+    {
+      "row": 26,
+      "col": 4,
+      "value": "36"
+    },
+    {
+      "row": 27,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 27,
+      "col": 1,
+      "value": "18/01/2027"
+    },
+    {
+      "row": 27,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 27,
+      "col": 3,
+      "value": "15. À quoi sert le conseil d'élèves ?"
+    },
+    {
+      "row": 27,
+      "col": 4,
+      "value": "38"
+    },
+    {
+      "row": 28,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 28,
+      "col": 1,
+      "value": "25/01/2027"
+    },
+    {
+      "row": 28,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 28,
+      "col": 3,
+      "value": "16. Quelles sont les règles dans la cour de récréation ?"
+    },
+    {
+      "row": 28,
+      "col": 4,
+      "value": "40"
+    },
+    {
+      "row": 29,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 29,
+      "col": 1,
+      "value": "01/02/2027"
+    },
+    {
+      "row": 29,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 29,
+      "col": 3,
+      "value": "17. Comment respecter les règles de prudence dans la rue ?"
+    },
+    {
+      "row": 29,
+      "col": 4,
+      "value": "42"
+    },
+    {
+      "row": 30,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 30,
+      "col": 1,
+      "value": "08/02/2027"
+    },
+    {
+      "row": 30,
+      "col": 2,
+      "value": "Projet de classe"
+    },
+    {
+      "row": 30,
+      "col": 3,
+      "value": "Projet de classe : Créer une affiche sur les droits de l'enfant ou les droits de l'être humain"
+    },
+    {
+      "row": 30,
+      "col": 4,
+      "value": "44"
+    },
+    {
+      "row": 31,
+      "col": 0,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 31,
+      "col": 1,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 31,
+      "col": 2,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 31,
+      "col": 3,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 31,
+      "col": 4,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 33,
+      "col": 0,
+      "value": "PÉRIODE 4"
+    },
+    {
+      "row": 33,
+      "col": 1,
+      "value": "PÉRIODE 4"
+    },
+    {
+      "row": 33,
+      "col": 2,
+      "value": "PÉRIODE 4"
+    },
+    {
+      "row": 33,
+      "col": 3,
+      "value": "PÉRIODE 4"
+    },
+    {
+      "row": 33,
+      "col": 4,
+      "value": "PÉRIODE 4"
+    },
+    {
+      "row": 34,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 34,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 34,
+      "col": 2,
+      "value": "Domaine"
+    },
+    {
+      "row": 34,
+      "col": 3,
+      "value": "Séance"
+    },
+    {
+      "row": 34,
+      "col": 4,
+      "value": "Page"
+    },
+    {
+      "row": 35,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 35,
+      "col": 1,
+      "value": "01/03/2027"
+    },
+    {
+      "row": 35,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 35,
+      "col": 3,
+      "value": "18. C'est quoi, être juste ?"
+    },
+    {
+      "row": 35,
+      "col": 4,
+      "value": "48"
+    },
+    {
+      "row": 36,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 36,
+      "col": 1,
+      "value": "08/03/2027"
+    },
+    {
+      "row": 36,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 36,
+      "col": 3,
+      "value": "19. C'est quoi, avoir des préjugés ?"
+    },
+    {
+      "row": 36,
+      "col": 4,
+      "value": "50"
+    },
+    {
+      "row": 37,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 37,
+      "col": 1,
+      "value": "15/03/2027"
+    },
+    {
+      "row": 37,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 37,
+      "col": 3,
+      "value": "20. Qu'est-ce qu'un dilemme moral ?"
+    },
+    {
+      "row": 37,
+      "col": 4,
+      "value": "52"
+    },
+    {
+      "row": 38,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 38,
+      "col": 1,
+      "value": "22/03/2027"
+    },
+    {
+      "row": 38,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 38,
+      "col": 3,
+      "value": "21. Qu'est-ce que la laïcité à l'école ?"
+    },
+    {
+      "row": 38,
+      "col": 4,
+      "value": "54"
+    },
+    {
+      "row": 39,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 39,
+      "col": 1,
+      "value": "29/03/2027"
+    },
+    {
+      "row": 39,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 39,
+      "col": 3,
+      "value": "22. Croire ou savoir ?"
+    },
+    {
+      "row": 39,
+      "col": 4,
+      "value": "56"
+    },
+    {
+      "row": 40,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 40,
+      "col": 1,
+      "value": "05/04/2027"
+    },
+    {
+      "row": 40,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 40,
+      "col": 3,
+      "value": "23. Comment respecter les biens communs ?"
+    },
+    {
+      "row": 40,
+      "col": 4,
+      "value": "58"
+    },
+    {
+      "row": 41,
+      "col": 0,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 41,
+      "col": 1,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 41,
+      "col": 2,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 41,
+      "col": 3,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 41,
+      "col": 4,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 43,
+      "col": 0,
+      "value": "PÉRIODE 5"
+    },
+    {
+      "row": 43,
+      "col": 1,
+      "value": "PÉRIODE 5"
+    },
+    {
+      "row": 43,
+      "col": 2,
+      "value": "PÉRIODE 5"
+    },
+    {
+      "row": 43,
+      "col": 3,
+      "value": "PÉRIODE 5"
+    },
+    {
+      "row": 43,
+      "col": 4,
+      "value": "PÉRIODE 5"
+    },
+    {
+      "row": 44,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 44,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 44,
+      "col": 2,
+      "value": "Domaine"
+    },
+    {
+      "row": 44,
+      "col": 3,
+      "value": "Séance"
+    },
+    {
+      "row": 44,
+      "col": 4,
+      "value": "Page"
+    },
+    {
+      "row": 45,
+      "col": 0,
+      "value": "⚠️ Le 24/05/2027 est férié (Lundi de Pentecôte), ce qui ne laisse que 9 lundis réels dans cette période au lieu des 10 séances prévues dans le document source. La 10ᵉ séance (Synthèse) est signalée ci-dessous comme excédentaire, à repositionner selon votre organisation."
+    },
+    {
+      "row": 45,
+      "col": 1,
+      "value": "⚠️ Le 24/05/2027 est férié (Lundi de Pentecôte), ce qui ne laisse que 9 lundis réels dans cette période au lieu des 10 séances prévues dans le document source. La 10ᵉ séance (Synthèse) est signalée ci-dessous comme excédentaire, à repositionner selon votre organisation."
+    },
+    {
+      "row": 45,
+      "col": 2,
+      "value": "⚠️ Le 24/05/2027 est férié (Lundi de Pentecôte), ce qui ne laisse que 9 lundis réels dans cette période au lieu des 10 séances prévues dans le document source. La 10ᵉ séance (Synthèse) est signalée ci-dessous comme excédentaire, à repositionner selon votre organisation."
+    },
+    {
+      "row": 45,
+      "col": 3,
+      "value": "⚠️ Le 24/05/2027 est férié (Lundi de Pentecôte), ce qui ne laisse que 9 lundis réels dans cette période au lieu des 10 séances prévues dans le document source. La 10ᵉ séance (Synthèse) est signalée ci-dessous comme excédentaire, à repositionner selon votre organisation."
+    },
+    {
+      "row": 45,
+      "col": 4,
+      "value": "⚠️ Le 24/05/2027 est férié (Lundi de Pentecôte), ce qui ne laisse que 9 lundis réels dans cette période au lieu des 10 séances prévues dans le document source. La 10ᵉ séance (Synthèse) est signalée ci-dessous comme excédentaire, à repositionner selon votre organisation."
+    },
+    {
+      "row": 46,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 46,
+      "col": 1,
+      "value": "26/04/2027"
+    },
+    {
+      "row": 46,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 46,
+      "col": 3,
+      "value": "24. Comment donner son avis ?"
+    },
+    {
+      "row": 46,
+      "col": 4,
+      "value": "66"
+    },
+    {
+      "row": 47,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 47,
+      "col": 1,
+      "value": "03/05/2027"
+    },
+    {
+      "row": 47,
+      "col": 2,
+      "value": "Projet de classe"
+    },
+    {
+      "row": 47,
+      "col": 3,
+      "value": "Projet de classe : Mener un débat « Les filles et les garçons sont-ils égaux ? »"
+    },
+    {
+      "row": 47,
+      "col": 4,
+      "value": "68"
+    },
+    {
+      "row": 48,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 48,
+      "col": 1,
+      "value": "10/05/2027"
+    },
+    {
+      "row": 48,
+      "col": 2,
+      "value": "Réfléchir / Débattre"
+    },
+    {
+      "row": 48,
+      "col": 3,
+      "value": "25. C'est quoi, l'engagement ?"
+    },
+    {
+      "row": 48,
+      "col": 4,
+      "value": "70"
+    },
+    {
+      "row": 49,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 49,
+      "col": 1,
+      "value": "17/05/2027"
+    },
+    {
+      "row": 49,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 49,
+      "col": 3,
+      "value": "26. Qu'est-ce que la fraternité et la solidarité ?"
+    },
+    {
+      "row": 49,
+      "col": 4,
+      "value": "72"
+    },
+    {
+      "row": 50,
+      "col": 0,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte (férié)"
+    },
+    {
+      "row": 50,
+      "col": 1,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte (férié)"
+    },
+    {
+      "row": 50,
+      "col": 2,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte (férié)"
+    },
+    {
+      "row": 50,
+      "col": 3,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte (férié)"
+    },
+    {
+      "row": 50,
+      "col": 4,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte (férié)"
+    },
+    {
+      "row": 51,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 51,
+      "col": 1,
+      "value": "31/05/2027"
+    },
+    {
+      "row": 51,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 51,
+      "col": 3,
+      "value": "27. Comment élire les délégués de classe ?"
+    },
+    {
+      "row": 51,
+      "col": 4,
+      "value": "74"
+    },
+    {
+      "row": 52,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 52,
+      "col": 1,
+      "value": "07/06/2027"
+    },
+    {
+      "row": 52,
+      "col": 2,
+      "value": "Découvrir / Enquêter"
+    },
+    {
+      "row": 52,
+      "col": 3,
+      "value": "28. Comment s'impliquer dans la vie de l'école ?"
+    },
+    {
+      "row": 52,
+      "col": 4,
+      "value": "76"
+    },
+    {
+      "row": 53,
+      "col": 0,
+      "value": "S7"
+    },
+    {
+      "row": 53,
+      "col": 1,
+      "value": "14/06/2027"
+    },
+    {
+      "row": 53,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 53,
+      "col": 3,
+      "value": "29. Comment lutter contre le gaspillage ?"
+    },
+    {
+      "row": 53,
+      "col": 4,
+      "value": "78"
+    },
+    {
+      "row": 54,
+      "col": 0,
+      "value": "S8"
+    },
+    {
+      "row": 54,
+      "col": 1,
+      "value": "21/06/2027"
+    },
+    {
+      "row": 54,
+      "col": 2,
+      "value": "Agir / S'engager"
+    },
+    {
+      "row": 54,
+      "col": 3,
+      "value": "30. Comment réagir en cas de danger ?"
+    },
+    {
+      "row": 54,
+      "col": 4,
+      "value": "80"
+    },
+    {
+      "row": 55,
+      "col": 0,
+      "value": "S9"
+    },
+    {
+      "row": 55,
+      "col": 1,
+      "value": "28/06/2027"
+    },
+    {
+      "row": 55,
+      "col": 2,
+      "value": "Projet de classe"
+    },
+    {
+      "row": 55,
+      "col": 3,
+      "value": "Projet de classe : Préparer un jardin d'école"
+    },
+    {
+      "row": 55,
+      "col": 4,
+      "value": "82"
+    },
+    {
+      "row": 56,
+      "col": 0,
+      "value": "⚠️"
+    },
+    {
+      "row": 56,
+      "col": 1,
+      "value": "à placer"
+    },
+    {
+      "row": 56,
+      "col": 2,
+      "value": "Synthèse"
+    },
+    {
+      "row": 56,
+      "col": 3,
+      "value": "Réinvestissement / Bilan annuel EMC"
+    },
+    {
+      "row": 56,
+      "col": 4,
+      "value": "84"
+    },
+    {
+      "row": 57,
+      "col": 0,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 57,
+      "col": 1,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 57,
+      "col": 2,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 57,
+      "col": 3,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 57,
+      "col": 4,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 0,
+      "value": "Couleurs par domaine :  Réfléchir/Débattre ·  Découvrir/Enquêter ·  Agir/S'engager ·  Projet de classe ·  Synthèse  ·   Rouge = séance en surplus (à repositionner)  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 1,
+      "value": "Couleurs par domaine :  Réfléchir/Débattre ·  Découvrir/Enquêter ·  Agir/S'engager ·  Projet de classe ·  Synthèse  ·   Rouge = séance en surplus (à repositionner)  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 2,
+      "value": "Couleurs par domaine :  Réfléchir/Débattre ·  Découvrir/Enquêter ·  Agir/S'engager ·  Projet de classe ·  Synthèse  ·   Rouge = séance en surplus (à repositionner)  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 3,
+      "value": "Couleurs par domaine :  Réfléchir/Débattre ·  Découvrir/Enquêter ·  Agir/S'engager ·  Projet de classe ·  Synthèse  ·   Rouge = séance en surplus (à repositionner)  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 4,
+      "value": "Couleurs par domaine :  Réfléchir/Débattre ·  Découvrir/Enquêter ·  Agir/S'engager ·  Projet de classe ·  Synthèse  ·   Rouge = séance en surplus (à repositionner)  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    }
+  ],
+  "headerRowIndex": 44,
+  "columns": [
+    "Semaine",
+    "Date",
+    "Domaine",
+    "Séance",
+    "Page"
+  ],
+  "stats": {
+    "dataRowCount": 34,
+    "parsedRowCount": 34,
+    "periodCount": 0,
+    "weekCount": 9,
+    "dateCount": 34,
+    "dayCount": 1,
+    "sequenceCount": 0,
+    "seanceCount": 34,
+    "disciplineCount": 1
+  },
+  "rows": [
+    {
+      "sourceRowIndex": 4,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-09-07",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 1,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "1. Qui suis-je ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "07/09/2026",
+        "Réfléchir / Débattre",
+        "1. Qui suis-je ?",
+        "6"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 5,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-09-14",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 2,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "2. Que veut dire « être différent » ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "14/09/2026",
+        "Réfléchir / Débattre",
+        "2. Que veut dire « être différent » ?",
+        "8"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 6,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-09-21",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 3,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "3. Comment exprimer ses émotions ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "21/09/2026",
+        "Réfléchir / Débattre",
+        "3. Comment exprimer ses émotions ?",
+        "10"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 7,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-09-28",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 4,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "4. Comment prendre soin de soi ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "28/09/2026",
+        "Découvrir / Enquêter",
+        "4. Comment prendre soin de soi ?",
+        "12"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 8,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-10-05",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 5,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "5. Pourquoi faut-il prendre soin de ses affaires ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "05/10/2026",
+        "Découvrir / Enquêter",
+        "5. Pourquoi faut-il prendre soin de ses affaires ?",
+        "14"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 9,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-10-12",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 6,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "6. Quelles difficultés rencontrent les enfants handicapés ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "12/10/2026",
+        "Découvrir / Enquêter",
+        "6. Quelles difficultés rencontrent les enfants handicapés ?",
+        "16"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 14,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-11-02",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 1,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "7. Quels sont les symboles de la République française ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "02/11/2026",
+        "Découvrir / Enquêter",
+        "7. Quels sont les symboles de la République française ?",
+        "18"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 15,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-11-09",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 2,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "8. Quelles sont les différentes croyances et convictions ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "09/11/2026",
+        "Découvrir / Enquêter",
+        "8. Quelles sont les différentes croyances et convictions ?",
+        "20"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 16,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-11-16",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 3,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "9. Pourquoi doit-on être poli ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "16/11/2026",
+        "Agir / S'engager",
+        "9. Pourquoi doit-on être poli ?",
+        "22"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 17,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-11-23",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 4,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "10. Comment lutter contre le racisme ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "23/11/2026",
+        "Agir / S'engager",
+        "10. Comment lutter contre le racisme ?",
+        "24"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 18,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-11-30",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 5,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "11. Comment travailler en équipe ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "30/11/2026",
+        "Agir / S'engager",
+        "11. Comment travailler en équipe ?",
+        "26"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 19,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-12-07",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 6,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "Projet de classe : Réaliser un portrait et un autoportrait",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "07/12/2026",
+        "Projet de classe",
+        "Projet de classe : Réaliser un portrait et un autoportrait",
+        "28"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 20,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2026-12-14",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 7,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "12. Pourquoi y a-t-il des règles à l'école ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S7",
+        "14/12/2026",
+        "Réfléchir / Débattre",
+        "12. Pourquoi y a-t-il des règles à l'école ?",
+        "32"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 25,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-01-04",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 1,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "13. Les filles et les garçons sont-ils égaux ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "04/01/2027",
+        "Réfléchir / Débattre",
+        "13. Les filles et les garçons sont-ils égaux ?",
+        "34"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 26,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-01-11",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 2,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "14. Quels sont les droits et les devoirs de l'élève ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "11/01/2027",
+        "Découvrir / Enquêter",
+        "14. Quels sont les droits et les devoirs de l'élève ?",
+        "36"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 27,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-01-18",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 3,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "15. À quoi sert le conseil d'élèves ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "18/01/2027",
+        "Découvrir / Enquêter",
+        "15. À quoi sert le conseil d'élèves ?",
+        "38"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 28,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-01-25",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 4,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "16. Quelles sont les règles dans la cour de récréation ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "25/01/2027",
+        "Agir / S'engager",
+        "16. Quelles sont les règles dans la cour de récréation ?",
+        "40"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 29,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-02-01",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 5,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "17. Comment respecter les règles de prudence dans la rue ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "01/02/2027",
+        "Agir / S'engager",
+        "17. Comment respecter les règles de prudence dans la rue ?",
+        "42"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 30,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-02-08",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 6,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "Projet de classe : Créer une affiche sur les droits de l'enfant ou les droits de l'être humain",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "08/02/2027",
+        "Projet de classe",
+        "Projet de classe : Créer une affiche sur les droits de l'enfant ou les droits de l'être humain",
+        "44"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 35,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-03-01",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 1,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "18. C'est quoi, être juste ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "01/03/2027",
+        "Réfléchir / Débattre",
+        "18. C'est quoi, être juste ?",
+        "48"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 36,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-03-08",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 2,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "19. C'est quoi, avoir des préjugés ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "08/03/2027",
+        "Réfléchir / Débattre",
+        "19. C'est quoi, avoir des préjugés ?",
+        "50"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 37,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-03-15",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 3,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "20. Qu'est-ce qu'un dilemme moral ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "15/03/2027",
+        "Réfléchir / Débattre",
+        "20. Qu'est-ce qu'un dilemme moral ?",
+        "52"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 38,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-03-22",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 4,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "21. Qu'est-ce que la laïcité à l'école ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "22/03/2027",
+        "Découvrir / Enquêter",
+        "21. Qu'est-ce que la laïcité à l'école ?",
+        "54"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 39,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-03-29",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 5,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "22. Croire ou savoir ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "29/03/2027",
+        "Découvrir / Enquêter",
+        "22. Croire ou savoir ?",
+        "56"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 40,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-04-05",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 6,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "23. Comment respecter les biens communs ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "05/04/2027",
+        "Agir / S'engager",
+        "23. Comment respecter les biens communs ?",
+        "58"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 46,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-04-26",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 1,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "24. Comment donner son avis ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "26/04/2027",
+        "Agir / S'engager",
+        "24. Comment donner son avis ?",
+        "66"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 47,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-05-03",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 2,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "Projet de classe : Mener un débat « Les filles et les garçons sont-ils égaux ? »",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "03/05/2027",
+        "Projet de classe",
+        "Projet de classe : Mener un débat « Les filles et les garçons sont-ils égaux ? »",
+        "68"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 48,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-05-10",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 3,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "25. C'est quoi, l'engagement ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "10/05/2027",
+        "Réfléchir / Débattre",
+        "25. C'est quoi, l'engagement ?",
+        "70"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 49,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-05-17",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 4,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "26. Qu'est-ce que la fraternité et la solidarité ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "17/05/2027",
+        "Découvrir / Enquêter",
+        "26. Qu'est-ce que la fraternité et la solidarité ?",
+        "72"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 51,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-05-31",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 5,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "27. Comment élire les délégués de classe ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "31/05/2027",
+        "Agir / S'engager",
+        "27. Comment élire les délégués de classe ?",
+        "74"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 52,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-06-07",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 6,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "28. Comment s'impliquer dans la vie de l'école ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "07/06/2027",
+        "Découvrir / Enquêter",
+        "28. Comment s'impliquer dans la vie de l'école ?",
+        "76"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 53,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-06-14",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 7,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "29. Comment lutter contre le gaspillage ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S7",
+        "14/06/2027",
+        "Agir / S'engager",
+        "29. Comment lutter contre le gaspillage ?",
+        "78"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 54,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-06-21",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 8,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "30. Comment réagir en cas de danger ?",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S8",
+        "21/06/2027",
+        "Agir / S'engager",
+        "30. Comment réagir en cas de danger ?",
+        "80"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    },
+    {
+      "sourceRowIndex": 55,
+      "sourceSheet": "Progression EMC",
+      "calendarDate": "2027-06-28",
+      "dayOfWeek": "lundi",
+      "periodNumber": null,
+      "weekNumber": 9,
+      "discipline": "EMC",
+      "sequence": "",
+      "seance": "Projet de classe : Préparer un jardin d'école",
+      "objectif": "",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S9",
+        "28/06/2027",
+        "Projet de classe",
+        "Projet de classe : Préparer un jardin d'école",
+        "82"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": null
+    }
+  ],
+  "warnings": [],
+  "needsColumnMapping": false
+}

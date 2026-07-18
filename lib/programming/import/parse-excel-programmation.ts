@@ -1,6 +1,7 @@
 import "server-only";
 
 import * as XLSX from "xlsx";
+import { parseCalendarDateCell } from "./spreadsheet-deterministic";
 
 export type ProgrammationWorkbookData = {
   sheetNames: string[];
@@ -51,17 +52,40 @@ function readSheetGrid(sheet: XLSX.WorkSheet): string[][] {
     for (let c = range.s.c; c <= range.e.c; c += 1) {
       const addr = XLSX.utils.encode_cell({ r, c });
       const cell = sheet[addr];
-      const value = cell?.w ?? cell?.v;
-      grid[r - range.s.r][c - range.s.c] =
-        value === undefined || value === null ? "" : String(value).trim();
+      let text = "";
+      if (cell) {
+        if (cell.t === "d" && cell.v instanceof Date) {
+          text = cell.v.toISOString().slice(0, 10);
+        } else if (cell.t === "n" && typeof cell.v === "number") {
+          const iso = parseCalendarDateCell("", cell.v);
+          text = iso ?? (cell.w ?? String(cell.v)).trim();
+        } else {
+          const value = cell.w ?? cell.v;
+          text = value === undefined || value === null ? "" : String(value).trim();
+          if (!text && typeof cell.v === "number") {
+            const iso = parseCalendarDateCell("", cell.v);
+            if (iso) text = iso;
+          }
+        }
+      }
+      grid[r - range.s.r][c - range.s.c] = text;
     }
   }
 
   const merges = sheet["!merges"] ?? [];
   for (const merge of merges) {
     const topLeft = sheet[XLSX.utils.encode_cell({ r: merge.s.r, c: merge.s.c })];
-    const value = topLeft?.w ?? topLeft?.v ?? "";
-    const text = value === undefined || value === null ? "" : String(value).trim();
+    let text = "";
+    if (topLeft) {
+      if (topLeft.t === "d" && topLeft.v instanceof Date) {
+        text = topLeft.v.toISOString().slice(0, 10);
+      } else if (topLeft.t === "n" && typeof topLeft.v === "number") {
+        text = parseCalendarDateCell("", topLeft.v) ?? String(topLeft.w ?? topLeft.v).trim();
+      } else {
+        const value = topLeft.w ?? topLeft.v ?? "";
+        text = value === undefined || value === null ? "" : String(value).trim();
+      }
+    }
 
     for (let r = merge.s.r; r <= merge.e.r; r += 1) {
       for (let c = merge.s.c; c <= merge.e.c; c += 1) {

@@ -160,7 +160,7 @@ export function TimetableGrid({
               {dayPositions.map(({ slot, topPx, heightPx }) => (
                 <div
                   key={slot.id}
-                  className="absolute inset-x-0.5 overflow-hidden"
+                  className="absolute inset-x-0.5 overflow-visible"
                   style={{
                     top: topPx,
                     height: heightPx,

@@ -7,7 +7,7 @@ import {
   toErrorMessage,
 } from "@/lib/api/route-diagnostics";
 import { DocumentExtractionError, extractTextFromFile } from "@/lib/documents/extract-text";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getStorageBucketName } from "@/lib/supabase/storage-config";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
     const filePath = `${Date.now()}-${file.name}`;
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await (await floraDb()).storage
       .from(getStorageBucketName())
       .upload(filePath, file, {
         contentType: file.type,
@@ -118,7 +118,7 @@ ${text.slice(0, 12000)}
 
     const analyse = JSON.parse(safeJson) as Record<string, unknown>;
 
-    const { data, error: insertError } = await supabase
+    const { data, error: insertError } = await (await floraDb())
       .from("resources")
       .insert({
         nom: String(analyse.nom || file.name),

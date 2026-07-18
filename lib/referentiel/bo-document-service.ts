@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 import { buildBoStoragePath, getStorageBucketName } from "@/lib/supabase/storage-config";
 import { checkStorageBucketExists } from "@/lib/supabase/storage-health";
@@ -26,7 +26,7 @@ export async function tryUploadBoFileOptional(file: File): Promise<BoFileUploadR
   }
 
   const storagePath = buildBoStoragePath(file.name);
-  const { error } = await supabase.storage.from(bucket).upload(storagePath, file, {
+  const { error } = await (await floraDb()).storage.from(bucket).upload(storagePath, file, {
     contentType: file.type || "application/pdf",
     upsert: false,
   });
@@ -94,7 +94,7 @@ export async function createBoDocument(input: {
 }): Promise<BoDocumentRow> {
   const extension = input.file.name.slice(input.file.name.lastIndexOf(".")).replace(".", "");
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("bo_documents")
     .insert({
       original_filename: input.file.name,
@@ -154,7 +154,7 @@ export async function updateBoDocument(
     patch.error_message ??
     (metadata?.error_message as string | undefined);
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("bo_documents")
     .update({
       ...patch,
@@ -176,7 +176,7 @@ export async function saveBoCompetences(input: {
   documentId: string;
   competences: BoCompetenceDraft[];
 }): Promise<number> {
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await (await floraDb())
     .from("referentiels")
     .delete()
     .eq("document_source_id", input.documentId);
@@ -212,7 +212,7 @@ export async function saveBoCompetences(input: {
     },
   }));
 
-  const { data, error } = await supabase.from("referentiels").insert(rows).select("id");
+  const { data, error } = await (await floraDb()).from("referentiels").insert(rows).select("id");
 
   if (error) {
     console.error("[bo-document] Echec insertion compétences", serializeSupabaseError(error));
@@ -223,7 +223,7 @@ export async function saveBoCompetences(input: {
 }
 
 export async function countBoCompetences(documentId: string): Promise<number> {
-  const { count, error } = await supabase
+  const { count, error } = await (await floraDb())
     .from("referentiels")
     .select("id", { count: "exact", head: true })
     .eq("document_source_id", documentId);
@@ -237,7 +237,7 @@ export async function countBoCompetences(documentId: string): Promise<number> {
 }
 
 export async function getBoDocumentById(documentId: string): Promise<BoDocumentRow | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("bo_documents")
     .select("*")
     .eq("id", documentId)
@@ -254,7 +254,7 @@ export async function getActiveBoDocument(
   matiere?: string,
   cycle?: string,
 ): Promise<BoDocumentRow | null> {
-  let query = supabase
+  let query = (await floraDb())
     .from("bo_documents")
     .select("*")
     .eq("active_for_programmation", true)
@@ -284,7 +284,7 @@ export async function getLatestReadyBoDocument(
   matiere?: string,
   cycle?: string,
 ): Promise<BoDocumentRow | null> {
-  let query = supabase
+  let query = (await floraDb())
     .from("bo_documents")
     .select("*")
     .in("status", ["READY", "VALIDATED", "ready"])
@@ -319,7 +319,7 @@ export async function activateBoDocument(documentId: string): Promise<BoDocument
     throw new Error("Seul un référentiel validé peut être activé pour les programmations.");
   }
 
-  const { error: resetError } = await supabase
+  const { error: resetError } = await (await floraDb())
     .from("bo_documents")
     .update({ active_for_programmation: false, updated_at: new Date().toISOString() })
     .eq("matiere", document.matiere);
@@ -348,7 +348,7 @@ export async function getBoDocumentStatus(documentId?: string): Promise<{
     return { document: null, competenceCount: 0, sections: [] };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("referentiels")
     .select("section")
     .eq("document_source_id", document.id);
@@ -369,7 +369,7 @@ export async function getBoDocumentStatus(documentId?: string): Promise<{
 }
 
 export async function listBoDocuments(): Promise<BoDocumentRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("bo_documents")
     .select("*")
     .order("created_at", { ascending: false });
@@ -402,7 +402,7 @@ export async function deleteBoDocument(documentId: string): Promise<void> {
     throw new Error("Document BO introuvable.");
   }
 
-  const { error: competencesError } = await supabase
+  const { error: competencesError } = await (await floraDb())
     .from("referentiels")
     .delete()
     .eq("document_source_id", documentId);
@@ -416,7 +416,7 @@ export async function deleteBoDocument(documentId: string): Promise<void> {
   if (document.storage_path) {
     const bucket =
       (document.metadata?.storage_bucket as string | undefined) ?? getStorageBucketName();
-    const { error: storageError } = await supabase.storage
+    const { error: storageError } = await (await floraDb()).storage
       .from(bucket)
       .remove([document.storage_path]);
 
@@ -429,7 +429,7 @@ export async function deleteBoDocument(documentId: string): Promise<void> {
     }
   }
 
-  const { error } = await supabase.from("bo_documents").delete().eq("id", documentId);
+  const { error } = await (await floraDb()).from("bo_documents").delete().eq("id", documentId);
 
   if (error) {
     throw new Error(getSupabaseErrorMessage(error, "Impossible de supprimer le document BO."));

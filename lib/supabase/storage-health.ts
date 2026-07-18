@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getStorageBucketName } from "./storage-config";
 
 export type StorageBucketHealth = {
@@ -22,7 +22,7 @@ function isBucketNotFoundError(message: string): boolean {
 export async function checkStorageBucketExists(
   bucketName: string = getStorageBucketName(),
 ): Promise<boolean> {
-  const { data, error } = await supabase.storage.from(bucketName).list("", {
+  const { data, error } = await (await floraDb()).storage.from(bucketName).list("", {
     limit: 1,
   });
 
@@ -34,7 +34,7 @@ export async function checkStorageBucketExists(
     return false;
   }
 
-  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  const { data: buckets, error: listError } = await (await floraDb()).storage.listBuckets();
 
   if (!listError && buckets) {
     return buckets.some((bucket) => bucket.id === bucketName || bucket.name === bucketName);
@@ -82,7 +82,7 @@ export async function logStorageBucketHealth(): Promise<void> {
 
   console.warn("[storage-health] Bucket manquant", {
     bucket: health.bucket,
-    hint: "Créez le bucket via `npx supabase db push` ou le dashboard Supabase Storage.",
+    hint: "Créez le bucket via `npx (await floraDb()) db push` ou le dashboard Supabase Storage.",
     envVar: "NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET",
   });
 }

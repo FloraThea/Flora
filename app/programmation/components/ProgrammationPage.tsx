@@ -17,6 +17,8 @@ import { ProgrammationImportWizard } from "./ProgrammationImportWizard";
 import { initialFormValues, EMPTY_TIMETABLE, type ProgrammationFormValues } from "../types";
 import { payloadToTimetableInput } from "@/lib/timetable/timetable-input-utils";
 
+const LAST_PROGRAMMATION_KEY = "flora:last-programmation-id";
+
 type ProfilApiResponse = {
   values: ProfilFormValues;
   completion: { complete: boolean; missing: string[] };
@@ -50,13 +52,28 @@ export function ProgrammationPage() {
   const [referentielWarning, setReferentielWarning] = useState<string | null>(null);
   const [profileComplete, setProfileComplete] = useState(true);
   const [showImportWizard, setShowImportWizard] = useState(false);
+  const [savedProgrammations, setSavedProgrammations] = useState<
+    Array<{ id: string; title: string; school_year: string; status: string }>
+  >([]);
+  const [isLoadingSaved, setIsLoadingSaved] = useState(true);
+
+  const loadSavedProgrammation = useCallback(async (programmationId: string) => {
+    const response = await fetch(`/api/programmation/details?id=${encodeURIComponent(programmationId)}`);
+    if (!response.ok) return;
+    const data = (await response.json()) as ProgrammationPayload;
+    setPayload(data);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(LAST_PROGRAMMATION_KEY, programmationId);
+    }
+  }, []);
 
   useEffect(() => {
     void (async () => {
       try {
-        const [profileResponse, edtResponse] = await Promise.all([
+        const [profileResponse, edtResponse, listResponse] = await Promise.all([
           fetch("/api/profil"),
           fetch("/api/emploi-du-temps"),
+          fetch("/api/programmation/list"),
         ]);
         const data = (await profileResponse.json()) as ProfilApiResponse;
 
@@ -78,11 +95,29 @@ export function ProgrammationPage() {
             setFormValues((current) => ({ ...current, timetable: EMPTY_TIMETABLE }));
           }
         }
+
+        if (listResponse.ok) {
+          const listData = (await listResponse.json()) as {
+            programmations?: Array<{ id: string; title: string; school_year: string; status: string }>;
+          };
+          const items = listData.programmations ?? [];
+          setSavedProgrammations(items);
+          const lastId =
+            typeof window !== "undefined"
+              ? sessionStorage.getItem(LAST_PROGRAMMATION_KEY)
+              : null;
+          const targetId = items.find((item) => item.id === lastId)?.id ?? items[0]?.id;
+          if (targetId) {
+            await loadSavedProgrammation(targetId);
+          }
+        }
       } catch {
         // Le profil sera exigé à la génération.
+      } finally {
+        setIsLoadingSaved(false);
       }
     })();
-  }, []);
+  }, [loadSavedProgrammation]);
 
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
@@ -127,6 +162,9 @@ export function ProgrammationPage() {
 
       setReferentielWarning(data.referentielWarning ?? null);
       setPayload(data);
+      if (data.programmation?.id && typeof window !== "undefined") {
+        sessionStorage.setItem(LAST_PROGRAMMATION_KEY, data.programmation.id);
+      }
       setGenerationPhase(null);
     } catch (generateError) {
       setError(
@@ -190,6 +228,30 @@ export function ProgrammationPage() {
         meta={payload ? payload.programmation.title : undefined}
       />
 
+      {savedProgrammations.length > 0 ? (
+        <FloraCard padding="md" accent="cream">
+          <label className="block text-sm font-light text-flora-text-muted">
+            Programmations enregistrées
+            <select
+              className="mt-2 w-full rounded-2xl border border-white/70 bg-white/60 px-4 py-2.5 text-sm"
+              value={payload?.programmation.id ?? ""}
+              disabled={isLoadingSaved}
+              onChange={(event) => {
+                const id = event.target.value;
+                if (id) void loadSavedProgrammation(id);
+              }}
+            >
+              <option value="">— Choisir —</option>
+              {savedProgrammations.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title} ({item.school_year}) — {item.status}
+                </option>
+              ))}
+            </select>
+          </label>
+        </FloraCard>
+      ) : null}
+
       {!profileComplete && (
         <FloraCard padding="md" accent="peach">
           <p className="text-sm font-light text-flora-text-muted">
@@ -219,6 +281,9 @@ export function ProgrammationPage() {
               formValues={formValues}
               onComplete={(nextPayload) => {
                 setPayload(nextPayload);
+                if (nextPayload.programmation?.id && typeof window !== "undefined") {
+                  sessionStorage.setItem(LAST_PROGRAMMATION_KEY, nextPayload.programmation.id);
+                }
                 setShowImportWizard(false);
               }}
               onClose={() => setShowImportWizard(false)}

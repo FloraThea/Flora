@@ -1,11 +1,11 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { JournalDashboard } from "./types";
 
 export async function computeProgressPercents(input: {
   schoolYear: string;
   periodNumber: number;
 }): Promise<Pick<JournalDashboard, "periodProgressPercent" | "annualProgressPercent">> {
-  const { data: seances, error } = await supabase
+  const { data: seances, error } = await (await floraDb())
     .from("seances")
     .select("id, period_number, session_date, metadata")
     .eq("status", "validated");

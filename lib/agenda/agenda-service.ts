@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { resolveAgendaProfile, isMissingAgendaTableError, toAgendaUserMessage } from "./agenda-profile";
@@ -29,9 +29,6 @@ import {
 import { REMINDER_OFFSETS } from "./event-types";
 import type { FloraAccent } from "@/lib/theme";
 
-async function floraDb() {
-  return getDb();
-}
 
 function mapEvent(row: Record<string, unknown>): AgendaEvent {
   return {

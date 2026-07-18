@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { getProfileCompletionStatus } from "@/lib/profile/profile-context";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 
-async function floraDb() {
-  return getDb();
-}
 
 const ROUTE_PATH = "/api/dashboard/summary";
 

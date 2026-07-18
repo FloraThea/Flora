@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import { loadProgrammation, listValidatedProgrammations } from "@/lib/programming/programmation-service";
 import { loadProgression } from "@/lib/progression/progression-service";
@@ -8,9 +8,6 @@ import { analyzePlanner } from "./intelligence-engine";
 import { buildPlannerPayload } from "./planner-data-builder";
 import type { PlannerPayload } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 export async function loadAnnualPlannerPayload(): Promise<PlannerPayload> {
   const scope = await requireTeacherScope();

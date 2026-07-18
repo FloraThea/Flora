@@ -1,0 +1,2089 @@
+{
+  "kind": "programmation",
+  "fileName": "Programmation_HDA_Editable_2026-2027.xlsx",
+  "sheetName": "Programmation HDA",
+  "sheetNames": [
+    "Programmation HDA"
+  ],
+  "sourceCellCount": 236,
+  "sourceCells": [
+    {
+      "row": 0,
+      "col": 0,
+      "value": "PROGRAMMATION ANNUELLE — HISTOIRE DES ARTS · CE1 / CE2 · Une année au musée"
+    },
+    {
+      "row": 0,
+      "col": 1,
+      "value": "PROGRAMMATION ANNUELLE — HISTOIRE DES ARTS · CE1 / CE2 · Une année au musée"
+    },
+    {
+      "row": 0,
+      "col": 2,
+      "value": "PROGRAMMATION ANNUELLE — HISTOIRE DES ARTS · CE1 / CE2 · Une année au musée"
+    },
+    {
+      "row": 0,
+      "col": 3,
+      "value": "PROGRAMMATION ANNUELLE — HISTOIRE DES ARTS · CE1 / CE2 · Une année au musée"
+    },
+    {
+      "row": 0,
+      "col": 4,
+      "value": "PROGRAMMATION ANNUELLE — HISTOIRE DES ARTS · CE1 / CE2 · Une année au musée"
+    },
+    {
+      "row": 1,
+      "col": 0,
+      "value": "« Observer, ressentir, comprendre… et laisser parler l'art ! »  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 1,
+      "col": 1,
+      "value": "« Observer, ressentir, comprendre… et laisser parler l'art ! »  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 1,
+      "col": 2,
+      "value": "« Observer, ressentir, comprendre… et laisser parler l'art ! »  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 1,
+      "col": 3,
+      "value": "« Observer, ressentir, comprendre… et laisser parler l'art ! »  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 1,
+      "col": 4,
+      "value": "« Observer, ressentir, comprendre… et laisser parler l'art ! »  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 3,
+      "col": 0,
+      "value": "PÉRIODE 1  —  LES COULEURS"
+    },
+    {
+      "row": 3,
+      "col": 1,
+      "value": "PÉRIODE 1  —  LES COULEURS"
+    },
+    {
+      "row": 3,
+      "col": 2,
+      "value": "PÉRIODE 1  —  LES COULEURS"
+    },
+    {
+      "row": 3,
+      "col": 3,
+      "value": "PÉRIODE 1  —  LES COULEURS"
+    },
+    {
+      "row": 3,
+      "col": 4,
+      "value": "PÉRIODE 1  —  LES COULEURS"
+    },
+    {
+      "row": 4,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 4,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 4,
+      "col": 2,
+      "value": "Œuvre"
+    },
+    {
+      "row": 4,
+      "col": 3,
+      "value": "Artiste"
+    },
+    {
+      "row": 4,
+      "col": 4,
+      "value": "Époque / Mouvement"
+    },
+    {
+      "row": 5,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 5,
+      "col": 1,
+      "value": "07/09"
+    },
+    {
+      "row": 5,
+      "col": 2,
+      "value": "Peinture bleue"
+    },
+    {
+      "row": 5,
+      "col": 3,
+      "value": "Kandinsky"
+    },
+    {
+      "row": 6,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 6,
+      "col": 1,
+      "value": "14/09"
+    },
+    {
+      "row": 6,
+      "col": 2,
+      "value": "Jaune, bleu et noir"
+    },
+    {
+      "row": 6,
+      "col": 3,
+      "value": "Mondrian"
+    },
+    {
+      "row": 7,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 7,
+      "col": 1,
+      "value": "21/09"
+    },
+    {
+      "row": 7,
+      "col": 2,
+      "value": "La Chambre à Arles"
+    },
+    {
+      "row": 7,
+      "col": 3,
+      "value": "Van Gogh"
+    },
+    {
+      "row": 8,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 8,
+      "col": 1,
+      "value": "28/09"
+    },
+    {
+      "row": 8,
+      "col": 2,
+      "value": "Mobile"
+    },
+    {
+      "row": 8,
+      "col": 3,
+      "value": "Calder"
+    },
+    {
+      "row": 9,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 9,
+      "col": 1,
+      "value": "05/10"
+    },
+    {
+      "row": 9,
+      "col": 2,
+      "value": "L'Oiseau de feu"
+    },
+    {
+      "row": 9,
+      "col": 3,
+      "value": "Stravinsky"
+    },
+    {
+      "row": 10,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 10,
+      "col": 1,
+      "value": "12/10"
+    },
+    {
+      "row": 10,
+      "col": 2,
+      "value": "L'Empire des lumières"
+    },
+    {
+      "row": 10,
+      "col": 3,
+      "value": "Magritte"
+    },
+    {
+      "row": 11,
+      "col": 0,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 11,
+      "col": 1,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 11,
+      "col": 2,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 11,
+      "col": 3,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 11,
+      "col": 4,
+      "value": "⛔  17 oct → 01 nov 2026 — Vacances de la Toussaint"
+    },
+    {
+      "row": 13,
+      "col": 0,
+      "value": "PÉRIODE 2  —  LES PORTRAITS"
+    },
+    {
+      "row": 13,
+      "col": 1,
+      "value": "PÉRIODE 2  —  LES PORTRAITS"
+    },
+    {
+      "row": 13,
+      "col": 2,
+      "value": "PÉRIODE 2  —  LES PORTRAITS"
+    },
+    {
+      "row": 13,
+      "col": 3,
+      "value": "PÉRIODE 2  —  LES PORTRAITS"
+    },
+    {
+      "row": 13,
+      "col": 4,
+      "value": "PÉRIODE 2  —  LES PORTRAITS"
+    },
+    {
+      "row": 14,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 14,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 14,
+      "col": 2,
+      "value": "Œuvre"
+    },
+    {
+      "row": 14,
+      "col": 3,
+      "value": "Artiste"
+    },
+    {
+      "row": 14,
+      "col": 4,
+      "value": "Époque / Mouvement"
+    },
+    {
+      "row": 15,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 15,
+      "col": 1,
+      "value": "02/11"
+    },
+    {
+      "row": 15,
+      "col": 2,
+      "value": "La Petite Châtelaine"
+    },
+    {
+      "row": 15,
+      "col": 3,
+      "value": "Camille Claudel"
+    },
+    {
+      "row": 16,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 16,
+      "col": 1,
+      "value": "09/11"
+    },
+    {
+      "row": 16,
+      "col": 2,
+      "value": "L'Automne"
+    },
+    {
+      "row": 16,
+      "col": 3,
+      "value": "Arcimboldo"
+    },
+    {
+      "row": 17,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 17,
+      "col": 1,
+      "value": "16/11"
+    },
+    {
+      "row": 17,
+      "col": 2,
+      "value": "L'Homme de Vitruve"
+    },
+    {
+      "row": 17,
+      "col": 3,
+      "value": "Léonard de Vinci"
+    },
+    {
+      "row": 18,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 18,
+      "col": 1,
+      "value": "23/11"
+    },
+    {
+      "row": 18,
+      "col": 2,
+      "value": "Mes grands-parents, mes parents et moi"
+    },
+    {
+      "row": 18,
+      "col": 3,
+      "value": "Frida Kahlo"
+    },
+    {
+      "row": 19,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 19,
+      "col": 1,
+      "value": "30/11"
+    },
+    {
+      "row": 19,
+      "col": 2,
+      "value": "Les Enfants jouant sur la plage"
+    },
+    {
+      "row": 19,
+      "col": 3,
+      "value": "Mary Cassatt"
+    },
+    {
+      "row": 20,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 20,
+      "col": 1,
+      "value": "07/12"
+    },
+    {
+      "row": 20,
+      "col": 2,
+      "value": "La Joconde"
+    },
+    {
+      "row": 20,
+      "col": 3,
+      "value": "Léonard de Vinci"
+    },
+    {
+      "row": 21,
+      "col": 0,
+      "value": "S7"
+    },
+    {
+      "row": 21,
+      "col": 1,
+      "value": "14/12"
+    },
+    {
+      "row": 21,
+      "col": 2,
+      "value": "Les Danseurs"
+    },
+    {
+      "row": 21,
+      "col": 3,
+      "value": "Keith Haring"
+    },
+    {
+      "row": 22,
+      "col": 0,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 22,
+      "col": 1,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 22,
+      "col": 2,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 22,
+      "col": 3,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 22,
+      "col": 4,
+      "value": "⛔  11/11/2026 — Armistice  ·  19 déc 2026 → 03 jan 2027 — Vacances de Noël"
+    },
+    {
+      "row": 24,
+      "col": 0,
+      "value": "PÉRIODE 3  —  LES PAYSAGES"
+    },
+    {
+      "row": 24,
+      "col": 1,
+      "value": "PÉRIODE 3  —  LES PAYSAGES"
+    },
+    {
+      "row": 24,
+      "col": 2,
+      "value": "PÉRIODE 3  —  LES PAYSAGES"
+    },
+    {
+      "row": 24,
+      "col": 3,
+      "value": "PÉRIODE 3  —  LES PAYSAGES"
+    },
+    {
+      "row": 24,
+      "col": 4,
+      "value": "PÉRIODE 3  —  LES PAYSAGES"
+    },
+    {
+      "row": 25,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 25,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 25,
+      "col": 2,
+      "value": "Œuvre"
+    },
+    {
+      "row": 25,
+      "col": 3,
+      "value": "Artiste"
+    },
+    {
+      "row": 25,
+      "col": 4,
+      "value": "Époque / Mouvement"
+    },
+    {
+      "row": 26,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 26,
+      "col": 1,
+      "value": "04/01"
+    },
+    {
+      "row": 26,
+      "col": 2,
+      "value": "Chasseurs dans la neige"
+    },
+    {
+      "row": 26,
+      "col": 3,
+      "value": "Brueghel"
+    },
+    {
+      "row": 27,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 27,
+      "col": 1,
+      "value": "11/01"
+    },
+    {
+      "row": 27,
+      "col": 2,
+      "value": "La Maîtresse et ses élèves"
+    },
+    {
+      "row": 27,
+      "col": 3,
+      "value": "— (non précisé sur le document)"
+    },
+    {
+      "row": 28,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 28,
+      "col": 1,
+      "value": "18/01"
+    },
+    {
+      "row": 28,
+      "col": 2,
+      "value": "Les Coquelicots"
+    },
+    {
+      "row": 28,
+      "col": 3,
+      "value": "Monet"
+    },
+    {
+      "row": 29,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 29,
+      "col": 1,
+      "value": "25/01"
+    },
+    {
+      "row": 29,
+      "col": 2,
+      "value": "Maison au soleil"
+    },
+    {
+      "row": 29,
+      "col": 3,
+      "value": "Hopper"
+    },
+    {
+      "row": 30,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 30,
+      "col": 1,
+      "value": "01/02"
+    },
+    {
+      "row": 30,
+      "col": 2,
+      "value": "Les Quatre Saisons"
+    },
+    {
+      "row": 30,
+      "col": 3,
+      "value": "Vivaldi"
+    },
+    {
+      "row": 31,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 31,
+      "col": 1,
+      "value": "08/02"
+    },
+    {
+      "row": 31,
+      "col": 2,
+      "value": "La Grande Vague de Kanagawa"
+    },
+    {
+      "row": 31,
+      "col": 3,
+      "value": "Hokusai"
+    },
+    {
+      "row": 32,
+      "col": 0,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 32,
+      "col": 1,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 32,
+      "col": 2,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 32,
+      "col": 3,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 32,
+      "col": 4,
+      "value": "⛔  13 fév → 28 fév 2027 — Vacances d'Hiver (Zone A)"
+    },
+    {
+      "row": 34,
+      "col": 0,
+      "value": "PÉRIODE 4  —  LES ÉMOTIONS"
+    },
+    {
+      "row": 34,
+      "col": 1,
+      "value": "PÉRIODE 4  —  LES ÉMOTIONS"
+    },
+    {
+      "row": 34,
+      "col": 2,
+      "value": "PÉRIODE 4  —  LES ÉMOTIONS"
+    },
+    {
+      "row": 34,
+      "col": 3,
+      "value": "PÉRIODE 4  —  LES ÉMOTIONS"
+    },
+    {
+      "row": 34,
+      "col": 4,
+      "value": "PÉRIODE 4  —  LES ÉMOTIONS"
+    },
+    {
+      "row": 35,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 35,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 35,
+      "col": 2,
+      "value": "Œuvre"
+    },
+    {
+      "row": 35,
+      "col": 3,
+      "value": "Artiste"
+    },
+    {
+      "row": 35,
+      "col": 4,
+      "value": "Époque / Mouvement"
+    },
+    {
+      "row": 36,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 36,
+      "col": 1,
+      "value": "01/03"
+    },
+    {
+      "row": 36,
+      "col": 2,
+      "value": "Boléro"
+    },
+    {
+      "row": 36,
+      "col": 3,
+      "value": "Maurice Ravel"
+    },
+    {
+      "row": 37,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 37,
+      "col": 1,
+      "value": "08/03"
+    },
+    {
+      "row": 37,
+      "col": 2,
+      "value": "Le Rêve"
+    },
+    {
+      "row": 37,
+      "col": 3,
+      "value": "Henri Rousseau"
+    },
+    {
+      "row": 38,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 38,
+      "col": 1,
+      "value": "15/03"
+    },
+    {
+      "row": 38,
+      "col": 2,
+      "value": "Le Carnaval des animaux"
+    },
+    {
+      "row": 38,
+      "col": 3,
+      "value": "Camille Saint-Saëns"
+    },
+    {
+      "row": 39,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 39,
+      "col": 1,
+      "value": "22/03"
+    },
+    {
+      "row": 39,
+      "col": 2,
+      "value": "Le Cirque"
+    },
+    {
+      "row": 39,
+      "col": 3,
+      "value": "Georges Seurat"
+    },
+    {
+      "row": 40,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 40,
+      "col": 1,
+      "value": "29/03"
+    },
+    {
+      "row": 40,
+      "col": 2,
+      "value": "Le Cri"
+    },
+    {
+      "row": 40,
+      "col": 3,
+      "value": "Edvard Munch"
+    },
+    {
+      "row": 41,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 41,
+      "col": 1,
+      "value": "05/04"
+    },
+    {
+      "row": 41,
+      "col": 2,
+      "value": "Dilili à Paris"
+    },
+    {
+      "row": 41,
+      "col": 3,
+      "value": "Michel Ocelot"
+    },
+    {
+      "row": 42,
+      "col": 0,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 42,
+      "col": 1,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 42,
+      "col": 2,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 42,
+      "col": 3,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 42,
+      "col": 4,
+      "value": "⛔  10 avr → 25 avr 2027 — Vacances de Printemps (Zone A)"
+    },
+    {
+      "row": 44,
+      "col": 0,
+      "value": "PÉRIODE 5  —  VOYAGER DANS LE TEMPS"
+    },
+    {
+      "row": 44,
+      "col": 1,
+      "value": "PÉRIODE 5  —  VOYAGER DANS LE TEMPS"
+    },
+    {
+      "row": 44,
+      "col": 2,
+      "value": "PÉRIODE 5  —  VOYAGER DANS LE TEMPS"
+    },
+    {
+      "row": 44,
+      "col": 3,
+      "value": "PÉRIODE 5  —  VOYAGER DANS LE TEMPS"
+    },
+    {
+      "row": 44,
+      "col": 4,
+      "value": "PÉRIODE 5  —  VOYAGER DANS LE TEMPS"
+    },
+    {
+      "row": 45,
+      "col": 0,
+      "value": "Semaine"
+    },
+    {
+      "row": 45,
+      "col": 1,
+      "value": "Date"
+    },
+    {
+      "row": 45,
+      "col": 2,
+      "value": "Œuvre"
+    },
+    {
+      "row": 45,
+      "col": 3,
+      "value": "Artiste"
+    },
+    {
+      "row": 45,
+      "col": 4,
+      "value": "Époque / Mouvement"
+    },
+    {
+      "row": 46,
+      "col": 0,
+      "value": "S1"
+    },
+    {
+      "row": 46,
+      "col": 1,
+      "value": "26/04"
+    },
+    {
+      "row": 46,
+      "col": 2,
+      "value": "Les peintures de la Grotte Chauvet"
+    },
+    {
+      "row": 46,
+      "col": 4,
+      "value": "Préhistoire"
+    },
+    {
+      "row": 47,
+      "col": 0,
+      "value": "S2"
+    },
+    {
+      "row": 47,
+      "col": 1,
+      "value": "03/05"
+    },
+    {
+      "row": 47,
+      "col": 2,
+      "value": "Le Pont du Gard"
+    },
+    {
+      "row": 47,
+      "col": 4,
+      "value": "Antiquité"
+    },
+    {
+      "row": 48,
+      "col": 0,
+      "value": "S3"
+    },
+    {
+      "row": 48,
+      "col": 1,
+      "value": "10/05"
+    },
+    {
+      "row": 48,
+      "col": 2,
+      "value": "Ulysse et les Sirènes"
+    },
+    {
+      "row": 48,
+      "col": 4,
+      "value": "Antiquité"
+    },
+    {
+      "row": 49,
+      "col": 0,
+      "value": "S4"
+    },
+    {
+      "row": 49,
+      "col": 1,
+      "value": "17/05"
+    },
+    {
+      "row": 49,
+      "col": 2,
+      "value": "Le siège du château de Derval"
+    },
+    {
+      "row": 49,
+      "col": 4,
+      "value": "Moyen Âge"
+    },
+    {
+      "row": 50,
+      "col": 0,
+      "value": "S5"
+    },
+    {
+      "row": 50,
+      "col": 1,
+      "value": "24/05"
+    },
+    {
+      "row": 50,
+      "col": 2,
+      "value": "Christophe Colomb (débarquement)"
+    },
+    {
+      "row": 50,
+      "col": 4,
+      "value": "Temps modernes"
+    },
+    {
+      "row": 51,
+      "col": 0,
+      "value": "S6"
+    },
+    {
+      "row": 51,
+      "col": 1,
+      "value": "31/05"
+    },
+    {
+      "row": 51,
+      "col": 2,
+      "value": "Le Sacre de Napoléon"
+    },
+    {
+      "row": 51,
+      "col": 4,
+      "value": "XIXe siècle"
+    },
+    {
+      "row": 52,
+      "col": 0,
+      "value": "S7"
+    },
+    {
+      "row": 52,
+      "col": 1,
+      "value": "07/06"
+    },
+    {
+      "row": 52,
+      "col": 2,
+      "value": "La Liberté guidant le peuple"
+    },
+    {
+      "row": 52,
+      "col": 4,
+      "value": "XIXe siècle"
+    },
+    {
+      "row": 53,
+      "col": 0,
+      "value": "S8"
+    },
+    {
+      "row": 53,
+      "col": 1,
+      "value": "14/06"
+    },
+    {
+      "row": 53,
+      "col": 2,
+      "value": "Le Voyage dans la Lune"
+    },
+    {
+      "row": 53,
+      "col": 4,
+      "value": "Début du cinéma"
+    },
+    {
+      "row": 54,
+      "col": 0,
+      "value": "S9"
+    },
+    {
+      "row": 54,
+      "col": 1,
+      "value": "21/06"
+    },
+    {
+      "row": 54,
+      "col": 2,
+      "value": "Balloon Dog"
+    },
+    {
+      "row": 54,
+      "col": 3,
+      "value": "Jeff Koons"
+    },
+    {
+      "row": 54,
+      "col": 4,
+      "value": "Art contemporain"
+    },
+    {
+      "row": 55,
+      "col": 0,
+      "value": "S10"
+    },
+    {
+      "row": 55,
+      "col": 1,
+      "value": "28/06"
+    },
+    {
+      "row": 55,
+      "col": 2,
+      "value": "Banksy"
+    },
+    {
+      "row": 55,
+      "col": 4,
+      "value": "Street Art"
+    },
+    {
+      "row": 56,
+      "col": 0,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte"
+    },
+    {
+      "row": 56,
+      "col": 1,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte"
+    },
+    {
+      "row": 56,
+      "col": 2,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte"
+    },
+    {
+      "row": 56,
+      "col": 3,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte"
+    },
+    {
+      "row": 56,
+      "col": 4,
+      "value": "⛔  01/05 — Fête du Travail · 08/05 — Victoire 1945 · 13-14/05 — Ascension · 24/05 — Pentecôte"
+    },
+    {
+      "row": 57,
+      "col": 0,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 57,
+      "col": 1,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 57,
+      "col": 2,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 57,
+      "col": 3,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 57,
+      "col": 4,
+      "value": "⛔  04/07/2027 — Fin de l'année scolaire 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 0,
+      "value": "Couleurs reprises du document source :  Vert = Couleurs/Paysages ·  Rouge = Portraits ·  Bleu = Émotions ·  Violet = Voyager dans le temps  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 1,
+      "value": "Couleurs reprises du document source :  Vert = Couleurs/Paysages ·  Rouge = Portraits ·  Bleu = Émotions ·  Violet = Voyager dans le temps  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 2,
+      "value": "Couleurs reprises du document source :  Vert = Couleurs/Paysages ·  Rouge = Portraits ·  Bleu = Émotions ·  Violet = Voyager dans le temps  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 3,
+      "value": "Couleurs reprises du document source :  Vert = Couleurs/Paysages ·  Rouge = Portraits ·  Bleu = Émotions ·  Violet = Voyager dans le temps  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    },
+    {
+      "row": 59,
+      "col": 4,
+      "value": "Couleurs reprises du document source :  Vert = Couleurs/Paysages ·  Rouge = Portraits ·  Bleu = Émotions ·  Violet = Voyager dans le temps  ·  Fichier entièrement modifiable — ajoutez, coupez ou déplacez librement les lignes  ·  Zone A 2026-2027"
+    }
+  ],
+  "headerRowIndex": 45,
+  "columns": [
+    "Semaine",
+    "Date",
+    "Œuvre",
+    "Artiste",
+    "Époque / Mouvement"
+  ],
+  "stats": {
+    "dataRowCount": 35,
+    "parsedRowCount": 35,
+    "periodCount": 5,
+    "weekCount": 10,
+    "dateCount": 35,
+    "dayCount": 1,
+    "sequenceCount": 0,
+    "seanceCount": 0,
+    "disciplineCount": 1
+  },
+  "rows": [
+    {
+      "sourceRowIndex": 5,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-09-07",
+      "dayOfWeek": "lundi",
+      "periodNumber": 1,
+      "weekNumber": 1,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Peinture bleue",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "07/09",
+        "Peinture bleue",
+        "Kandinsky",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES COULEURS"
+      ]
+    },
+    {
+      "sourceRowIndex": 6,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-09-14",
+      "dayOfWeek": "lundi",
+      "periodNumber": 1,
+      "weekNumber": 2,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Jaune, bleu et noir",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "14/09",
+        "Jaune, bleu et noir",
+        "Mondrian",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES COULEURS"
+      ]
+    },
+    {
+      "sourceRowIndex": 7,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-09-21",
+      "dayOfWeek": "lundi",
+      "periodNumber": 1,
+      "weekNumber": 3,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "La Chambre à Arles",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "21/09",
+        "La Chambre à Arles",
+        "Van Gogh",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES COULEURS"
+      ]
+    },
+    {
+      "sourceRowIndex": 8,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-09-28",
+      "dayOfWeek": "lundi",
+      "periodNumber": 1,
+      "weekNumber": 4,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Mobile",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "28/09",
+        "Mobile",
+        "Calder",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES COULEURS"
+      ]
+    },
+    {
+      "sourceRowIndex": 9,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-10-05",
+      "dayOfWeek": "lundi",
+      "periodNumber": 1,
+      "weekNumber": 5,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "L'Oiseau de feu",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "05/10",
+        "L'Oiseau de feu",
+        "Stravinsky",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES COULEURS"
+      ]
+    },
+    {
+      "sourceRowIndex": 10,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-10-12",
+      "dayOfWeek": "lundi",
+      "periodNumber": 1,
+      "weekNumber": 6,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "L'Empire des lumières",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "12/10",
+        "L'Empire des lumières",
+        "Magritte",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES COULEURS"
+      ]
+    },
+    {
+      "sourceRowIndex": 15,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-11-02",
+      "dayOfWeek": "lundi",
+      "periodNumber": 2,
+      "weekNumber": 1,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "La Petite Châtelaine",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "02/11",
+        "La Petite Châtelaine",
+        "Camille Claudel",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PORTRAITS"
+      ]
+    },
+    {
+      "sourceRowIndex": 16,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-11-09",
+      "dayOfWeek": "lundi",
+      "periodNumber": 2,
+      "weekNumber": 2,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "L'Automne",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "09/11",
+        "L'Automne",
+        "Arcimboldo",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PORTRAITS"
+      ]
+    },
+    {
+      "sourceRowIndex": 17,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-11-16",
+      "dayOfWeek": "lundi",
+      "periodNumber": 2,
+      "weekNumber": 3,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "L'Homme de Vitruve",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "16/11",
+        "L'Homme de Vitruve",
+        "Léonard de Vinci",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PORTRAITS"
+      ]
+    },
+    {
+      "sourceRowIndex": 18,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-11-23",
+      "dayOfWeek": "lundi",
+      "periodNumber": 2,
+      "weekNumber": 4,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Mes grands-parents, mes parents et moi",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "23/11",
+        "Mes grands-parents, mes parents et moi",
+        "Frida Kahlo",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PORTRAITS"
+      ]
+    },
+    {
+      "sourceRowIndex": 19,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-11-30",
+      "dayOfWeek": "lundi",
+      "periodNumber": 2,
+      "weekNumber": 5,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Les Enfants jouant sur la plage",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "30/11",
+        "Les Enfants jouant sur la plage",
+        "Mary Cassatt",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PORTRAITS"
+      ]
+    },
+    {
+      "sourceRowIndex": 20,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-12-07",
+      "dayOfWeek": "lundi",
+      "periodNumber": 2,
+      "weekNumber": 6,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "La Joconde",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "07/12",
+        "La Joconde",
+        "Léonard de Vinci",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PORTRAITS"
+      ]
+    },
+    {
+      "sourceRowIndex": 21,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2026-12-14",
+      "dayOfWeek": "lundi",
+      "periodNumber": 2,
+      "weekNumber": 7,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Les Danseurs",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S7",
+        "14/12",
+        "Les Danseurs",
+        "Keith Haring",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PORTRAITS"
+      ]
+    },
+    {
+      "sourceRowIndex": 26,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-01-04",
+      "dayOfWeek": "lundi",
+      "periodNumber": 3,
+      "weekNumber": 1,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Chasseurs dans la neige",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "04/01",
+        "Chasseurs dans la neige",
+        "Brueghel",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PAYSAGES"
+      ]
+    },
+    {
+      "sourceRowIndex": 27,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-01-11",
+      "dayOfWeek": "lundi",
+      "periodNumber": 3,
+      "weekNumber": 2,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "La Maîtresse et ses élèves",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "11/01",
+        "La Maîtresse et ses élèves",
+        "— (non précisé sur le document)",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PAYSAGES"
+      ]
+    },
+    {
+      "sourceRowIndex": 28,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-01-18",
+      "dayOfWeek": "lundi",
+      "periodNumber": 3,
+      "weekNumber": 3,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Les Coquelicots",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "18/01",
+        "Les Coquelicots",
+        "Monet",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PAYSAGES"
+      ]
+    },
+    {
+      "sourceRowIndex": 29,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-01-25",
+      "dayOfWeek": "lundi",
+      "periodNumber": 3,
+      "weekNumber": 4,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Maison au soleil",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "25/01",
+        "Maison au soleil",
+        "Hopper",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PAYSAGES"
+      ]
+    },
+    {
+      "sourceRowIndex": 30,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-02-01",
+      "dayOfWeek": "lundi",
+      "periodNumber": 3,
+      "weekNumber": 5,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Les Quatre Saisons",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "01/02",
+        "Les Quatre Saisons",
+        "Vivaldi",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PAYSAGES"
+      ]
+    },
+    {
+      "sourceRowIndex": 31,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-02-08",
+      "dayOfWeek": "lundi",
+      "periodNumber": 3,
+      "weekNumber": 6,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "La Grande Vague de Kanagawa",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "08/02",
+        "La Grande Vague de Kanagawa",
+        "Hokusai",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES PAYSAGES"
+      ]
+    },
+    {
+      "sourceRowIndex": 36,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-03-01",
+      "dayOfWeek": "lundi",
+      "periodNumber": 4,
+      "weekNumber": 1,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Boléro",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "01/03",
+        "Boléro",
+        "Maurice Ravel",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES ÉMOTIONS"
+      ]
+    },
+    {
+      "sourceRowIndex": 37,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-03-08",
+      "dayOfWeek": "lundi",
+      "periodNumber": 4,
+      "weekNumber": 2,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Le Rêve",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "08/03",
+        "Le Rêve",
+        "Henri Rousseau",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES ÉMOTIONS"
+      ]
+    },
+    {
+      "sourceRowIndex": 38,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-03-15",
+      "dayOfWeek": "lundi",
+      "periodNumber": 4,
+      "weekNumber": 3,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Le Carnaval des animaux",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "15/03",
+        "Le Carnaval des animaux",
+        "Camille Saint-Saëns",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES ÉMOTIONS"
+      ]
+    },
+    {
+      "sourceRowIndex": 39,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-03-22",
+      "dayOfWeek": "lundi",
+      "periodNumber": 4,
+      "weekNumber": 4,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Le Cirque",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "22/03",
+        "Le Cirque",
+        "Georges Seurat",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES ÉMOTIONS"
+      ]
+    },
+    {
+      "sourceRowIndex": 40,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-03-29",
+      "dayOfWeek": "lundi",
+      "periodNumber": 4,
+      "weekNumber": 5,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Le Cri",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "29/03",
+        "Le Cri",
+        "Edvard Munch",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES ÉMOTIONS"
+      ]
+    },
+    {
+      "sourceRowIndex": 41,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-04-05",
+      "dayOfWeek": "lundi",
+      "periodNumber": 4,
+      "weekNumber": 6,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Dilili à Paris",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "05/04",
+        "Dilili à Paris",
+        "Michel Ocelot",
+        ""
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:LES ÉMOTIONS"
+      ]
+    },
+    {
+      "sourceRowIndex": 46,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-04-26",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 1,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Les peintures de la Grotte Chauvet",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S1",
+        "26/04",
+        "Les peintures de la Grotte Chauvet",
+        "",
+        "Préhistoire"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 47,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-05-03",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 2,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Le Pont du Gard",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S2",
+        "03/05",
+        "Le Pont du Gard",
+        "",
+        "Antiquité"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 48,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-05-10",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 3,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Ulysse et les Sirènes",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S3",
+        "10/05",
+        "Ulysse et les Sirènes",
+        "",
+        "Antiquité"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 49,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-05-17",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 4,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Le siège du château de Derval",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S4",
+        "17/05",
+        "Le siège du château de Derval",
+        "",
+        "Moyen Âge"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 50,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-05-24",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 5,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Christophe Colomb (débarquement)",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S5",
+        "24/05",
+        "Christophe Colomb (débarquement)",
+        "",
+        "Temps modernes"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 51,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-05-31",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 6,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Le Sacre de Napoléon",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S6",
+        "31/05",
+        "Le Sacre de Napoléon",
+        "",
+        "XIXe siècle"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 52,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-06-07",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 7,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "La Liberté guidant le peuple",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S7",
+        "07/06",
+        "La Liberté guidant le peuple",
+        "",
+        "XIXe siècle"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 53,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-06-14",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 8,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Le Voyage dans la Lune",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S8",
+        "14/06",
+        "Le Voyage dans la Lune",
+        "",
+        "Début du cinéma"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 54,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-06-21",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 9,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Balloon Dog",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S9",
+        "21/06",
+        "Balloon Dog",
+        "Jeff Koons",
+        "Art contemporain"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    },
+    {
+      "sourceRowIndex": 55,
+      "sourceSheet": "Programmation HDA",
+      "calendarDate": "2027-06-28",
+      "dayOfWeek": "lundi",
+      "periodNumber": 5,
+      "weekNumber": 10,
+      "discipline": "Histoire des arts",
+      "sequence": "",
+      "seance": "",
+      "objectif": "Banksy",
+      "competences": [],
+      "materiel": [],
+      "rawCells": [
+        "S10",
+        "28/06",
+        "Banksy",
+        "",
+        "Street Art"
+      ],
+      "parseConfidence": 0.95,
+      "parseNotes": [
+        "period:VOYAGER DANS LE TEMPS"
+      ]
+    }
+  ],
+  "warnings": [],
+  "needsColumnMapping": false
+}

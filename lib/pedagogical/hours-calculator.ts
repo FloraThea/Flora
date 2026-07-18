@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { loadActiveTimetableInput } from "@/lib/timetable/active-timetable";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import type { HoursBalance, PedagogicalStats } from "./types";
@@ -31,16 +31,16 @@ export async function recalculatePedagogicalStats(
   const scope = await requireTeacherScope();
   const hoursBalance = await recalculateHourVolumes();
 
-  const { count: totalCompetences } = await supabase
+  const { count: totalCompetences } = await (await floraDb())
     .from("referentiels")
     .select("id", { count: "exact", head: true });
 
-  const { data: coveredRows } = await supabase
+  const { data: coveredRows } = await (await floraDb())
     .from("progression_rows")
     .select("referentiel_ids, progression_id")
     .not("referentiel_ids", "eq", "[]");
 
-  const { data: ownedProgressions } = await supabase
+  const { data: ownedProgressions } = await (await floraDb())
     .from("progressions")
     .select("id")
     .eq("teacher_profile_id", scope.profileId);
@@ -58,7 +58,7 @@ export async function recalculatePedagogicalStats(
   const calendarWeeks = 36;
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: pastSeances } = await supabase
+  const { data: pastSeances } = await (await floraDb())
     .from("seances")
     .select("id")
     .eq("teacher_profile_id", scope.profileId)

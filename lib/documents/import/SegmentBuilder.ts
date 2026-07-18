@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { chunkManager } from "@/lib/knowledge/ChunkManager";
 import { resourceParser } from "@/lib/knowledge/ResourceParser";
 import { runKnowledgePipeline } from "@/lib/knowledge/pipeline";
@@ -40,10 +40,10 @@ export class SegmentBuilder {
   }
 
   async persistSegments(documentId: string, segments: TextChunkDraft[]): Promise<void> {
-    await supabase.from("document_segments").delete().eq("document_id", documentId);
+    await (await floraDb()).from("document_segments").delete().eq("document_id", documentId);
     if (segments.length === 0) return;
 
-    await supabase.from("document_segments").insert(
+    await (await floraDb()).from("document_segments").insert(
       segments.map((segment) => ({
         document_id: documentId,
         segment_index: segment.chunk_index,

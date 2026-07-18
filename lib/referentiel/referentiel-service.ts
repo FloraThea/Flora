@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 import {
   getActiveBoDocument,
@@ -98,7 +98,7 @@ export async function loadReferentielCompetences(options?: {
     documentSourceId = await resolveBoDocumentSourceId(matiere, cycle);
   }
 
-  let query = supabase.from("referentiels").select("*").order("sort_order", { ascending: true });
+  let query = (await floraDb()).from("referentiels").select("*").order("sort_order", { ascending: true });
 
   if (options?.ids && options.ids.length > 0) {
     query = query.in("id", options.ids);
@@ -172,7 +172,7 @@ export async function saveBoReferences(input: {
 
   if (input.replaceDisciplines !== false) {
     for (const discipline of disciplines) {
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await (await floraDb())
         .from("referentiels")
         .delete()
         .eq("discipline", discipline);
@@ -194,7 +194,7 @@ export async function saveBoReferences(input: {
     }
   }
 
-  const { data, error } = await supabase.from("referentiels").insert(rowsToInsert).select("*");
+  const { data, error } = await (await floraDb()).from("referentiels").insert(rowsToInsert).select("*");
 
   if (error) {
     console.error("[referentiel] Echec insertion Supabase", serializeSupabaseError(error));
@@ -215,7 +215,7 @@ export async function saveBoReferences(input: {
 }
 
 export async function listReferentielRows(): Promise<ReferentielRow[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("referentiels")
     .select("*")
     .order("created_at", { ascending: false });

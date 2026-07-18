@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type {
   ChangeLogEntry,
@@ -18,7 +18,7 @@ export async function logPedagogicalChange(input: {
 }): Promise<string | null> {
   const bundle = await loadTeacherProfileBundle();
 
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("pedagogical_change_log")
     .insert({
       teacher_profile_id: bundle?.profile.id ?? null,
@@ -42,7 +42,7 @@ export async function logPedagogicalChange(input: {
 }
 
 export async function listPedagogicalChanges(limit = 50): Promise<ChangeLogEntry[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (await floraDb())
     .from("pedagogical_change_log")
     .select("*")
     .is("reverted_at", null)
@@ -55,7 +55,7 @@ export async function listPedagogicalChanges(limit = 50): Promise<ChangeLogEntry
 }
 
 export async function revertPedagogicalChange(logId: string): Promise<RevertResult> {
-  const { data: entry, error } = await supabase
+  const { data: entry, error } = await (await floraDb())
     .from("pedagogical_change_log")
     .select("*")
     .eq("id", logId)
@@ -72,7 +72,7 @@ export async function revertPedagogicalChange(logId: string): Promise<RevertResu
   const restored = await applyRevert(entry);
   if (!restored.ok) return restored;
 
-  await supabase
+  await (await floraDb())
     .from("pedagogical_change_log")
     .update({ reverted_at: new Date().toISOString() })
     .eq("id", logId);
@@ -87,7 +87,7 @@ async function applyRevert(entry: Record<string, unknown>): Promise<RevertResult
   const oldValue = entry.old_value;
 
   if (entityType === "programming_cell" && fieldName) {
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("programming_cells")
       .update({ [fieldName]: oldValue, updated_at: new Date().toISOString() })
       .eq("id", entityId);
@@ -95,7 +95,7 @@ async function applyRevert(entry: Record<string, unknown>): Promise<RevertResult
   }
 
   if (entityType === "progression_row" && fieldName) {
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("progression_rows")
       .update({ [fieldName]: oldValue, updated_at: new Date().toISOString() })
       .eq("id", entityId);
@@ -103,7 +103,7 @@ async function applyRevert(entry: Record<string, unknown>): Promise<RevertResult
   }
 
   if (entityType === "seance" && fieldName) {
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("seances")
       .update({ [fieldName]: oldValue, updated_at: new Date().toISOString() })
       .eq("id", entityId);

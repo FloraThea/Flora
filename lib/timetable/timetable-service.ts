@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/supabase/get-db";
+import { floraDb } from "@/lib/supabase/get-db";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 import {
   createBlankSlot,
@@ -44,9 +44,6 @@ import type {
 } from "./types";
 import { createDefaultTimetableSettings as defaultSettings } from "./types";
 
-async function floraDb() {
-  return getDb();
-}
 
 function mapSchedule(row: Record<string, unknown>): StoredTimetableSchedule {
   return {

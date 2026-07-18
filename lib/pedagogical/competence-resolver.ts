@@ -1,5 +1,5 @@
 import { CompetenceMatcher } from "@/lib/knowledge/CompetenceMatcher";
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 
 const matcher = new CompetenceMatcher();
 
@@ -24,7 +24,7 @@ export async function resolveReferentielIds(labels: string[]): Promise<string[]>
 export async function syncCellReferentielIds(cellId: string, competenceLabels: string[]): Promise<string[]> {
   const referentielIds = await resolveReferentielIds(competenceLabels);
 
-  await supabase
+  await (await floraDb())
     .from("programming_cells")
     .update({
       referentiel_ids: referentielIds,
@@ -42,14 +42,14 @@ export async function propagateReferentielIdsToProgressionRows(
 ): Promise<number> {
   const primaryLabel = competenceLabels[0] ?? "";
 
-  const { data: rows } = await supabase
+  const { data: rows } = await (await floraDb())
     .from("progression_rows")
     .select("id")
     .eq("programming_cell_id", cellId);
 
   if (!rows?.length) return 0;
 
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("progression_rows")
     .update({
       referentiel_ids: referentielIds,
@@ -72,14 +72,14 @@ export async function propagateReferentielIdsToSeances(
 ): Promise<number> {
   if (progressionRowIds.length === 0) return 0;
 
-  const { data: seances } = await supabase
+  const { data: seances } = await (await floraDb())
     .from("seances")
     .select("id")
     .in("progression_row_id", progressionRowIds);
 
   if (!seances?.length) return 0;
 
-  const { error } = await supabase
+  const { error } = await (await floraDb())
     .from("seances")
     .update({
       referentiel_ids: referentielIds,
@@ -98,7 +98,7 @@ export async function propagateReferentielIdsToSeances(
 export async function propagateReferentielIdsToJournal(referentielIds: string[]): Promise<number> {
   if (referentielIds.length === 0) return 0;
 
-  const { data: seances } = await supabase
+  const { data: seances } = await (await floraDb())
     .from("seances")
     .select("id")
     .contains("referentiel_ids", [referentielIds[0]]);
@@ -106,7 +106,7 @@ export async function propagateReferentielIdsToJournal(referentielIds: string[])
   if (!seances?.length) return 0;
 
   const seanceIds = seances.map((row) => row.id);
-  const { data: entries } = await supabase
+  const { data: entries } = await (await floraDb())
     .from("journal_entries")
     .select("id, seance_id")
     .in("seance_id", seanceIds);
@@ -115,7 +115,7 @@ export async function propagateReferentielIdsToJournal(referentielIds: string[])
 
   let count = 0;
   for (const entry of entries) {
-    const { error } = await supabase
+    const { error } = await (await floraDb())
       .from("journal_entries")
       .update({ referentiel_ids: referentielIds, updated_at: new Date().toISOString() })
       .eq("id", entry.id);
@@ -126,7 +126,7 @@ export async function propagateReferentielIdsToJournal(referentielIds: string[])
 }
 
 export async function getProgrammationIdForCell(cellId: string): Promise<string | null> {
-  const { data: cell } = await supabase
+  const { data: cell } = await (await floraDb())
     .from("programming_cells")
     .select("table_id")
     .eq("id", cellId)
@@ -134,7 +134,7 @@ export async function getProgrammationIdForCell(cellId: string): Promise<string 
 
   if (!cell?.table_id) return null;
 
-  const { data: table } = await supabase
+  const { data: table } = await (await floraDb())
     .from("programming_tables")
     .select("programmation_id")
     .eq("id", cell.table_id)

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { addDays } from "./date-utils";
 import { journalGenerator } from "./JournalGenerator";
 
@@ -9,7 +9,7 @@ export class JournalPropagationService {
   }
 
   async syncFromSeance(seanceId: string): Promise<number> {
-    const { data: seance } = await supabase
+    const { data: seance } = await (await floraDb())
       .from("seances")
       .select("session_date, period_number, week_number, programmation_id")
       .eq("id", seanceId)
@@ -43,7 +43,7 @@ export class JournalPropagationService {
   private async collectAffectedDates(programmationId: string): Promise<string[]> {
     if (!programmationId) return [];
 
-    const { data: seances } = await supabase
+    const { data: seances } = await (await floraDb())
       .from("seances")
       .select("session_date")
       .eq("programmation_id", programmationId);

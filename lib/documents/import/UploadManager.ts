@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import { getOrCreateTeacherProfile, loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import {
   buildDocumentStorageKey,
@@ -118,7 +118,7 @@ export class UploadManager {
       storage_bucket: r2Bucket,
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await (await floraDb())
       .from("document_upload_sessions")
       .insert({
         original_filename: input.filename,
@@ -178,7 +178,7 @@ export class UploadManager {
   }
 
   async completeUpload(input: CompleteUploadInput): Promise<CompleteUploadResult> {
-    const { data: sessionRow, error } = await supabase
+    const { data: sessionRow, error } = await (await floraDb())
       .from("document_upload_sessions")
       .select("*")
       .eq("id", input.sessionId)
@@ -238,7 +238,7 @@ export class UploadManager {
         fileSize: session.fileSize,
         originalFilename: session.originalFilename,
       });
-      await supabase
+      await (await floraDb())
         .from("documents")
         .update({
           storage_path: session.storagePath,
@@ -250,7 +250,7 @@ export class UploadManager {
         })
         .eq("id", documentId);
     } else {
-      const { data: created, error: createError } = await supabase
+      const { data: created, error: createError } = await (await floraDb())
         .from("documents")
         .insert({
           title: session.originalFilename.replace(/\.[^.]+$/, ""),
@@ -288,7 +288,7 @@ export class UploadManager {
       });
     }
 
-    await supabase
+    await (await floraDb())
       .from("document_upload_sessions")
       .update({ document_id: documentId })
       .eq("id", session.id);
@@ -315,7 +315,7 @@ export class UploadManager {
   }
 
   async getSession(sessionId: string): Promise<UploadSession | null> {
-    const { data } = await supabase
+    const { data } = await (await floraDb())
       .from("document_upload_sessions")
       .select("*")
       .eq("id", sessionId)
@@ -325,7 +325,7 @@ export class UploadManager {
   }
 
   async cancelSession(sessionId: string): Promise<void> {
-    const { data: session } = await supabase
+    const { data: session } = await (await floraDb())
       .from("document_upload_sessions")
       .select("storage_path, metadata")
       .eq("id", sessionId)
@@ -341,8 +341,8 @@ export class UploadManager {
       }
     }
 
-    await supabase.from("document_upload_chunks").delete().eq("session_id", sessionId);
-    await supabase.from("document_upload_sessions").update({ status: "cancelled" }).eq("id", sessionId);
+    await (await floraDb()).from("document_upload_chunks").delete().eq("session_id", sessionId);
+    await (await floraDb()).from("document_upload_sessions").update({ status: "cancelled" }).eq("id", sessionId);
   }
 }
 

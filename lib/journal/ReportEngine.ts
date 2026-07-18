@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { floraDb } from "@/lib/supabase/get-db";
 import type { TimetableInput } from "@/lib/programming/types";
 import { addDays } from "./date-utils";
 import { scheduleEngine } from "./ScheduleEngine";
@@ -47,7 +47,7 @@ export class ReportEngine {
       return { applied: false, message: "Aucun créneau disponible pour le report." };
     }
 
-    const { error: seanceError } = await supabase
+    const { error: seanceError } = await (await floraDb())
       .from("seances")
       .update({
         session_date: nextDate,
@@ -65,14 +65,14 @@ export class ReportEngine {
 
     const progressionRowId = entry?.slotData?.progressionRowId;
     if (typeof progressionRowId === "string" && progressionRowId) {
-      const { data: row } = await supabase
+      const { data: row } = await (await floraDb())
         .from("progression_rows")
         .select("remarques")
         .eq("id", progressionRowId)
         .maybeSingle();
 
       const remarques = (row?.remarques as string[]) ?? [];
-      await supabase
+      await (await floraDb())
         .from("progression_rows")
         .update({
           remarques: [

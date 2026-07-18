@@ -5,6 +5,7 @@ import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { ImportBatchPanel } from "@/components/import/ImportBatchPanel";
+import { ImportPreviewTable } from "@/components/import/ImportPreviewTable";
 import { parseImportApiError } from "@/lib/import/import-api-errors";
 import type { ProgressionPayload } from "@/lib/progression/types";
 import type {
@@ -20,6 +21,8 @@ import { mergeProgrammationPages } from "@/lib/programming/import/merge-programm
 import { METHODE_OPTIONS, type ValidatedProgrammationOption } from "../types";
 
 const MAPPING_FIELDS: ProgrammationColumnField[] = [
+  "date",
+  "day",
   "period",
   "week",
   "discipline",
@@ -330,7 +333,9 @@ export function ProgressionImportWizard({
             </ul>
           ) : null}
 
-          {parsed.previewRows.length > 0 ? (
+          {parsed.rows.length > 0 ? (
+            <ImportPreviewTable rows={parsed.rows} fileName={parsed.fileName} />
+          ) : parsed.previewRows.length > 0 ? (
             <div className="overflow-x-auto rounded-2xl border border-white/70 bg-white/50 p-3">
               <table className="min-w-full text-left text-xs">
                 <thead>
