@@ -122,6 +122,20 @@ export class ImportQueue {
       .eq("id", jobId);
   }
 
+  async cancelForDocument(documentId: string): Promise<void> {
+    const { data: jobs, error } = await (await floraDb())
+      .from("document_import_jobs")
+      .select("id")
+      .eq("document_id", documentId)
+      .in("status", ["queued", "extracting", "ocr", "analyzing", "indexing", "paused", "waiting_ai"]);
+
+    if (error) throw error;
+
+    for (const job of jobs ?? []) {
+      await this.cancelJob(String(job.id));
+    }
+  }
+
   async reorder(jobIdsInOrder: string[]): Promise<void> {
     const db = await floraDb();
     await Promise.all(

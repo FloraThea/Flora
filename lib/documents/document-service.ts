@@ -1,7 +1,11 @@
 import { searchEngine } from "@/lib/knowledge/SearchEngine";
+import { clearDocumentKnowledge } from "@/lib/knowledge/pipeline";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 import { floraDb } from "@/lib/supabase/get-db";
+import { getStorageBucketName } from "@/lib/supabase/storage-config";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
+import { importQueue } from "./import/ImportQueue";
+import { uploadManager } from "./import/UploadManager";
 import type {
   DocumentSearchFilters,
   DocumentWithRelations,
@@ -260,6 +264,88 @@ export async function archiveDocument(documentId: string): Promise<FloraDocument
   }
 
   return data as FloraDocument;
+}
+
+async function removeDocumentStorageFiles(
+  document: FloraDocument,
+  extraPaths: string[] = [],
+): Promise<void> {
+  const bucket =
+    (document.metadata?.storage_bucket as string | undefined) ?? getStorageBucketName();
+  const paths = new Set<string>();
+
+  if (document.storage_path?.trim()) {
+    paths.add(document.storage_path.trim());
+  }
+
+  for (const path of extraPaths) {
+    if (path.trim()) paths.add(path.trim());
+  }
+
+  if (paths.size === 0) return;
+
+  const { error } = await (await floraDb()).storage.from(bucket).remove([...paths]);
+
+  if (error) {
+    console.warn("[documents] Suppression fichier storage ignorée", {
+      documentId: document.id,
+      paths: [...paths],
+      error: getSupabaseErrorMessage(error, "Suppression storage échouée"),
+    });
+  }
+}
+
+/** Suppression définitive : document, fichier source et analyse associée. */
+export async function deleteDocument(documentId: string): Promise<void> {
+  const existing = await getDocumentDetails(documentId);
+
+  if (!existing) {
+    throw new Error("Document introuvable.");
+  }
+
+  await importQueue.cancelForDocument(documentId);
+
+  const { data: uploadSessions, error: sessionsError } = await (await floraDb())
+    .from("document_upload_sessions")
+    .select("id")
+    .eq("document_id", documentId);
+
+  if (sessionsError) throw sessionsError;
+
+  for (const session of uploadSessions ?? []) {
+    await uploadManager.cancelSession(String(session.id));
+  }
+
+  const { data: versions, error: versionsError } = await (await floraDb())
+    .from("document_versions")
+    .select("storage_path")
+    .eq("document_id", documentId);
+
+  if (versionsError) throw versionsError;
+
+  const versionPaths = (versions ?? [])
+    .map((row) => String(row.storage_path ?? ""))
+    .filter(Boolean);
+
+  await removeDocumentStorageFiles(existing, versionPaths);
+  await clearDocumentKnowledge(documentId);
+
+  const { error: segmentsError } = await (await floraDb())
+    .from("document_segments")
+    .delete()
+    .eq("document_id", documentId);
+
+  if (segmentsError) {
+    throw new Error(
+      getSupabaseErrorMessage(segmentsError, "Impossible de supprimer les segments analysés."),
+    );
+  }
+
+  const { error } = await (await floraDb()).from("documents").delete().eq("id", documentId);
+
+  if (error) {
+    throw new Error(getSupabaseErrorMessage(error, "Impossible de supprimer le document."));
+  }
 }
 
 export function buildFilterOptions(documents: FloraDocument[]) {

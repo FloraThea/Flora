@@ -24,6 +24,11 @@ async function clearPreviousKnowledge(documentId: string) {
   await (await floraDb()).from("pedagogical_entities").delete().eq("document_id", documentId);
 }
 
+/** Supprime toute l'analyse indexée pour un document (réutilisable avant purge). */
+export async function clearDocumentKnowledge(documentId: string): Promise<void> {
+  await clearPreviousKnowledge(documentId);
+}
+
 async function replaceSmartChunks(
   documentId: string,
   chunks: TextChunkDraft[],

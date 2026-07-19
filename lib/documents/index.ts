@@ -5,6 +5,7 @@ export { importDocumentFromFile } from "./import-document";
 export {
   archiveDocument,
   buildFilterOptions,
+  deleteDocument,
   getDocumentDetails,
   listDocuments,
   searchDocuments,

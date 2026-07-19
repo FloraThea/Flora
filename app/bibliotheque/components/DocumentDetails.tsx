@@ -73,9 +73,18 @@ export function DocumentDetails({
             accent="rose"
             variant="outline"
             disabled={isArchiving}
-            onClick={onArchive}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  "Supprimer ce document et son analyse ? Cette action est définitive.",
+                )
+              ) {
+                return;
+              }
+              onArchive();
+            }}
           >
-            Retirer de la bibliothèque
+            {isArchiving ? "Suppression…" : "Supprimer le document"}
           </FloraButton>
         </div>
       </div>

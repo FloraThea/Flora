@@ -142,7 +142,7 @@ function BibliothequePageContent() {
     setSelectedBoId(null);
   }, []);
 
-  const handleArchiveDocument = useCallback(async () => {
+  const handleDeleteDocument = useCallback(async () => {
     if (!selectedPedagogical) return;
     setIsArchiving(true);
     try {
@@ -152,14 +152,14 @@ function BibliothequePageContent() {
         body: JSON.stringify({ id: selectedPedagogical.id }),
       });
       const payload = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Impossible de retirer le document.");
+      if (!response.ok) throw new Error(payload.error || "Impossible de supprimer le document.");
       setSelectedPedagogical(null);
       await loadLibrary();
     } catch (error) {
       setUploadState((current) => ({
         ...current,
         globalError:
-          error instanceof Error ? error.message : "Impossible de retirer le document.",
+          error instanceof Error ? error.message : "Impossible de supprimer le document.",
       }));
     } finally {
       setIsArchiving(false);
@@ -246,7 +246,7 @@ function BibliothequePageContent() {
         <DocumentDetails
           document={selectedPedagogical}
           onClose={() => setSelectedPedagogical(null)}
-          onArchive={handleArchiveDocument}
+          onArchive={handleDeleteDocument}
           isArchiving={isArchiving}
         />
       ) : null}
