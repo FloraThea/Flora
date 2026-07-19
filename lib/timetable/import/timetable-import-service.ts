@@ -2,14 +2,17 @@ import "server-only";
 
 import type { PostgrestError } from "@supabase/supabase-js";
 import { floraDb } from "@/lib/supabase/get-db";
-import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { getOrCreateTeacherProfile } from "@/lib/profile/profile-service";
+import { getSchoolDaysFromWorkingDays } from "@/lib/profile/work-schedule";
 import {
-  ensureActiveSchedule,
+  loadActiveScheduleForProfile,
   loadTimetablePayload,
+  promoteScheduleAsActive,
   replaceScheduleSlots,
 } from "../timetable-service";
 import { timetableValidator } from "../TimetableValidator";
 import type { SmartTimetableSlot, TimetablePayload } from "../types";
+import { createDefaultTimetableSettings } from "../types";
 import { applySubjectMapping } from "./subject-mapper";
 import { parseTimetableFile, applyMappingOverrides } from "./parse-excel";
 import type {
@@ -100,81 +103,92 @@ export async function saveSubjectMappings(
 export async function saveImportedTimetable(
   input: TimetableImportSaveInput,
 ): Promise<TimetableImportSaveResult> {
-  const bundle = await loadTeacherProfileBundle();
-  const profile = bundle?.profile;
+  const bundle = await getOrCreateTeacherProfile();
+  const profile = bundle.profile;
 
   let scheduleId = input.scheduleId;
+  const basePayload = await loadActiveScheduleForProfile(profile.id);
+  const baseSettings = basePayload?.schedule.settings ?? {
+    ...createDefaultTimetableSettings(),
+    schoolDays: getSchoolDaysFromWorkingDays(profile.workingDays ?? []),
+  };
 
   if (!scheduleId) {
-    const base = await ensureActiveSchedule();
-    scheduleId = base.schedule.id;
+    const { data, error } = await (await floraDb())
+      .from("timetable_schedules")
+      .insert({
+        teacher_profile_id: profile.id,
+        name: input.scheduleName ?? "Emploi du temps importé",
+        variant_type: input.variantType ?? "classique",
+        is_active: input.isPrimary ?? true,
+        school_year: input.schoolYear ?? profile.schoolYear ?? "",
+        levels: profile.levels ?? [],
+        settings: baseSettings,
+        weekly_hours: {},
+        status: "draft",
+        metadata: {
+          importSource: input.sourceFileName ?? null,
+          className: input.className ?? "",
+          teacherName: input.teacherName ?? "",
+          importedAt: new Date().toISOString(),
+        },
+      })
+      .select("id")
+      .single();
 
-    if (input.scheduleName && input.scheduleName !== base.schedule.name) {
-      const { data, error } = await (await floraDb())
-        .from("timetable_schedules")
-        .insert({
-          teacher_profile_id: profile?.id ?? null,
-          name: input.scheduleName,
-          variant_type: input.variantType ?? "classique",
-          is_active: input.isPrimary ?? false,
-          school_year: input.schoolYear ?? profile?.schoolYear ?? "",
-          levels: profile?.levels ?? [],
-          settings: base.schedule.settings,
-          weekly_hours: {},
-          status: "draft",
-          metadata: {
-            importSource: input.sourceFileName ?? null,
-            className: input.className ?? "",
-            teacherName: input.teacherName ?? "",
-            importedAt: new Date().toISOString(),
-          },
-        })
-        .select("id")
-        .single();
-
-      if (error || !data) throw error ?? new Error("Création emploi du temps impossible.");
-      scheduleId = String(data.id);
-    }
+    if (error || !data) throw error ?? new Error("Création emploi du temps impossible.");
+    scheduleId = String(data.id);
   }
 
-  if (input.isPrimary && scheduleId) {
-    let deactivateQuery = (await floraDb())
+  if (scheduleId) {
+    const { error: attachError } = await (await floraDb())
       .from("timetable_schedules")
-      .update({ is_active: false })
-      .neq("id", scheduleId);
-    if (profile?.id) {
-      deactivateQuery = deactivateQuery.eq("teacher_profile_id", profile.id);
-    }
-    await deactivateQuery;
-    await (await floraDb())
-      .from("timetable_schedules")
-      .update({ is_active: true, name: input.scheduleName, updated_at: new Date().toISOString() })
+      .update({
+        teacher_profile_id: profile.id,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", scheduleId);
+
+    if (attachError) throw attachError;
   }
 
-  if (input.confirmedMappings && profile?.id) {
+  if (input.isPrimary !== false && scheduleId) {
+    await promoteScheduleAsActive(scheduleId, profile.id);
+    if (input.scheduleName) {
+      const { error: renameError } = await (await floraDb())
+        .from("timetable_schedules")
+        .update({ name: input.scheduleName, updated_at: new Date().toISOString() })
+        .eq("id", scheduleId);
+      if (renameError) throw renameError;
+    }
+  }
+
+  if (input.confirmedMappings) {
     await saveSubjectMappings(input.confirmedMappings, profile.id);
   }
 
   const slots: SmartTimetableSlot[] = input.sessions
-    .filter((session) => !session.isEmpty && session.subject)
+    .filter((session) => !session.isEmpty && (session.rawLabel.trim() || session.subject.trim()))
     .map((session, index) => ({
       ...importSessionToSlot(session, scheduleId!),
       sortOrder: index,
     }));
 
-  const payload = await replaceScheduleSlots(scheduleId!, slots, "import_excel");
-
-  if (profile?.id && slots.length > 0) {
-    const { loadActiveScheduleForProfile } = await import("../timetable-service");
-    await loadActiveScheduleForProfile(profile.id);
+  if (slots.length === 0) {
+    throw new Error("Aucun créneau valide à enregistrer.");
   }
 
-  await (await floraDb())
+  const payload = await replaceScheduleSlots(scheduleId!, slots, "import_excel");
+
+  await promoteScheduleAsActive(scheduleId!, profile.id);
+
+  const { error: scheduleUpdateError } = await (await floraDb())
     .from("timetable_schedules")
     .update({
       name: input.scheduleName,
       school_year: input.schoolYear ?? payload.schedule.schoolYear,
+      teacher_profile_id: profile.id,
+      is_active: true,
       metadata: {
         ...payload.schedule.metadata,
         importSource: input.sourceFileName ?? null,
@@ -188,7 +202,12 @@ export async function saveImportedTimetable(
     })
     .eq("id", scheduleId);
 
-  const finalPayload = (await loadTimetablePayload(scheduleId!)) ?? payload;
+  if (scheduleUpdateError) throw scheduleUpdateError;
+
+  const finalPayload =
+    (await loadActiveScheduleForProfile(profile.id)) ??
+    (await loadTimetablePayload(scheduleId!)) ??
+    payload;
 
   return {
     ...finalPayload,

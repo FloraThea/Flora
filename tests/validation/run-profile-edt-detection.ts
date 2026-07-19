@@ -8,7 +8,6 @@ import {
   reconnectApiSession,
   type ApiTestSession,
 } from "./lib/api-test-session";
-import { parseTimetableFile } from "@/lib/timetable/import/parse-excel";
 
 const EDT_MISSING = "Emploi du temps actif (module Emploi du temps)";
 const FILE_PATH = path.resolve(
@@ -29,7 +28,27 @@ async function importRealTimetable(session: ApiTestSession) {
   }
 
   const buffer = fs.readFileSync(FILE_PATH);
-  const parsed = await parseTimetableFile(buffer, "emploi_du_temps_rentree.xlsx");
+  const fileName = "emploi_du_temps_rentree.xlsx";
+
+  const analyzeForm = new FormData();
+  analyzeForm.append("action", "analyze");
+  analyzeForm.append("file", new File([buffer], fileName, {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  }));
+
+  const analyzeResponse = await apiFetch(session, "/api/emploi-du-temps/import", {
+    method: "POST",
+    body: analyzeForm,
+  });
+  const analyzeData = await readApiJson<{
+    importStatus?: string;
+    parsed?: { sessions?: Array<{ isEmpty?: boolean }>; schoolYear?: string };
+    error?: string;
+  }>(analyzeResponse);
+
+  assert.equal(analyzeData.importStatus, "completed");
+  const sessions = (analyzeData.parsed?.sessions ?? []).filter((item) => !item.isEmpty);
+  assert.equal(sessions.length, 56, "Analyse multipart doit produire 56 créneaux");
 
   const saveResponse = await apiFetch(session, "/api/emploi-du-temps/import", {
     method: "POST",
@@ -38,9 +57,9 @@ async function importRealTimetable(session: ApiTestSession) {
       action: "save",
       scheduleName: "EDT profil — test réel",
       isPrimary: true,
-      schoolYear: "2026-2027",
-      sessions: parsed.sessions,
-      sourceFileName: "emploi_du_temps_rentree.xlsx",
+      schoolYear: analyzeData.parsed?.schoolYear ?? "2026-2027",
+      sessions,
+      sourceFileName: fileName,
     }),
   });
 

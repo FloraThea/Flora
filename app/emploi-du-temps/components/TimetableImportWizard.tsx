@@ -20,7 +20,24 @@ import {
 } from "@/lib/timetable/subject-palette";
 import type { TimetablePayload } from "@/lib/timetable/types";
 import { getFormatsAcceptesLabel, getModuleAcceptAttribute, isAcceptedForModule } from "@/lib/import/accepted-formats";
+import {
+  fetchImportWithTimeout,
+  parseImportApiError,
+  readImportApiResponse,
+} from "@/lib/import/import-api-errors";
 import { colors } from "@/lib/theme";
+
+const IMPORT_ANALYZE_TIMEOUT_MS = 120_000;
+const IMPORT_SAVE_TIMEOUT_MS = 120_000;
+
+type ImportPhase =
+  | "idle"
+  | "uploading"
+  | "analyzing"
+  | "validating"
+  | "saving"
+  | "completed"
+  | "failed";
 
 function applySessionAppearance(
   session: TimetableImportSession,
@@ -56,6 +73,7 @@ type TimetableImportWizardProps = {
 
 type AnalyzeResponse = {
   parsed?: ParsedTimetableImport;
+  importStatus?: string;
   error?: string;
   details?: string;
 };
@@ -73,6 +91,7 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
   const [scheduleName, setScheduleName] = useState("Emploi du temps principal");
   const [isPrimary, setIsPrimary] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [importPhase, setImportPhase] = useState<ImportPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
@@ -101,6 +120,7 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
       }
 
       setIsLoading(true);
+      setImportPhase("analyzing");
       setError(null);
 
       try {
@@ -111,16 +131,27 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
           form.append("structureOverrides", JSON.stringify(structureOverrides));
         }
 
-        const response = await fetch("/api/emploi-du-temps/import", { method: "POST", body: form });
-        const data = (await response.json()) as AnalyzeResponse;
-
+        const response = await fetchImportWithTimeout(
+          "/api/emploi-du-temps/import",
+          { method: "POST", body: form },
+          IMPORT_ANALYZE_TIMEOUT_MS,
+          "L'analyse a pris trop de temps. Vérifiez votre connexion et réessayez.",
+        );
+        const data = await readImportApiResponse<AnalyzeResponse>(
+          response,
+          "Analyse impossible.",
+        );
         if (!response.ok) {
-          throw new Error(data.details || data.error || "Analyse impossible.");
+          throw new Error(parseImportApiError(data, "Analyse impossible."));
+        }
+        if (!data.parsed) {
+          throw new Error("Analyse terminée sans résultat exploitable.");
         }
 
-        const result = data.parsed ?? null;
+        const result = data.parsed;
         setParsed(result);
         setSessions(result?.sessions ?? []);
+        setImportPhase("completed");
 
         if (result?.structure && result.structure.headerRow >= 0) {
           setManualHeaderRow(result.structure.headerRow);
@@ -139,6 +170,7 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
 
         setStep(result?.uncertainMappings.length ? 1 : 2);
       } catch (analyzeError) {
+        setImportPhase("failed");
         setError(analyzeError instanceof Error ? analyzeError.message : "Analyse impossible.");
       } finally {
         setIsLoading(false);
@@ -149,30 +181,46 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
 
   async function handleSave() {
     setIsLoading(true);
+    setImportPhase("saving");
     setError(null);
 
     try {
-      const response = await fetch("/api/emploi-du-temps/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "save",
-          sessions,
-          confirmedMappings: mappings,
-          scheduleName,
-          isPrimary,
-          className: parsed?.className,
-          teacherName: parsed?.teacherName,
-          schoolYear: parsed?.schoolYear,
-          sourceFileName: parsed?.fileName,
-        }),
-      });
+      const response = await fetchImportWithTimeout(
+        "/api/emploi-du-temps/import",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "save",
+            sessions,
+            confirmedMappings: mappings,
+            scheduleName,
+            isPrimary,
+            className: parsed?.className,
+            teacherName: parsed?.teacherName,
+            schoolYear: parsed?.schoolYear,
+            sourceFileName: parsed?.fileName,
+          }),
+        },
+        IMPORT_SAVE_TIMEOUT_MS,
+        "L'enregistrement a pris trop de temps. Réessayez dans un instant.",
+      );
 
-      const data = (await response.json()) as TimetablePayload & { error?: string; details?: string };
-      if (!response.ok) throw new Error(data.details || data.error || "Enregistrement impossible.");
+      const data = await readImportApiResponse<TimetablePayload & { error?: string; details?: string }>(
+        response,
+        "Enregistrement impossible.",
+      );
+      if (!response.ok) {
+        throw new Error(parseImportApiError(data, "Enregistrement impossible."));
+      }
+      if (!data.slots?.length) {
+        throw new Error("Enregistrement terminé sans créneau enregistré.");
+      }
 
+      setImportPhase("completed");
       onComplete(data);
     } catch (saveError) {
+      setImportPhase("failed");
       setError(saveError instanceof Error ? saveError.message : "Enregistrement impossible.");
     } finally {
       setIsLoading(false);
@@ -362,8 +410,17 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
                 />
               ) : null}
               <FloraButton accent="sage" className="mt-4" onClick={() => void runAnalyze()} disabled={isLoading}>
-                {isLoading ? "Analyse en cours…" : "Analyser le fichier"}
+                {isLoading && importPhase === "analyzing"
+                  ? "Analyse en cours…"
+                  : importPhase === "failed"
+                    ? "Relancer l'analyse"
+                    : "Analyser le fichier"}
               </FloraButton>
+              {importPhase === "failed" && !isLoading ? (
+                <p className="mt-2 text-xs font-light text-flora-text-muted">
+                  L&apos;analyse a échoué ou a expiré. Corrigez le fichier ou relancez l&apos;analyse.
+                </p>
+              ) : null}
             </FloraCard>
 
             <TheaGlow
@@ -507,7 +564,7 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
                   const remapped = sessions.map((session) => {
                     const mapped = mappings[session.rawLabel];
                     if (!mapped) return session;
-                    return { ...session, subject: mapped };
+                    return { ...session, normalizedSubject: mapped };
                   });
                   setSessions(remapped);
                   setStep(2);

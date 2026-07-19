@@ -41,58 +41,73 @@ export async function linkTeacherProfileToAuthUser(
 
   const { data: orphans, error: orphanError } = await client
     .from("teacher_profiles")
-    .select("id, created_at")
+    .select("id")
     .is("user_id", null)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(20);
 
   if (orphanError) throw orphanError;
 
-  let bestOrphanId: string | null = null;
+  if (!orphans?.length) {
+    const { data: created, error: createError } = await client
+      .from("teacher_profiles")
+      .insert({ status: "draft", user_id: userId })
+      .select("id")
+      .single();
+
+    if (createError || !created) {
+      throw createError ?? new Error("Impossible de créer le profil lié au compte.");
+    }
+
+    return String(created.id);
+  }
+
+  const orphanIds = orphans.map((orphan) => String(orphan.id));
+  const { data: schedules, error: schedulesError } = await client
+    .from("timetable_schedules")
+    .select("id, teacher_profile_id")
+    .in("teacher_profile_id", orphanIds);
+
+  if (schedulesError) throw schedulesError;
+
+  let bestOrphanId = orphanIds[0];
   let bestSlotCount = -1;
 
-  for (const orphan of orphans ?? []) {
-    const { data: schedules } = await client
-      .from("timetable_schedules")
-      .select("id")
-      .eq("teacher_profile_id", orphan.id);
+  if (schedules?.length) {
+    const scheduleIds = schedules.map((schedule) => String(schedule.id));
+    const { data: slotRows, error: slotsError } = await client
+      .from("timetable_slots")
+      .select("schedule_id")
+      .in("schedule_id", scheduleIds);
 
-    let profileSlotCount = 0;
-    for (const schedule of schedules ?? []) {
-      const { count } = await client
-        .from("timetable_slots")
-        .select("id", { count: "exact", head: true })
-        .eq("schedule_id", schedule.id);
-      profileSlotCount += count ?? 0;
+    if (slotsError) throw slotsError;
+
+    const profileCounts = new Map<string, number>();
+    const scheduleToProfile = new Map(
+      schedules.map((schedule) => [String(schedule.id), String(schedule.teacher_profile_id)]),
+    );
+
+    for (const row of slotRows ?? []) {
+      const profileId = scheduleToProfile.get(String(row.schedule_id));
+      if (!profileId) continue;
+      profileCounts.set(profileId, (profileCounts.get(profileId) ?? 0) + 1);
     }
 
-    if (profileSlotCount > bestSlotCount) {
-      bestSlotCount = profileSlotCount;
-      bestOrphanId = String(orphan.id);
+    for (const orphanId of orphanIds) {
+      const count = profileCounts.get(orphanId) ?? 0;
+      if (count > bestSlotCount) {
+        bestSlotCount = count;
+        bestOrphanId = orphanId;
+      }
     }
   }
 
-  const orphanId = bestOrphanId ?? (orphans?.[0]?.id ? String(orphans[0].id) : null);
-
-  if (orphanId) {
-    const { error: updateError } = await client
-      .from("teacher_profiles")
-      .update({ user_id: userId })
-      .eq("id", orphanId)
-      .is("user_id", null);
-
-    if (updateError) throw updateError;
-    return orphanId;
-  }
-
-  const { data: created, error: createError } = await client
+  const { error: updateError } = await client
     .from("teacher_profiles")
-    .insert({ status: "draft", user_id: userId })
-    .select("id")
-    .single();
+    .update({ user_id: userId })
+    .eq("id", bestOrphanId)
+    .is("user_id", null);
 
-  if (createError || !created) {
-    throw createError ?? new Error("Impossible de créer le profil lié au compte.");
-  }
-
-  return String(created.id);
+  if (updateError) throw updateError;
+  return bestOrphanId;
 }

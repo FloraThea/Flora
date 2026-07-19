@@ -198,15 +198,15 @@ export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle>
   const client = await floraDb();
   const userId = await resolveAuthUserId();
 
+  const existing = await loadTeacherProfileBundle();
+  if (existing) return existing;
+
   if (userId) {
     const { linkTeacherProfileToAuthUser } = await import("@/lib/supabase/auth-server");
     const profileId = await linkTeacherProfileToAuthUser(userId);
     const linked = await reloadTeacherProfileBundle(profileId);
     if (linked) return linked;
   }
-
-  const existing = await loadTeacherProfileBundle();
-  if (existing) return existing;
 
   const { data: profile, error } = await client
     .from("teacher_profiles")

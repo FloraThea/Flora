@@ -252,9 +252,15 @@ export async function loadTimetablePayload(scheduleId: string): Promise<Timetabl
 }
 
 export async function loadActiveSchedule(): Promise<TimetablePayload | null> {
-  const bundle = await loadTeacherProfileBundle();
-  if (bundle?.profile.id) {
+  try {
+    const { getOrCreateTeacherProfile } = await import("@/lib/profile/profile-service");
+    const bundle = await getOrCreateTeacherProfile();
     return loadActiveScheduleForProfile(bundle.profile.id);
+  } catch {
+    const bundle = await loadTeacherProfileBundle();
+    if (bundle?.profile.id) {
+      return loadActiveScheduleForProfile(bundle.profile.id);
+    }
   }
 
   const { data, error } = await (await floraDb())
@@ -281,7 +287,7 @@ async function countScheduleSlots(scheduleId: string): Promise<number> {
   return count ?? 0;
 }
 
-async function promoteScheduleAsActive(
+export async function promoteScheduleAsActive(
   scheduleId: string,
   teacherProfileId: string,
 ): Promise<void> {
@@ -292,7 +298,7 @@ async function promoteScheduleAsActive(
     .eq("teacher_profile_id", teacherProfileId)
     .neq("id", scheduleId);
 
-  await client
+  const { error } = await client
     .from("timetable_schedules")
     .update({
       is_active: true,
@@ -300,20 +306,42 @@ async function promoteScheduleAsActive(
       updated_at: new Date().toISOString(),
     })
     .eq("id", scheduleId);
+
+  if (error) throw error;
 }
 
 async function findScheduleWithMostSlots(
   teacherProfileId: string,
 ): Promise<{ scheduleId: string; slotCount: number } | null> {
-  const schedules = await listSchedules(teacherProfileId);
+  const client = await floraDb();
+  const { data: schedules, error } = await client
+    .from("timetable_schedules")
+    .select("id")
+    .eq("teacher_profile_id", teacherProfileId);
+
+  if (error) throw error;
+  if (!schedules?.length) return null;
+
+  const scheduleIds = schedules.map((schedule) => String(schedule.id));
+  const { data: slotRows, error: slotsError } = await client
+    .from("timetable_slots")
+    .select("schedule_id")
+    .in("schedule_id", scheduleIds);
+
+  if (slotsError) throw slotsError;
+
+  const counts = new Map<string, number>();
+  for (const row of slotRows ?? []) {
+    const scheduleId = String(row.schedule_id);
+    counts.set(scheduleId, (counts.get(scheduleId) ?? 0) + 1);
+  }
+
   let bestScheduleId: string | null = null;
   let bestCount = 0;
-
-  for (const schedule of schedules) {
-    const slotCount = await countScheduleSlots(schedule.id);
-    if (slotCount > bestCount) {
-      bestCount = slotCount;
-      bestScheduleId = schedule.id;
+  for (const [scheduleId, count] of counts) {
+    if (count > bestCount) {
+      bestCount = count;
+      bestScheduleId = scheduleId;
     }
   }
 
@@ -379,11 +407,28 @@ export async function loadActiveScheduleForProfile(
 
   let bestOrphanId: string | null = null;
   let bestOrphanCount = 0;
-  for (const row of orphanSchedules ?? []) {
-    const slotCount = await countScheduleSlots(String(row.id));
-    if (slotCount > bestOrphanCount) {
-      bestOrphanCount = slotCount;
-      bestOrphanId = String(row.id);
+
+  if (orphanSchedules?.length) {
+    const orphanIds = orphanSchedules.map((row) => String(row.id));
+    const { data: orphanSlotRows, error: orphanSlotsError } = await client
+      .from("timetable_slots")
+      .select("schedule_id")
+      .in("schedule_id", orphanIds);
+
+    if (orphanSlotsError) throw orphanSlotsError;
+
+    const orphanCounts = new Map<string, number>();
+    for (const row of orphanSlotRows ?? []) {
+      const scheduleId = String(row.schedule_id);
+      orphanCounts.set(scheduleId, (orphanCounts.get(scheduleId) ?? 0) + 1);
+    }
+
+    for (const scheduleId of orphanIds) {
+      const slotCount = orphanCounts.get(scheduleId) ?? 0;
+      if (slotCount > bestOrphanCount) {
+        bestOrphanCount = slotCount;
+        bestOrphanId = scheduleId;
+      }
     }
   }
 
@@ -427,19 +472,20 @@ export async function ensureActiveSchedule(): Promise<TimetablePayload> {
   const existing = await loadActiveSchedule();
   if (existing) return existing;
 
-  const bundle = await loadTeacherProfileBundle();
-  const profile = bundle?.profile;
-  const schoolDays = getSchoolDaysFromWorkingDays(profile?.workingDays ?? []);
+  const { getOrCreateTeacherProfile } = await import("@/lib/profile/profile-service");
+  const bundle = await getOrCreateTeacherProfile();
+  const profile = bundle.profile;
+  const schoolDays = getSchoolDaysFromWorkingDays(profile.workingDays ?? []);
 
   const { data, error } = await (await floraDb())
     .from("timetable_schedules")
     .insert({
-      teacher_profile_id: profile?.id ?? null,
+      teacher_profile_id: profile.id,
       name: "Emploi du temps principal",
       variant_type: "classique",
       is_active: true,
-      school_year: profile?.schoolYear ?? "",
-      levels: profile?.levels ?? [],
+      school_year: profile.schoolYear ?? "",
+      levels: profile.levels ?? [],
       settings: {
         ...defaultSettings(),
         schoolDays,

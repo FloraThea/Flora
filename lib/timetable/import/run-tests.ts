@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { parseTimetableFile } from "./parse-excel";
+import { parseTimetableFile, applyMappingOverrides } from "./parse-excel";
+import { importSessionToSlot } from "./types";
 import { findDaysInCell, parseTimeCell } from "./normalize";
 
 function workbookBuffer(rows: string[][], merges?: XLSX.Range[]): Buffer {
@@ -179,4 +180,73 @@ queueTest("parses csv export style", async () => {
   const parsed = await parseTimetableFile(buffer, "edt.csv");
   assert.equal(parsed.needsManualStructure, false);
   assert.ok(parsed.sessions.length >= 4);
+});
+
+queueTest("mapping overrides keep source subject text", () => {
+  const parsed = applyMappingOverrides(
+    {
+      fileName: "edt.xlsx",
+      sheetName: "EDT",
+      className: "",
+      teacherName: "",
+      schoolYear: "",
+      days: ["Lundi"],
+      timeSlots: ["10:15"],
+      sessions: [
+        {
+          day: "Lundi",
+          startTime: "10:15",
+          endTime: "11:00",
+          subject: "Conjugaison (Réussir en grammaire)",
+          title: "",
+          level: "",
+          group: "",
+          location: "",
+          notes: "",
+          color: "",
+          slotType: "seance",
+          rawLabel: "Conjugaison (Réussir en grammaire)",
+          isEmpty: false,
+          rowIndex: 1,
+          colIndex: 1,
+        },
+      ],
+      emptySlots: [],
+      uncertainMappings: [],
+      warnings: [],
+      structure: {
+        layout: "days_in_row",
+        headerRow: 0,
+        timeColumn: 0,
+        dayColumn: -1,
+        dayColumns: {},
+        timeRows: {},
+        confidence: 1,
+      },
+      needsManualStructure: false,
+      diagnostics: {
+        detectedDayRow: 0,
+        detectedDayColumn: null,
+        detectedTimeColumn: 0,
+        detectedTimeRow: null,
+        layout: "days_in_row",
+        mergedCellCount: 0,
+        detectedSubjects: [],
+        anomalies: [],
+        dayRowCandidates: [],
+        timeColumnCandidates: [],
+        decorativeRows: [],
+      },
+      gridPreview: [],
+    },
+    { "Conjugaison (Réussir en grammaire)": "Français" },
+  );
+
+  const session = parsed.sessions[0];
+  assert.equal(session.subject, "Conjugaison (Réussir en grammaire)");
+  assert.equal(session.normalizedSubject, "Français");
+
+  const slot = importSessionToSlot(session, "schedule-test");
+  assert.equal(slot.subject, "Conjugaison (Réussir en grammaire)");
+  assert.equal(slot.metadata.normalizedSubject, "Français");
 });

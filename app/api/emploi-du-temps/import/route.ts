@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
+import { getOrCreateTeacherProfile } from "@/lib/profile/profile-service";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 import {
   analyzeTimetableFile,
@@ -40,12 +41,16 @@ export async function POST(request: Request) {
 
       logRouteInfo(ROUTE_PATH, "Import Excel EDT", { action, fileName, structureOverrides });
 
-      const base = await ensureActiveSchedule();
-      const overrides = await loadSubjectMappingOverrides(base.schedule.teacherProfileId);
-
       if (action === "analyze") {
+        const bundle = await getOrCreateTeacherProfile();
+        const overrides = await loadSubjectMappingOverrides(bundle.profile.id);
         const parsed = await analyzeTimetableFile(buffer, fileName, overrides, structureOverrides);
-        return NextResponse.json({ route: ROUTE_PATH, parsed });
+
+        return NextResponse.json({
+          route: ROUTE_PATH,
+          importStatus: "completed",
+          parsed,
+        });
       }
 
       return jsonRouteError(ROUTE_PATH, 400, "Action inconnue.");
@@ -142,6 +147,7 @@ export async function POST(request: Request) {
       await pedagogicalEngine.emit({ type: "emploi_du_temps.modifie", scope: "generate" });
       return NextResponse.json({
         route: ROUTE_PATH,
+        importStatus: "completed",
         ...result,
         journalSynced: true,
         message: "Emploi du temps validé et synchronisé avec le cahier journal.",
