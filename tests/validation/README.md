@@ -39,6 +39,16 @@ npm run test:validation
 # Regénérer la baseline après validation manuelle d'un nouveau comportement correct
 npm run test:validation:baseline
 
+# Test réel parseur + Supabase direct (sans serveur HTTP)
+npm run test:validation:real
+
+# Enchaînement HTTP complet analyze → save (serveur dev requis + cookie auth)
+npm run dev
+npm run test:validation:api
+
+# Persistance navigateur : onglets, refresh, reconnexion (Playwright + serveur dev)
+npm run test:validation:browser
+
 # Inclure la vérification Supabase (custom_text, etc.)
 npm run test:validation:persistence
 
@@ -79,6 +89,6 @@ Contenu : documents testés, statistiques, différences, note de fiabilité /100
 
 | Variable | Usage |
 |----------|-------|
+| `FLORA_VALIDATION_BASE_URL` | URL du serveur dev (défaut `http://localhost:3000` — utiliser le port affiché par `npm run dev`) |
 | `FLORA_VALIDATION_EMAIL` | Compte test pour persistance Supabase |
 | `FLORA_VALIDATION_PASSWORD` | Mot de passe du compte test |
-| `FLORA_VALIDATION_BASE_URL` | URL pour captures (défaut `http://localhost:3000`) |

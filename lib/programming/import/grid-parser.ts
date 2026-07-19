@@ -291,9 +291,9 @@ function gridHasPeriodSections(grid: string[][]): boolean {
 
 function parsePeriodBanner(row: string[]): { periodNumber: number; title: string } | null {
   const text = String(row.find((cell) => String(cell ?? "").trim()) ?? "").trim();
-  const match = text.match(/p[ée]riode\s*(\d+)\s*[—–-]\s*(.+)$/i);
+  const match = text.match(/p[ée]riode\s*(\d+)(?:\s*[—–-]\s*(.+))?$/i);
   if (!match) return null;
-  return { periodNumber: Number(match[1]), title: match[2].trim() };
+  return { periodNumber: Number(match[1]), title: (match[2] ?? "").trim() };
 }
 
 function isTableHeaderRow(row: string[]): boolean {

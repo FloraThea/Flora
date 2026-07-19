@@ -53,13 +53,30 @@ function testPartialDateWithSchoolYear() {
   assert.equal(extractSchoolYearFromText("Zone A 2026-2027"), "2026-2027");
 }
 
+function testPeriodBannerWithoutSubtitle() {
+  const grid = [
+    ["Semaine", "Date", "Domaine", "Séance", "Page"],
+    ["PÉRIODE 1"],
+    ["Semaine", "Date", "Domaine", "Séance", "Page"],
+    ["S1", "07/09/2026", "Domaine A", "Séance 1", "6"],
+    ["PÉRIODE 2"],
+    ["Semaine", "Date", "Domaine", "Séance", "Page"],
+    ["S2", "14/09/2026", "Domaine B", "Séance 2", "8"],
+  ];
+  const { rows } = rowsFromGrid(grid, undefined, { sourceSheet: "Progression EMC" });
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0]?.periodNumber, 1);
+  assert.equal(rows[1]?.periodNumber, 2);
+}
+
 function run() {
   testExcelDate();
   testFrenchDays();
   testSequenceSeanceDisambiguation();
   testGridWithDatesAndInheritance();
   testPartialDateWithSchoolYear();
-  console.log("Spreadsheet deterministic tests: 5/5 passed");
+  testPeriodBannerWithoutSubtitle();
+  console.log("Spreadsheet deterministic tests: 6/6 passed");
 }
 
 run();

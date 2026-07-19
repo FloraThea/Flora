@@ -16,6 +16,12 @@
     "test:validation:screenshots": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-screenshot-validation.ts",
     "test:validation:screenshots:baseline": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-screenshot-validation.ts --baseline",
     "test:validation:hda": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-hda.ts",
+    "test:validation:emc": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-emc.ts",
+    "test:validation:edt": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-edt.ts",
+    "test:validation:mhm": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-mhm.ts",
+    "test:validation:real": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-hda.ts && node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-emc.ts && node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-edt.ts && node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-mhm.ts",
+    "test:validation:api": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-api.ts",
+    "test:validation:browser": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-browser-persistence-validation.ts",
     "db:migrate": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/apply-pending-migrations.ts",
     "db:audit": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/audit-supabase-live.ts"
   },
@@ -43,6 +49,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "playwright": "^1.61.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.0",
     "typescript": "^5"
