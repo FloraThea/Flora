@@ -13,6 +13,7 @@ import {
 import { timetableValidator } from "../TimetableValidator";
 import type { SmartTimetableSlot, TimetablePayload } from "../types";
 import { createDefaultTimetableSettings } from "../types";
+import { edtImportTrace } from "./edt-import-trace";
 import { applySubjectMapping } from "./subject-mapper";
 import { parseTimetableFile, applyMappingOverrides } from "./parse-excel";
 import type {
@@ -105,6 +106,7 @@ export async function saveImportedTimetable(
 ): Promise<TimetableImportSaveResult> {
   const bundle = await getOrCreateTeacherProfile();
   const profile = bundle.profile;
+  edtImportTrace("EDT-06", { profileId: profile.id, status: "save_profile" });
 
   let scheduleId = input.scheduleId;
   const basePayload = await loadActiveScheduleForProfile(profile.id);
@@ -179,8 +181,20 @@ export async function saveImportedTimetable(
   }
 
   const payload = await replaceScheduleSlots(scheduleId!, slots, "import_excel");
+  edtImportTrace("EDT-11", {
+    profileId: profile.id,
+    scheduleId,
+    status: "slots_saved",
+    slotCount: slots.length,
+  });
 
   await promoteScheduleAsActive(scheduleId!, profile.id);
+  edtImportTrace("EDT-12", {
+    profileId: profile.id,
+    scheduleId,
+    status: "schedule_active",
+    slotCount: slots.length,
+  });
 
   const { error: scheduleUpdateError } = await (await floraDb())
     .from("timetable_schedules")
@@ -204,13 +218,15 @@ export async function saveImportedTimetable(
 
   if (scheduleUpdateError) throw scheduleUpdateError;
 
-  const finalPayload =
-    (await loadActiveScheduleForProfile(profile.id)) ??
-    (await loadTimetablePayload(scheduleId!)) ??
-    payload;
+  edtImportTrace("EDT-13", {
+    profileId: profile.id,
+    scheduleId,
+    status: "save_ready",
+    slotCount: payload.slots.length,
+  });
 
   return {
-    ...finalPayload,
+    ...payload,
     journalSynced: false,
   };
 }

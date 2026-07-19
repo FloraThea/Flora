@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
 import { getOrCreateTeacherProfile } from "@/lib/profile/profile-service";
+import { getServerAuthUserId } from "@/lib/supabase/auth-server";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 import {
   analyzeTimetableFile,
@@ -9,6 +10,7 @@ import {
   saveImportedTimetable,
   validateImportSessions,
 } from "@/lib/timetable/import/timetable-import-service";
+import { edtImportTrace } from "@/lib/timetable/import/edt-import-trace";
 import type { StructureOverrides, TimetableImportSaveInput } from "@/lib/timetable/import/types";
 import { ensureActiveSchedule } from "@/lib/timetable/timetable-service";
 
@@ -16,6 +18,7 @@ const ROUTE_PATH = "/api/emploi-du-temps/import";
 
 export async function POST(request: Request) {
   try {
+    edtImportTrace("EDT-04", { status: "route_enter" });
     const contentType = request.headers.get("content-type") ?? "";
 
     if (contentType.includes("multipart/form-data")) {
@@ -29,6 +32,7 @@ export async function POST(request: Request) {
 
       const buffer = Buffer.from(await file.arrayBuffer());
       const fileName = file.name;
+      edtImportTrace("EDT-07", { fileName, fileSize: buffer.length, status: action });
       const structureOverridesRaw = formData.get("structureOverrides");
       let structureOverrides: StructureOverrides | undefined;
       if (structureOverridesRaw) {
@@ -42,14 +46,25 @@ export async function POST(request: Request) {
       logRouteInfo(ROUTE_PATH, "Import Excel EDT", { action, fileName, structureOverrides });
 
       if (action === "analyze") {
+        const userId = await getServerAuthUserId();
+        edtImportTrace("EDT-05", { userId, status: "resolve_user" });
         const bundle = await getOrCreateTeacherProfile();
+        edtImportTrace("EDT-06", { userId, profileId: bundle.profile.id, status: "profile_ready" });
         const overrides = await loadSubjectMappingOverrides(bundle.profile.id);
+        edtImportTrace("EDT-08", { profileId: bundle.profile.id, status: "analyzing" });
         const parsed = await analyzeTimetableFile(buffer, fileName, overrides, structureOverrides);
+        const slotCount = parsed.sessions.filter((session) => !session.isEmpty).length;
+        edtImportTrace("EDT-09", { profileId: bundle.profile.id, status: "completed", slotCount });
+        edtImportTrace("EDT-10", { profileId: bundle.profile.id, status: "parsed", slotCount });
+        edtImportTrace("EDT-13", { profileId: bundle.profile.id, status: "response_ok", slotCount });
 
         return NextResponse.json({
           route: ROUTE_PATH,
           importStatus: "completed",
           parsed,
+          profileId: bundle.profile.id,
+          userId,
+          slotCount,
         });
       }
 
@@ -125,12 +140,17 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "validate" && body.sessions) {
-      const base = await ensureActiveSchedule();
+      const bundle = await getOrCreateTeacherProfile();
+      const { loadActiveScheduleForProfile } = await import("@/lib/timetable/timetable-service");
+      const base =
+        (await loadActiveScheduleForProfile(bundle.profile.id)) ??
+        (await ensureActiveSchedule());
       const validation = validateImportSessions(body.sessions, base);
       return NextResponse.json({ route: ROUTE_PATH, validation });
     }
 
     if (body.action === "save" && body.sessions?.length) {
+      edtImportTrace("EDT-08", { status: "saving", slotCount: body.sessions.length });
       const result = await saveImportedTimetable({
         scheduleId: body.scheduleId,
         scheduleName: body.scheduleName ?? "Emploi du temps importé",
@@ -144,7 +164,19 @@ export async function POST(request: Request) {
         sourceFileName: body.sourceFileName,
       });
 
-      await pedagogicalEngine.emit({ type: "emploi_du_temps.modifie", scope: "generate" });
+      edtImportTrace("EDT-13", {
+        profileId: result.schedule.teacherProfileId,
+        scheduleId: result.schedule.id,
+        status: "save_completed",
+        slotCount: result.slots.length,
+      });
+
+      void pedagogicalEngine
+        .emit({ type: "emploi_du_temps.modifie", scope: "generate" })
+        .catch((syncError) => {
+          console.warn("[EDT] Sync cahier journal ignorée après import :", syncError);
+        });
+
       return NextResponse.json({
         route: ROUTE_PATH,
         importStatus: "completed",
@@ -156,11 +188,13 @@ export async function POST(request: Request) {
 
     return jsonRouteError(ROUTE_PATH, 400, "Requête invalide.");
   } catch (error) {
+    const message = toErrorMessage(error);
+    edtImportTrace("EDT-13", { status: "failed", error: message });
     return jsonRouteError(
       ROUTE_PATH,
       500,
       "Import emploi du temps impossible.",
-      toErrorMessage(error),
+      message,
     );
   }
 }

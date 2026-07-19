@@ -157,14 +157,14 @@ export const loadTeacherProfileBundle = cache(async (): Promise<TeacherProfileBu
   let query = client.from("teacher_profiles").select("*");
   if (userId) {
     query = query.eq("user_id", userId);
-  } else if (process.env.NODE_ENV === "production") {
-    return null;
   } else {
+    // Mono-utilisateur : premier profil existant (sans écran de connexion).
     query = query.order("created_at", { ascending: true });
   }
 
-  const { data } = await query.limit(1).maybeSingle();
+  const { data, error } = await query.limit(1).maybeSingle();
 
+  if (error) throw error;
   if (!data) return null;
   return loadBundleForProfile(data, client);
 });
@@ -207,6 +207,16 @@ export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle>
     const linked = await reloadTeacherProfileBundle(profileId);
     if (linked) return linked;
   }
+
+  const { data: singleTenant, error: singleTenantError } = await client
+    .from("teacher_profiles")
+    .select("*")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (singleTenantError) throw singleTenantError;
+  if (singleTenant) return loadBundleForProfile(singleTenant, client);
 
   const { data: profile, error } = await client
     .from("teacher_profiles")

@@ -378,65 +378,6 @@ export async function loadActiveScheduleForProfile(
     return loadTimetablePayload(bestForProfile.scheduleId);
   }
 
-  const { data: legacy, error: legacyError } = await client
-    .from("timetable_schedules")
-    .select("*")
-    .eq("is_active", true)
-    .is("teacher_profile_id", null)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (legacyError) throw legacyError;
-
-  if (legacy) {
-    const legacyPayload = await loadTimetablePayload(String(legacy.id));
-    if (legacyPayload && legacyPayload.slots.length > 0) {
-      await promoteScheduleAsActive(String(legacy.id), teacherProfileId);
-      return loadTimetablePayload(String(legacy.id));
-    }
-  }
-
-  const { data: orphanSchedules, error: orphanError } = await client
-    .from("timetable_schedules")
-    .select("id, updated_at")
-    .is("teacher_profile_id", null)
-    .order("updated_at", { ascending: false });
-
-  if (orphanError) throw orphanError;
-
-  let bestOrphanId: string | null = null;
-  let bestOrphanCount = 0;
-
-  if (orphanSchedules?.length) {
-    const orphanIds = orphanSchedules.map((row) => String(row.id));
-    const { data: orphanSlotRows, error: orphanSlotsError } = await client
-      .from("timetable_slots")
-      .select("schedule_id")
-      .in("schedule_id", orphanIds);
-
-    if (orphanSlotsError) throw orphanSlotsError;
-
-    const orphanCounts = new Map<string, number>();
-    for (const row of orphanSlotRows ?? []) {
-      const scheduleId = String(row.schedule_id);
-      orphanCounts.set(scheduleId, (orphanCounts.get(scheduleId) ?? 0) + 1);
-    }
-
-    for (const scheduleId of orphanIds) {
-      const slotCount = orphanCounts.get(scheduleId) ?? 0;
-      if (slotCount > bestOrphanCount) {
-        bestOrphanCount = slotCount;
-        bestOrphanId = scheduleId;
-      }
-    }
-  }
-
-  if (bestOrphanId && bestOrphanCount > 0) {
-    await promoteScheduleAsActive(bestOrphanId, teacherProfileId);
-    return loadTimetablePayload(bestOrphanId);
-  }
-
   if (activeRow) {
     return loadTimetablePayload(String(activeRow.id));
   }

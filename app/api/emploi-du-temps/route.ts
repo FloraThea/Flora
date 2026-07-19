@@ -6,7 +6,7 @@ import {
   loadTimetablePayload,
   saveScheduleSettings,
 } from "@/lib/timetable/timetable-service";
-import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
+import { getOrCreateTeacherProfile } from "@/lib/profile/profile-service";
 import type { TimetableSettings } from "@/lib/timetable/types";
 
 const ROUTE_PATH = "/api/emploi-du-temps";
@@ -24,9 +24,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ route: ROUTE_PATH, ...payload });
     }
 
-    const bundle = await loadTeacherProfileBundle();
+    const bundle = await getOrCreateTeacherProfile();
     const payload = await ensureActiveSchedule();
-    const schedules = await listSchedules(bundle?.profile.id ?? null);
+    const schedules = await listSchedules(bundle.profile.id);
 
     return NextResponse.json({ route: ROUTE_PATH, ...payload, schedules });
   } catch (error) {

@@ -30,6 +30,10 @@ import { colors } from "@/lib/theme";
 const IMPORT_ANALYZE_TIMEOUT_MS = 120_000;
 const IMPORT_SAVE_TIMEOUT_MS = 120_000;
 
+function traceClient(step: string, payload: Record<string, unknown> = {}): void {
+  console.info(`[${step}]`, payload);
+}
+
 type ImportPhase =
   | "idle"
   | "uploading"
@@ -122,6 +126,8 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
       setIsLoading(true);
       setImportPhase("analyzing");
       setError(null);
+      traceClient("EDT-01", { action: "analyze_click" });
+      traceClient("EDT-02", { fileName: file.name, fileSize: file.size, fileType: file.type });
 
       try {
         const form = new FormData();
@@ -131,6 +137,7 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
           form.append("structureOverrides", JSON.stringify(structureOverrides));
         }
 
+        traceClient("EDT-03", { route: "/api/emploi-du-temps/import", action: "analyze" });
         const response = await fetchImportWithTimeout(
           "/api/emploi-du-temps/import",
           { method: "POST", body: form },
@@ -149,6 +156,11 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
         }
 
         const result = data.parsed;
+        traceClient("EDT-13", {
+          profileId: (data as AnalyzeResponse & { profileId?: string }).profileId ?? null,
+          slotCount: result.sessions.filter((session) => !session.isEmpty).length,
+          importStatus: data.importStatus ?? "unknown",
+        });
         setParsed(result);
         setSessions(result?.sessions ?? []);
         setImportPhase("completed");
@@ -171,9 +183,12 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
         setStep(result?.uncertainMappings.length ? 1 : 2);
       } catch (analyzeError) {
         setImportPhase("failed");
-        setError(analyzeError instanceof Error ? analyzeError.message : "Analyse impossible.");
+        const message = analyzeError instanceof Error ? analyzeError.message : "Analyse impossible.";
+        setError(message);
+        traceClient("EDT-13", { status: "failed", error: message });
       } finally {
         setIsLoading(false);
+        traceClient("EDT-14", { importPhase: importPhase === "analyzing" ? "analyzing_done" : importPhase });
       }
     },
     [file],
@@ -231,17 +246,24 @@ export function TimetableImportWizard({ onComplete, onClose }: TimetableImportWi
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/emploi-du-temps/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "validate", sessions }),
-      });
-      const data = (await response.json()) as {
+      const response = await fetchImportWithTimeout(
+        "/api/emploi-du-temps/import",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "validate", sessions }),
+        },
+        IMPORT_ANALYZE_TIMEOUT_MS,
+        "La validation a pris trop de temps. Réessayez.",
+      );
+      const data = await readImportApiResponse<{
         validation?: { valid: boolean; conflicts: Array<{ message: string }> };
         error?: string;
         details?: string;
-      };
-      if (!response.ok) throw new Error(data.details || data.error || "Validation impossible.");
+      }>(response, "Validation impossible.");
+      if (!response.ok) {
+        throw new Error(parseImportApiError(data, "Validation impossible."));
+      }
       const valid = data.validation?.valid;
       setValidationMessage(
         valid
