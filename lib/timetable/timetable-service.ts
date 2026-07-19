@@ -271,10 +271,62 @@ export async function loadActiveSchedule(): Promise<TimetablePayload | null> {
   return loadTimetablePayload(String(data.id));
 }
 
+async function countScheduleSlots(scheduleId: string): Promise<number> {
+  const { count, error } = await (await floraDb())
+    .from("timetable_slots")
+    .select("id", { count: "exact", head: true })
+    .eq("schedule_id", scheduleId);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function promoteScheduleAsActive(
+  scheduleId: string,
+  teacherProfileId: string,
+): Promise<void> {
+  const client = await floraDb();
+  await client
+    .from("timetable_schedules")
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq("teacher_profile_id", teacherProfileId)
+    .neq("id", scheduleId);
+
+  await client
+    .from("timetable_schedules")
+    .update({
+      is_active: true,
+      teacher_profile_id: teacherProfileId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", scheduleId);
+}
+
+async function findScheduleWithMostSlots(
+  teacherProfileId: string,
+): Promise<{ scheduleId: string; slotCount: number } | null> {
+  const schedules = await listSchedules(teacherProfileId);
+  let bestScheduleId: string | null = null;
+  let bestCount = 0;
+
+  for (const schedule of schedules) {
+    const slotCount = await countScheduleSlots(schedule.id);
+    if (slotCount > bestCount) {
+      bestCount = slotCount;
+      bestScheduleId = schedule.id;
+    }
+  }
+
+  if (!bestScheduleId || bestCount === 0) return null;
+  return { scheduleId: bestScheduleId, slotCount: bestCount };
+}
+
 export async function loadActiveScheduleForProfile(
   teacherProfileId: string,
 ): Promise<TimetablePayload | null> {
-  const { data, error } = await (await floraDb())
+  const client = await floraDb();
+
+  const { data: activeRow, error } = await client
     .from("timetable_schedules")
     .select("*")
     .eq("is_active", true)
@@ -284,11 +336,21 @@ export async function loadActiveScheduleForProfile(
     .maybeSingle();
 
   if (error) throw error;
-  if (data) {
-    return loadTimetablePayload(String(data.id));
+
+  if (activeRow) {
+    const activePayload = await loadTimetablePayload(String(activeRow.id));
+    if (activePayload && activePayload.slots.length > 0) {
+      return activePayload;
+    }
   }
 
-  const { data: legacy, error: legacyError } = await (await floraDb())
+  const bestForProfile = await findScheduleWithMostSlots(teacherProfileId);
+  if (bestForProfile) {
+    await promoteScheduleAsActive(bestForProfile.scheduleId, teacherProfileId);
+    return loadTimetablePayload(bestForProfile.scheduleId);
+  }
+
+  const { data: legacy, error: legacyError } = await client
     .from("timetable_schedules")
     .select("*")
     .eq("is_active", true)
@@ -298,14 +360,43 @@ export async function loadActiveScheduleForProfile(
     .maybeSingle();
 
   if (legacyError) throw legacyError;
-  if (!legacy) return null;
 
-  await (await floraDb())
+  if (legacy) {
+    const legacyPayload = await loadTimetablePayload(String(legacy.id));
+    if (legacyPayload && legacyPayload.slots.length > 0) {
+      await promoteScheduleAsActive(String(legacy.id), teacherProfileId);
+      return loadTimetablePayload(String(legacy.id));
+    }
+  }
+
+  const { data: orphanSchedules, error: orphanError } = await client
     .from("timetable_schedules")
-    .update({ teacher_profile_id: teacherProfileId, updated_at: new Date().toISOString() })
-    .eq("id", legacy.id);
+    .select("id, updated_at")
+    .is("teacher_profile_id", null)
+    .order("updated_at", { ascending: false });
 
-  return loadTimetablePayload(String(legacy.id));
+  if (orphanError) throw orphanError;
+
+  let bestOrphanId: string | null = null;
+  let bestOrphanCount = 0;
+  for (const row of orphanSchedules ?? []) {
+    const slotCount = await countScheduleSlots(String(row.id));
+    if (slotCount > bestOrphanCount) {
+      bestOrphanCount = slotCount;
+      bestOrphanId = String(row.id);
+    }
+  }
+
+  if (bestOrphanId && bestOrphanCount > 0) {
+    await promoteScheduleAsActive(bestOrphanId, teacherProfileId);
+    return loadTimetablePayload(bestOrphanId);
+  }
+
+  if (activeRow) {
+    return loadTimetablePayload(String(activeRow.id));
+  }
+
+  return null;
 }
 
 export async function listSchedules(teacherProfileId?: string | null): Promise<StoredTimetableSchedule[]> {

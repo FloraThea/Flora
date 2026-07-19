@@ -12,6 +12,16 @@ export const PROFILE_REQUIRED_MESSAGE =
 export async function getProfileCompletionStatus(
   bundle: TeacherProfileBundle,
 ): Promise<ProfilCompletionStatus> {
+  const { hasActiveTimetableWithSlots } = await import("@/lib/timetable/active-timetable");
+  const hasActiveTimetable = await hasActiveTimetableWithSlots(bundle.profile.id);
+  const missing = listProfileMissingFields(bundle, hasActiveTimetable);
+  return { complete: missing.length === 0, missing };
+}
+
+export function listProfileMissingFields(
+  bundle: TeacherProfileBundle,
+  hasActiveTimetable: boolean,
+): string[] {
   const missing: string[] = [];
 
   if (!bundle.profile.nom.trim()) missing.push("Nom");
@@ -19,13 +29,12 @@ export async function getProfileCompletionStatus(
   if (!bundle.profile.schoolYear.trim()) missing.push("Année scolaire");
   if (bundle.profile.levels.length === 0) missing.push("Niveau(x)");
   if (bundle.methods.length === 0) missing.push("Méthode pédagogique");
-  const { hasActiveTimetableWithSlots } = await import("@/lib/timetable/active-timetable");
-  if (!(await hasActiveTimetableWithSlots(bundle.profile.id))) {
+  if (!hasActiveTimetable) {
     missing.push("Emploi du temps actif (module Emploi du temps)");
   }
   if (bundle.profile.workingDays.length === 0) missing.push("Jours travaillés");
 
-  return { complete: missing.length === 0, missing };
+  return missing;
 }
 
 export async function loadTeacherProfileForGeneration(): Promise<TeacherProfileBundle> {

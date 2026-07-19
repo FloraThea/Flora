@@ -165,6 +165,11 @@ export async function saveImportedTimetable(
 
   const payload = await replaceScheduleSlots(scheduleId!, slots, "import_excel");
 
+  if (profile?.id && slots.length > 0) {
+    const { loadActiveScheduleForProfile } = await import("../timetable-service");
+    await loadActiveScheduleForProfile(profile.id);
+  }
+
   await (await floraDb())
     .from("timetable_schedules")
     .update({

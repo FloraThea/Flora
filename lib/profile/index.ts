@@ -4,6 +4,7 @@ export {
   loadTeacherProfileBundle,
   getOrCreateTeacherProfile,
   saveTeacherProfileBundle,
+  reloadTeacherProfileBundle,
   getDefaultTimetableFromProfile,
   bundleToFormValues,
 } from "./profile-service";

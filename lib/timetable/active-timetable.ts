@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { TimetableInput } from "@/lib/programming/types";
 import { EMPTY_TIMETABLE, payloadToTimetableInput } from "./timetable-input-utils";
 import { loadActiveScheduleForProfile } from "./timetable-service";

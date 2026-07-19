@@ -3,6 +3,7 @@ import {
   bundleToFormValues,
   getOrCreateTeacherProfile,
   getProfileCompletionStatus,
+  reloadTeacherProfileBundle,
   saveTeacherProfileBundle,
 } from "@/lib/profile";
 import type { ProfilSaveInput } from "@/lib/profile/types";
@@ -30,12 +31,21 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const body = (await request.json()) as ProfilSaveInput;
-    const bundle = await saveTeacherProfileBundle(body);
-    const completion = await getProfileCompletionStatus(bundle);
+    const saved = await saveTeacherProfileBundle(body);
+    const verified = await reloadTeacherProfileBundle(saved.profile.id);
+
+    if (!verified) {
+      return NextResponse.json(
+        { error: "Le profil n'a pas pu être relu après l'enregistrement." },
+        { status: 500 },
+      );
+    }
+
+    const completion = await getProfileCompletionStatus(verified);
 
     return NextResponse.json({
-      values: bundleToFormValues(bundle),
-      status: bundle.profile.status,
+      values: bundleToFormValues(verified),
+      status: verified.profile.status,
       completion,
     });
   } catch (error) {

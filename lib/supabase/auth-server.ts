@@ -39,25 +39,49 @@ export async function linkTeacherProfileToAuthUser(
   if (linkedError) throw linkedError;
   if (linked?.id) return String(linked.id);
 
-  const { data: orphan, error: orphanError } = await client
+  const { data: orphans, error: orphanError } = await client
     .from("teacher_profiles")
-    .select("id")
+    .select("id, created_at")
     .is("user_id", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
   if (orphanError) throw orphanError;
 
-  if (orphan?.id) {
+  let bestOrphanId: string | null = null;
+  let bestSlotCount = -1;
+
+  for (const orphan of orphans ?? []) {
+    const { data: schedules } = await client
+      .from("timetable_schedules")
+      .select("id")
+      .eq("teacher_profile_id", orphan.id);
+
+    let profileSlotCount = 0;
+    for (const schedule of schedules ?? []) {
+      const { count } = await client
+        .from("timetable_slots")
+        .select("id", { count: "exact", head: true })
+        .eq("schedule_id", schedule.id);
+      profileSlotCount += count ?? 0;
+    }
+
+    if (profileSlotCount > bestSlotCount) {
+      bestSlotCount = profileSlotCount;
+      bestOrphanId = String(orphan.id);
+    }
+  }
+
+  const orphanId = bestOrphanId ?? (orphans?.[0]?.id ? String(orphans[0].id) : null);
+
+  if (orphanId) {
     const { error: updateError } = await client
       .from("teacher_profiles")
       .update({ user_id: userId })
-      .eq("id", orphan.id)
+      .eq("id", orphanId)
       .is("user_id", null);
 
     if (updateError) throw updateError;
-    return String(orphan.id);
+    return orphanId;
   }
 
   const { data: created, error: createError } = await client

@@ -169,31 +169,44 @@ export const loadTeacherProfileBundle = cache(async (): Promise<TeacherProfileBu
   return loadBundleForProfile(data, client);
 });
 
+async function resolveAuthUserId(): Promise<string | null> {
+  if (typeof window !== "undefined") return null;
+  try {
+    const { getServerAuthUserId } = await import("@/lib/supabase/auth-server");
+    return await getServerAuthUserId();
+  } catch {
+    return null;
+  }
+}
+
+export async function reloadTeacherProfileBundle(
+  profileId: string,
+): Promise<TeacherProfileBundle | null> {
+  const client = await floraDb();
+  const { data, error } = await client
+    .from("teacher_profiles")
+    .select("*")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return loadBundleForProfile(data, client);
+}
+
 export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle> {
   const client = await floraDb();
+  const userId = await resolveAuthUserId();
+
+  if (userId) {
+    const { linkTeacherProfileToAuthUser } = await import("@/lib/supabase/auth-server");
+    const profileId = await linkTeacherProfileToAuthUser(userId);
+    const linked = await reloadTeacherProfileBundle(profileId);
+    if (linked) return linked;
+  }
+
   const existing = await loadTeacherProfileBundle();
   if (existing) return existing;
-
-  let userId: string | null = null;
-  if (typeof window === "undefined") {
-    try {
-      const { getServerAuthUserId, linkTeacherProfileToAuthUser } = await import(
-        "@/lib/supabase/auth-server"
-      );
-      userId = await getServerAuthUserId();
-      if (userId) {
-        const profileId = await linkTeacherProfileToAuthUser(userId);
-        const { data: linked } = await client
-          .from("teacher_profiles")
-          .select("*")
-          .eq("id", profileId)
-          .single();
-        if (linked) return loadBundleForProfile(linked, client);
-      }
-    } catch {
-      userId = null;
-    }
-  }
 
   const { data: profile, error } = await client
     .from("teacher_profiles")
@@ -211,42 +224,43 @@ export async function getOrCreateTeacherProfile(): Promise<TeacherProfileBundle>
 export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<TeacherProfileBundle> {
   const client = await floraDb();
   const current = await getOrCreateTeacherProfile();
-  const isComplete =
-    input.nom.trim().length > 0 &&
-    input.prenom.trim().length > 0 &&
-    input.schoolYear.trim().length > 0 &&
-    input.levels.length > 0 &&
-    input.methods.length > 0;
+  const userId = await resolveAuthUserId();
+
+  const profileUpdate: Record<string, unknown> = {
+    nom: input.nom,
+    prenom: input.prenom,
+    ecole_nom: input.ecoleNom,
+    commune: input.commune,
+    academie: input.academie,
+    zone_scolaire: input.zoneScolaire,
+    pays: input.pays,
+    school_year: input.schoolYear,
+    levels: input.levels,
+    student_count: input.studentCount,
+    class_type: input.classType,
+    ulis: input.ulis,
+    segpa: input.segpa,
+    rep: input.rep,
+    rep_plus: input.repPlus,
+    work_quota_percentage: clampWorkQuotaPercentage(input.workQuotaPercentage),
+    work_quota_label:
+      input.workQuotaLabel.trim() ||
+      resolveWorkQuotaLabel(input.workQuotaPercentage, input.workQuotaPreset),
+    working_days: normalizeWorkingDays(input.workingDays),
+    timetables: [],
+    default_timetable_id: "",
+    personalization: input.personalization,
+    status: "draft",
+    updated_at: new Date().toISOString(),
+  };
+
+  if (userId) {
+    profileUpdate.user_id = userId;
+  }
 
   const { data: profile, error } = await client
     .from("teacher_profiles")
-    .update({
-      nom: input.nom,
-      prenom: input.prenom,
-      ecole_nom: input.ecoleNom,
-      commune: input.commune,
-      academie: input.academie,
-      zone_scolaire: input.zoneScolaire,
-      pays: input.pays,
-      school_year: input.schoolYear,
-      levels: input.levels,
-      student_count: input.studentCount,
-      class_type: input.classType,
-      ulis: input.ulis,
-      segpa: input.segpa,
-      rep: input.rep,
-      rep_plus: input.repPlus,
-      work_quota_percentage: clampWorkQuotaPercentage(input.workQuotaPercentage),
-      work_quota_label:
-        input.workQuotaLabel.trim() ||
-        resolveWorkQuotaLabel(input.workQuotaPercentage, input.workQuotaPreset),
-      working_days: normalizeWorkingDays(input.workingDays),
-      timetables: [],
-      default_timetable_id: "",
-      personalization: input.personalization,
-      status: isComplete ? "complete" : "draft",
-      updated_at: new Date().toISOString(),
-    })
+    .update(profileUpdate)
     .eq("id", current.profile.id)
     .select("*")
     .single();
@@ -299,7 +313,30 @@ export async function saveTeacherProfileBundle(input: ProfilSaveInput): Promise<
     if (projectsError) throw projectsError;
   }
 
-  return loadBundleForProfile(profile, client);
+  const reloaded = await reloadTeacherProfileBundle(current.profile.id);
+  if (!reloaded) {
+    throw new Error("Le profil n'a pas pu être relu après l'enregistrement.");
+  }
+
+  const { getProfileCompletionStatus } = await import("./profile-context");
+  const completion = await getProfileCompletionStatus(reloaded);
+
+  const { error: statusError } = await client
+    .from("teacher_profiles")
+    .update({
+      status: completion.complete ? "complete" : "draft",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", current.profile.id);
+
+  if (statusError) throw statusError;
+
+  const verified = await reloadTeacherProfileBundle(current.profile.id);
+  if (!verified) {
+    throw new Error("Le profil n'a pas pu être relu après l'enregistrement.");
+  }
+
+  return verified;
 }
 
 export async function getDefaultTimetableFromProfile(bundle: TeacherProfileBundle): Promise<TimetableInput> {
