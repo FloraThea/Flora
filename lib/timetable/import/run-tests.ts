@@ -1,5 +1,7 @@
 import * as XLSX from "xlsx";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
 import { parseTimetableFile } from "./parse-excel";
 import { findDaysInCell, parseTimeCell } from "./normalize";
@@ -97,7 +99,40 @@ queueTest("supports merged cells spanning multiple rows", async () => {
   const parsed = await parseTimetableFile(buffer, "edt-merge.xlsx");
   const french = parsed.sessions.find((s) => s.day === "Lundi" && s.startTime === "08:30");
   assert.ok(french);
-  assert.equal(french?.subject, "Français");
+  assert.equal(french?.endTime, "09:30");
+  assert.equal(french?.rawLabel, "Français CE2");
+  assert.equal(french?.subject, "Français CE2");
+  assert.equal(french?.normalizedSubject, "Français");
+});
+
+queueTest("preserves independent end times for same start row across days (rentree file)", async () => {
+  const filePath = path.resolve(
+    process.cwd(),
+    "tests/validation/emploi_du_temps/emploi_du_temps_rentree.xlsx",
+  );
+  assert.ok(fs.existsSync(filePath), `Fichier manquant: ${filePath}`);
+
+  const buffer = fs.readFileSync(filePath);
+  const parsed = await parseTimetableFile(buffer, "emploi_du_temps_rentree.xlsx");
+  const lundi = parsed.sessions.find(
+    (session) => session.day === "Lundi" && session.startTime === "10:15" && !session.isEmpty,
+  );
+  const mardi = parsed.sessions.find(
+    (session) => session.day === "Mardi" && session.startTime === "10:15" && !session.isEmpty,
+  );
+
+  assert.ok(lundi);
+  assert.ok(mardi);
+  assert.equal(lundi.startTime, "10:15");
+  assert.equal(lundi.endTime, "11:00");
+  assert.equal(mardi.startTime, "10:15");
+  assert.equal(mardi.endTime, "10:30");
+  assert.notEqual(lundi.endTime, mardi.endTime);
+  assert.equal(lundi.rawLabel, "Conjugaison (Réussir en grammaire)");
+  assert.equal(mardi.rawLabel, "Correction dictée");
+  assert.equal(lundi.subject, "Conjugaison (Réussir en grammaire)");
+  assert.equal(mardi.subject, "Correction dictée");
+  assert.equal(lundi.normalizedSubject, "Français");
 });
 
 queueTest("accepts manual structure overrides", async () => {

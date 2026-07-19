@@ -1,7 +1,7 @@
 # Validation réelle — Guide MHM CE1 CE2
 
 - Fichier : `/Users/camille/flora/tests/validation/guides_maitre/MHM_CE1_CE2_GUIDE.pdf`
-- Date du test : 2026-07-19T01:11:02.898Z
+- Date du test : 2026-07-19T08:20:51.953Z
 - Extraction brute : `/Users/camille/flora/tests/validation/resultats_attendus/MHM_CE1_CE2_GUIDE-extraction-brute.json`
 
 ## Document analysé

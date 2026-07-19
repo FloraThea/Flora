@@ -5,7 +5,10 @@ export type TimetableImportSession = {
   day: string;
   startTime: string;
   endTime: string;
+  /** Texte visible issu de la cellule source (matière / intitulé réel). */
   subject: string;
+  /** Catégorie Flora normalisée — couleurs, filtres, stats uniquement. */
+  normalizedSubject?: string;
   title: string;
   subSubject?: string;
   customText?: string;
@@ -125,10 +128,23 @@ export function importSessionToSlot(
   const end = session.endTime;
   const durationMinutes = timeToMinutes(end) - timeToMinutes(start);
   const hours = Math.max(0.5, Math.round((durationMinutes / 60) * 2) / 2);
-  const subSubject = session.subSubject || session.title || session.group;
+  const sourceText = session.rawLabel.trim();
+  const normalizedSubject = session.normalizedSubject?.trim() || session.subject.trim();
+  const displaySubject = sourceText || session.subject.trim();
+  const parsedSubSubject = session.subSubject?.trim() ?? "";
+  const subSubject =
+    parsedSubSubject &&
+    parsedSubSubject !== displaySubject &&
+    !displaySubject.includes(`(${parsedSubSubject})`)
+      ? parsedSubSubject
+      : session.title &&
+          session.title !== displaySubject &&
+          !displaySubject.includes(session.title)
+        ? session.title
+        : session.group;
   const customText = session.customText ?? session.notes ?? "";
   const appearance = resolveSlotAppearance({
-    subject: session.subject,
+    subject: normalizedSubject,
     subSubject,
     slotType: session.slotType,
     color: session.color,
@@ -140,7 +156,7 @@ export function importSessionToSlot(
     day: session.day,
     start,
     end,
-    subject: session.subject,
+    subject: displaySubject,
     subSubject,
     customText,
     color: appearance.color,
@@ -150,7 +166,7 @@ export function importSessionToSlot(
     hours,
     room: session.location,
     intervenant: "",
-    label: session.rawLabel || session.subject,
+    label: sourceText || displaySubject,
     sortOrder: 0,
     metadata: {
       level: session.level,
@@ -158,6 +174,7 @@ export function importSessionToSlot(
       notes: session.notes,
       color: appearance.color,
       importSource: session.rawLabel,
+      normalizedSubject,
     },
   });
 }

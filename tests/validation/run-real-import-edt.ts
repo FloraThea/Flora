@@ -6,6 +6,7 @@ import { persistTimetableSessions } from "./lib/real-import-persistence";
 import { resolveValidationPath } from "./lib/paths";
 import { parseTimetableFile } from "@/lib/timetable/import/parse-excel";
 import { readWorkbookGrid } from "@/lib/timetable/import/grid-reader";
+import { buildSourceSessionsFromGrid } from "@/lib/timetable/import/session-extractor";
 
 const FILE_NAME = "emploi_du_temps_rentree.xlsx";
 const FILE_PATH = resolveValidationPath(`emploi_du_temps/${FILE_NAME}`);
@@ -19,11 +20,14 @@ function writeReport(input: {
   persistence: Awaited<ReturnType<typeof persistTimetableSessions>>;
   corrections: string[];
 }) {
-  const expectedSessions = input.comparisons.length;
+  const expectedSessions = input.comparisons.filter((c) => c.status !== "creneau_duplique").length;
   const identical = input.comparisons.filter((c) => c.status === "identique").length;
-  const transformed = input.comparisons.filter((c) => c.status === "transformée_correctement").length;
-  const incorrect = input.comparisons.filter((c) => c.status === "incorrecte").length;
-  const lost = input.comparisons.filter((c) => c.status === "perdue").length;
+  const scheduleWrong = input.comparisons.filter((c) => c.status === "horaire_incorrect").length;
+  const textChanged = input.comparisons.filter((c) => c.status === "texte_modifie").length;
+  const subjectReplaced = input.comparisons.filter((c) => c.status === "matiere_remplacee").length;
+  const lost = input.comparisons.filter((c) => c.status === "creneau_perdu").length;
+  const duplicated = input.comparisons.filter((c) => c.status === "creneau_duplique").length;
+  const incorrect = scheduleWrong + textChanged + subjectReplaced + lost + duplicated;
 
   const lines = [
     "# Validation réelle — Emploi du temps rentrée",
@@ -52,10 +56,11 @@ function writeReport(input: {
     "",
     `- Créneaux attendus : **${expectedSessions}**`,
     `- Créneaux importés : **${input.sessionCount}**`,
-    `- Identiques : **${identical}**`,
-    `- Transformées correctement (matière mappée) : **${transformed}**`,
-    `- Incorrectes : **${incorrect}**`,
-    `- Perdues : **${lost}**`,
+    `- Horaires identiques : **${identical}**`,
+    `- Textes source conservés : **${identical}**`,
+    `- Créneaux incorrects : **${incorrect}**`,
+    `- Créneaux perdus : **${lost}**`,
+    `- Créneaux dupliqués : **${duplicated}**`,
     "",
     "## Corrections appliquées",
     "",
@@ -69,21 +74,41 @@ function writeReport(input: {
     `- Vérification Supabase : ${input.persistence.supabaseVerified ? "✓" : "✗"}`,
     `- Résultat global : ${input.persistence.ok ? "✓ OK" : "✗ ÉCHEC"} — ${input.persistence.detail}`,
     "",
-    "## Échantillon de comparaison (10 premiers créneaux)",
+    "## Comparaison complète (56 créneaux)",
     "",
-    "| Jour | Horaire | Texte source | Matière interprétée | Statut |",
-    "|------|---------|--------------|---------------------|--------|",
-    ...input.comparisons.slice(0, 10).map(
-      (c) =>
-        `| ${c.daySource} | ${c.startSource}-${c.endSource} | ${c.rawLabelSource.slice(0, 45)} | ${c.subjectInterpreted} | ${c.status} |`,
-    ),
+    "| Jour | Cellule source | Début source | Fin source | Texte source | Début importé | Fin importée | Texte importé | Statut |",
+    "|------|----------------|--------------|------------|--------------|---------------|--------------|---------------|--------|",
+    ...input.comparisons
+      .filter((c) => c.status !== "creneau_duplique")
+      .map(
+        (c) =>
+          `| ${c.daySource} | ${c.celluleSource} | ${c.startSource} | ${c.endSource} | ${c.rawLabelSource.slice(0, 40)} | ${c.startInterpreted} | ${c.endInterpreted} | ${c.rawLabelInterpreted.slice(0, 40)} | ${c.status} |`,
+      ),
+    "",
+    "## Preuve Lundi / Mardi 10:15",
+    "",
+    ...(() => {
+      const lundi = input.comparisons.find(
+        (c) => c.daySource === "Lundi" && c.startSource === "10:15" && c.endSource === "11:00",
+      );
+      const mardi = input.comparisons.find(
+        (c) => c.daySource === "Mardi" && c.startSource === "10:15" && c.endSource === "10:30",
+      );
+      return [
+        lundi
+          ? `- Lundi 10:15–11:00 : ${lundi.status} — « ${lundi.rawLabelInterpreted} »`
+          : "- Lundi 10:15–11:00 : absent",
+        mardi
+          ? `- Mardi 10:15–10:30 : ${mardi.status} — « ${mardi.rawLabelInterpreted} »`
+          : "- Mardi 10:15–10:30 : absent",
+      ];
+    })(),
     "",
     "## Limites restantes",
     "",
-    incorrect === 0 && lost === 0
-      ? "- Tous les créneaux sont importés avec le texte cellule intact (`rawLabel`). Le mapping matière est une transformation attendue."
-      : `- ${incorrect} créneau(x) incorrect(s), ${lost} perdu(s).`,
-    "- Le texte complémentaire (`customText`) reste vide à l'import : le contenu complet est conservé dans `rawLabel`, `label` et `metadata.importSource`.",
+    incorrect === 0
+      ? "- Tous les créneaux sont importés avec horaires et textes source identiques au fichier Excel."
+      : `- ${incorrect} écart(s) détecté(s) — voir tableau ci-dessus.`,
     "",
   ];
 
@@ -102,27 +127,22 @@ async function main() {
   fs.writeFileSync(RAW_OUT, `${JSON.stringify(raw, null, 2)}\n`);
 
   const parsed = await parseTimetableFile(buffer, FILE_NAME);
-  const { grid } = readWorkbookGrid(buffer, FILE_NAME);
+  const { grid, merges } = readWorkbookGrid(buffer, FILE_NAME);
+  const sourceSessions = buildSourceSessionsFromGrid(grid, merges, parsed.structure);
   const activeSessions = parsed.sessions.filter((session) => !session.isEmpty);
-  const sourceSessions = activeSessions.map((session) => ({
-    day: session.day,
-    startTime: session.startTime,
-    endTime: session.endTime,
-    rawLabel: String(grid[session.rowIndex]?.[session.colIndex] ?? "").trim(),
-    rowIndex: session.rowIndex,
-    colIndex: session.colIndex,
-  }));
 
   const comparisons = compareTimetableSessions(sourceSessions, parsed.sessions);
-  const blocking = comparisons.filter(
-    (c) => c.status === "incorrecte" || c.status === "perdue",
-  );
+  const blocking = comparisons.filter((c) => c.status !== "identique");
 
   console.log(`Extraction brute : ${raw.sheets[0]?.nonEmptyCells} cellules`);
-  console.log(`Créneaux : ${comparisons.length} attendus, ${activeSessions.length} importés`);
+  console.log(`Créneaux : ${sourceSessions.length} attendus, ${activeSessions.length} importés`);
   console.log(`Identiques : ${comparisons.filter((c) => c.status === "identique").length}`);
-  console.log(`Transformées : ${comparisons.filter((c) => c.status === "transformée_correctement").length}`);
-  console.log(`Incorrectes/perdues : ${blocking.length}`);
+  console.log(`Incorrects/perdus/dupliqués : ${blocking.length}`);
+
+  const lundi = activeSessions.find((s) => s.day === "Lundi" && s.startTime === "10:15");
+  const mardi = activeSessions.find((s) => s.day === "Mardi" && s.startTime === "10:15");
+  console.log(`Lundi 10:15 → ${lundi?.endTime} | ${lundi?.rawLabel}`);
+  console.log(`Mardi 10:15 → ${mardi?.endTime} | ${mardi?.rawLabel}`);
 
   const persistence = await persistTimetableSessions({
     fileName: FILE_NAME,
@@ -132,9 +152,9 @@ async function main() {
   });
 
   const corrections = [
-    "Grille jours-en-colonnes / horaires-en-lignes reconnue automatiquement",
-    "Contenu cellule conservé intégralement dans rawLabel (aucune perte de texte)",
-    "Matières mappées via alias génériques (Rituels, Français, Mathématiques, etc.)",
+    "Fin de créneau calculée depuis la dernière ligne fusionnée de chaque colonne/jour",
+    "Contenu cellule conservé intégralement dans rawLabel et subject (texte visible)",
+    "Matière Flora normalisée stockée dans normalizedSubject (couleurs/filtres uniquement)",
   ];
 
   writeReport({
@@ -148,7 +168,7 @@ async function main() {
   console.log(`Rapport : ${REPORT_OUT}`);
   console.log(`Persistance : ${persistence.ok ? "OK" : "ÉCHEC"} — ${persistence.detail}`);
 
-  if (blocking.length > 0 || activeSessions.length !== comparisons.length || !persistence.ok) {
+  if (blocking.length > 0 || activeSessions.length !== sourceSessions.length || !persistence.ok) {
     process.exit(1);
   }
 

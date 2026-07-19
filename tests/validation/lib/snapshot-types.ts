@@ -68,6 +68,7 @@ export type TimetableValidationSnapshot = {
     startTime: string;
     endTime: string;
     subject: string;
+    normalizedSubject: string;
     subSubject: string;
     customText: string;
     color: string;
@@ -150,6 +151,7 @@ export function normalizeTimetableSession(session: TimetableImportSession) {
     startTime: session.startTime,
     endTime: session.endTime,
     subject: session.subject,
+    normalizedSubject: session.normalizedSubject ?? "",
     subSubject: session.subSubject ?? session.title ?? "",
     customText: session.customText ?? session.notes ?? "",
     color: session.color,

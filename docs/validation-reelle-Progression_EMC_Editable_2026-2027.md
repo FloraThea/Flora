@@ -1,7 +1,7 @@
 # Validation réelle — Progression EMC
 
 - Fichier : `/Users/camille/flora/tests/validation/progression/Progression_EMC_Editable_2026-2027.xlsx`
-- Date du test : 2026-07-19T01:10:54.827Z
+- Date du test : 2026-07-19T08:20:43.316Z
 - Extraction brute : `/Users/camille/flora/tests/validation/resultats_attendus/Progression_EMC_Editable_2026-2027-extraction-brute.json`
 
 ## Feuilles analysées

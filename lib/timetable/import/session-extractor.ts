@@ -30,20 +30,25 @@ function resolveEndTime(
   startTime: string,
   rowSpan: number,
 ): string {
-  const range = parseTimeRange(grid[row]?.[structure.timeColumn] ?? "");
-  if (range?.end) return range.end;
+  const lastRow = row + Math.max(1, rowSpan) - 1;
 
-  const nextRow = row + rowSpan;
+  // Multi-row merges: end time comes from the last covered row in this column only.
+  const lastRowRange = parseTimeRange(grid[lastRow]?.[structure.timeColumn] ?? "");
+  if (lastRowRange?.end) return lastRowRange.end;
+
+  if (rowSpan <= 1) {
+    const range = parseTimeRange(grid[row]?.[structure.timeColumn] ?? "");
+    if (range?.end) return range.end;
+  }
+
+  const nextRow = lastRow + 1;
   let scanRow = nextRow;
   while (scanRow < grid.length) {
     const nextTime = parseTimeCell(grid[scanRow]?.[structure.timeColumn] ?? "");
     if (nextTime) return nextTime;
-    if (scanRow - row > rowSpan + 5) break;
+    if (scanRow - lastRow > 5) break;
     scanRow++;
   }
-
-  const immediateNext = parseTimeCell(grid[row + 1]?.[structure.timeColumn] ?? "");
-  if (immediateNext) return immediateNext;
 
   return addMinutes(startTime, rowSpan > 1 ? rowSpan * 30 : 60);
 }
@@ -214,26 +219,42 @@ function pushSessionOrEmpty(input: {
     return;
   }
 
-  const { level, group, cleaned } = extractLevelAndGroup(raw);
-  const mapped = applySubjectMapping(cleaned || raw, overrides);
+  const sourceText = String(raw ?? "").trim();
+  const { level, group, cleaned } = extractLevelAndGroup(sourceText);
+  const mapped = applySubjectMapping(cleaned || sourceText, overrides);
+  const { subSubject } = parseSourceLabelFields(sourceText);
 
   sessions.push({
     day,
     startTime,
     endTime,
-    subject: mapped.subject,
+    subject: sourceText,
+    normalizedSubject: mapped.subject,
     title: cleaned,
+    subSubject,
     level,
     group,
     location: "",
     notes: group ? `Groupe ${group}` : "",
     color: mapped.color,
     slotType: mapped.slotType,
-    rawLabel: raw,
+    rawLabel: sourceText,
     isEmpty: false,
     rowIndex: row,
     colIndex,
   });
+}
+
+function parseSourceLabelFields(sourceText: string): { subSubject: string } {
+  const trimmed = sourceText.trim();
+  if (!trimmed) return { subSubject: "" };
+
+  const parenMatch = trimmed.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    return { subSubject: parenMatch[2].trim() };
+  }
+
+  return { subSubject: "" };
 }
 
 export function extractSessionsFromGrid(
@@ -259,6 +280,68 @@ export function extractSessionsFromGrid(
     days,
     uncertainMappings: collectUncertainMappings(result.sessions),
   };
+}
+
+export function buildSourceSessionsFromGrid(
+  grid: string[][],
+  merges: MergeRegion[],
+  structure: TimetableStructure,
+): Array<{
+  day: string;
+  startTime: string;
+  endTime: string;
+  rawLabel: string;
+  rowIndex: number;
+  colIndex: number;
+}> {
+  const sessions: Array<{
+    day: string;
+    startTime: string;
+    endTime: string;
+    rawLabel: string;
+    rowIndex: number;
+    colIndex: number;
+  }> = [];
+  const processedOrigins = new Set<string>();
+
+  for (let row = 0; row < grid.length; row++) {
+    if (row === structure.headerRow) continue;
+
+    const rowCells = grid[row];
+    if (!rowCells) continue;
+
+    const startTime = parseTimeCell(rowCells[structure.timeColumn] ?? "");
+    if (!startTime) continue;
+
+    for (const [day, colIndex] of Object.entries(structure.dayColumns)) {
+      const merge = getMergeAt(merges, row, colIndex);
+      if (!merge.isOrigin) continue;
+
+      const originKey = `${merge.region?.startRow ?? row}:${merge.region?.startCol ?? colIndex}`;
+      if (processedOrigins.has(originKey)) continue;
+      processedOrigins.add(originKey);
+
+      const endTime = resolveEndTime(grid, structure, row, startTime, merge.rowSpan);
+      const targets = merge.colSpan > 1
+        ? dayColumnsInSpan(structure.dayColumns, colIndex, merge.colSpan)
+        : [{ day, col: colIndex }];
+
+      for (const target of targets.length > 0 ? targets : [{ day, col: colIndex }]) {
+        const rawLabel = String(rowCells[target.col] ?? "").trim();
+        if (!rawLabel) continue;
+        sessions.push({
+          day: target.day,
+          startTime,
+          endTime,
+          rawLabel,
+          rowIndex: row,
+          colIndex: target.col,
+        });
+      }
+    }
+  }
+
+  return sessions;
 }
 
 export function extractMetaFromGrid(grid: string[][], keywords: string[]): string {

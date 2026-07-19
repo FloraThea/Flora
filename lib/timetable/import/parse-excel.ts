@@ -40,7 +40,7 @@ export function applyMappingOverrides(
     const mapped = applySubjectMapping(session.rawLabel, overrides);
     return {
       ...session,
-      subject: mapped.subject,
+      normalizedSubject: mapped.subject,
       slotType: mapped.slotType,
       color: mapped.color,
     };
