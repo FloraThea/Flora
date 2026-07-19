@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { listProfileMissingFields } from "./profile-context";
+import type { TeacherProfileBundle } from "./types";
+import type { TeacherWorkingDay } from "./work-schedule";
 
 const EDT_MISSING = "Emploi du temps actif (module Emploi du temps)";
 
-function buildBundle(profileId: string) {
+const DEFAULT_WORKING_DAYS: TeacherWorkingDay[] = ["Lundi", "Mardi"];
+
+function buildBundle(profileId: string): TeacherProfileBundle {
   return {
     profile: {
       id: profileId,
@@ -12,19 +16,19 @@ function buildBundle(profileId: string) {
       ecoleNom: "",
       commune: "",
       academie: "",
-      zoneScolaire: "A" as const,
+      zoneScolaire: "A",
       pays: "France",
       schoolYear: "2026-2027",
-      levels: ["CE1" as const],
+      levels: ["CE1"],
       studentCount: 24,
-      classType: "simple" as const,
+      classType: "simple",
       ulis: false,
       segpa: false,
       rep: false,
       repPlus: false,
       workQuotaPercentage: 100,
       workQuotaLabel: "100 %",
-      workingDays: ["Lundi", "Mardi"],
+      workingDays: DEFAULT_WORKING_DAYS,
       timetables: [],
       defaultTimetableId: "",
       personalization: {
@@ -46,9 +50,9 @@ function buildBundle(profileId: string) {
       profileId,
       pedagogyStyles: [],
       resourcePriorities: [],
-      aiDetailLevel: "moyen" as const,
-      aiTone: "simple" as const,
-      aiGenerationType: "equilibree" as const,
+      aiDetailLevel: "moyen",
+      aiTone: "simple",
+      aiGenerationType: "equilibree",
       exportFormats: [],
       exportOrder: [],
     },
