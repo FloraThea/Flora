@@ -79,6 +79,15 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: "Pilotage pédagogique",
+    href: "/pilotage-pedagogique",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
+        <path d="M4 15V8l4-3 4 5 4-7v12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     label: "Emploi du temps",
     href: "/emploi-du-temps",
     icon: (
@@ -145,6 +154,21 @@ const navItems: NavItem[] = [
           d="M5 3h8l4 4v11H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
           stroke="currentColor"
           strokeWidth="1.3"
+        />
+      </svg>
+    ),
+  },
+  {
+    label: "Corbeille",
+    href: "/corbeille",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden>
+        <path
+          d="M7 4h6M5 7h10l-1 10H6L5 7ZM8 4V3h4v1"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
     ),

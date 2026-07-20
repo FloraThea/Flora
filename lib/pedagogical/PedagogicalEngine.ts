@@ -121,13 +121,20 @@ export class PedagogicalEngine {
 
   /** Vérifie la couverture des compétences BO par identifiant unique. */
   async verifierCompetences(labels: string[]): Promise<CompetenceCoverage[]> {
-    const referentielIds = await resolveReferentielIds(labels);
+    const { computeBoCoverageReport } = await import("./intelligence/bo-coverage");
+    const report = await computeBoCoverageReport();
+    const labelSet = new Set(labels.map((label) => label.trim().toLowerCase()).filter(Boolean));
 
-    return referentielIds.map((referentielId) => ({
-      referentielId,
-      label: labels.find(Boolean) ?? referentielId,
-      status: "covered" as const,
-      modules: ["programmation", "progression"],
+    const all = [...report.covered, ...report.partial, ...report.missing, ...report.duplicate];
+    const filtered = labelSet.size
+      ? all.filter((item) => labelSet.has(item.label.toLowerCase()))
+      : all;
+
+    return filtered.map((item) => ({
+      referentielId: item.referentielId,
+      label: item.label,
+      status: item.status,
+      modules: item.modules,
     }));
   }
 

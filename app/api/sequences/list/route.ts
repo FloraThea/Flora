@@ -12,6 +12,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ sequences });
     }
 
+    if (searchParams.get("all") === "true") {
+      const { listAllSequencesForProfile } = await import("@/lib/sequences/sequence-service");
+      const sequences = await listAllSequencesForProfile();
+      return NextResponse.json({ sequences });
+    }
+
     if (!progressionId) {
       return NextResponse.json({ error: "progressionId requis." }, { status: 400 });
     }

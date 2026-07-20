@@ -1,3 +1,4 @@
+import type { SourceDocument } from "@/lib/import/source-document";
 import type { FloraAccent } from "@/lib/theme";
 
 export const ACADEMIC_ZONES = ["A", "B", "C"] as const;
@@ -228,4 +229,6 @@ export type ProgrammationPayload = {
   programmation: StoredProgrammation;
   tables: ProgrammingTable[];
   validation: ValidationResult;
+  sourceDocument?: SourceDocument | null;
+  sourceType?: string;
 };

@@ -1,12 +1,16 @@
 import type { FloraAccent } from "@/lib/theme";
 import { floraDb } from "@/lib/supabase/get-db";
+import { insertWithOptionalColumnFallback } from "@/lib/supabase/schema-compat";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
+import { onlyActive } from "@/lib/trash/active-query";
 import {
   getProgrammationIdForCell,
   syncCellReferentielIds,
 } from "@/lib/pedagogical/competence-resolver";
 import { logPedagogicalChange } from "@/lib/pedagogical/change-history";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
+import type { SourceDocument } from "@/lib/import/source-document";
+import { resolveStoredSourceDocument } from "@/lib/import/source-document-service";
 import type {
   ProgrammationPayload,
   ProgrammingGenerationInput,
@@ -32,48 +36,55 @@ export async function saveProgrammation(input: {
     importAdaptation?: Record<string, unknown>;
     formatConfig?: Record<string, unknown>;
     competencyMatches?: Record<string, unknown>;
+    sourceDocument?: SourceDocument;
   };
 }): Promise<ProgrammationPayload> {
   const scope = await requireTeacherScope();
 
-  const { data: programmation, error } = await (await floraDb())
-    .from("programmations")
-    .insert({
-      teacher_profile_id: scope.profileId,
-      title: input.title,
-      school_year: input.generationInput.schoolYear,
-      academic_zone: input.generationInput.academicZone,
-      levels: input.generationInput.levels,
-      matiere: input.generationInput.matiere,
-      methode: input.generationInput.methode,
-      projet_annuel: input.generationInput.projetAnnuel,
-      timetable: input.generationInput.timetable,
-      calendar_snapshot: input.calendarSnapshot,
-      validation: input.validation,
-      status:
-        input.importMeta?.sourceType === "imported"
+  const programmationRow = {
+    teacher_profile_id: scope.profileId,
+    title: input.title,
+    school_year: input.generationInput.schoolYear,
+    academic_zone: input.generationInput.academicZone,
+    levels: input.generationInput.levels,
+    matiere: input.generationInput.matiere,
+    methode: input.generationInput.methode,
+    projet_annuel: input.generationInput.projetAnnuel,
+    timetable: input.generationInput.timetable,
+    calendar_snapshot: input.calendarSnapshot,
+    validation: input.validation,
+    status:
+      input.importMeta?.sourceType === "imported"
+        ? "validated"
+        : input.validation.valid
           ? "validated"
-          : input.validation.valid
-            ? "validated"
-            : "draft",
-      source_type: input.importMeta?.sourceType ?? "generated",
-      source_file_name: input.importMeta?.sourceFileName ?? "",
-      source_storage_path: input.importMeta?.sourceStoragePath ?? "",
-      discipline: input.importMeta?.discipline ?? input.generationInput.matiere,
-      original_import: input.importMeta?.originalImport ?? {},
-      adapted_import: input.importMeta?.adaptedImport ?? {},
-      import_adaptation: input.importMeta?.importAdaptation ?? {},
-      format_config: input.importMeta?.formatConfig ?? {},
-      competency_matches: input.importMeta?.competencyMatches ?? {},
-      metadata: {
-        generated_at: new Date().toISOString(),
-        ...(input.importMeta?.sourceType === "imported"
-          ? { imported_at: new Date().toISOString() }
-          : {}),
-      },
-    })
-    .select("*")
-    .single();
+          : "draft",
+    source_type: input.importMeta?.sourceType ?? "generated",
+    source_file_name: input.importMeta?.sourceFileName ?? "",
+    source_storage_path: input.importMeta?.sourceStoragePath ?? "",
+    discipline: input.importMeta?.discipline ?? input.generationInput.matiere,
+    original_import: input.importMeta?.originalImport ?? {},
+    adapted_import: input.importMeta?.adaptedImport ?? {},
+    import_adaptation: input.importMeta?.importAdaptation ?? {},
+    format_config: input.importMeta?.formatConfig ?? {},
+    competency_matches: input.importMeta?.competencyMatches ?? {},
+    source_document: input.importMeta?.sourceDocument ?? {},
+    metadata: {
+      generated_at: new Date().toISOString(),
+      ...(input.importMeta?.sourceType === "imported"
+        ? { imported_at: new Date().toISOString() }
+        : {}),
+    },
+  };
+
+  const { data: programmation, error } = await insertWithOptionalColumnFallback<
+    typeof programmationRow,
+    StoredProgrammation & { source_type?: string; source_document?: unknown }
+  >(
+    async (row) => (await floraDb()).from("programmations").insert(row).select("*").single(),
+    programmationRow,
+    "source_document",
+  );
 
   if (error || !programmation) {
     throw error ?? new Error("Impossible d'enregistrer la programmation.");
@@ -208,11 +219,9 @@ export async function updateProgrammingCell(
 }
 
 export async function loadProgrammation(id: string): Promise<ProgrammationPayload | null> {
-  const { data: programmation, error } = await (await floraDb())
-    .from("programmations")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { data: programmation, error } = await onlyActive(
+    (await floraDb()).from("programmations").select("*").eq("id", id),
+  ).single();
 
   if (error || !programmation) return null;
 
@@ -274,31 +283,68 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
     programmation: programmation as StoredProgrammation,
     tables: programmingTables,
     validation: programmation.validation as ValidationResult,
+    sourceDocument: resolveStoredSourceDocument(programmation),
+    sourceType: (programmation as { source_type?: string }).source_type,
   };
 }
 
 export async function listProgrammationsForProfile() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await (await floraDb())
-    .from("programmations")
-    .select("id, title, school_year, matiere, methode, levels, status, created_at")
-    .eq("teacher_profile_id", scope.profileId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("programmations")
+      .select(
+        "id, title, school_year, matiere, sous_matiere, methode, levels, status, created_at, metadata, source_type, source_file_name",
+      )
+      .eq("teacher_profile_id", scope.profileId),
+  ).order("created_at", { ascending: false });
 
   if (error) throw error;
   return data ?? [];
 }
 
+export async function updateProgrammationSubject(
+  programmationId: string,
+  input: {
+    matiere: string;
+    sousMatiere?: string;
+    niveau?: string;
+    periode?: string;
+  },
+): Promise<void> {
+  const scope = await requireTeacherScope();
+
+  const { data: existing, error: loadError } = await onlyActive(
+    (await floraDb()).from("programmations").select("id, teacher_profile_id").eq("id", programmationId),
+  ).single();
+
+  if (loadError || !existing || existing.teacher_profile_id !== scope.profileId) {
+    throw new Error("Programmation introuvable.");
+  }
+
+  const { error } = await (await floraDb())
+    .from("programmations")
+    .update({
+      matiere: input.matiere,
+      sous_matiere: input.sousMatiere ?? "",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", programmationId);
+
+  if (error) throw error;
+}
+
 export async function listValidatedProgrammations() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await (await floraDb())
-    .from("programmations")
-    .select("id, title, school_year, matiere, methode, levels, status")
-    .eq("teacher_profile_id", scope.profileId)
-    .in("status", ["validated", "draft"])
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("programmations")
+      .select("id, title, school_year, matiere, sous_matiere, methode, levels, status")
+      .eq("teacher_profile_id", scope.profileId)
+      .in("status", ["validated", "draft"]),
+  ).order("created_at", { ascending: false });
 
   if (error) throw error;
 

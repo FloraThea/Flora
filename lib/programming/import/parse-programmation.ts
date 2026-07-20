@@ -24,6 +24,7 @@ import {
   resolveFileExtension,
   resolveImportFileName,
 } from "@/lib/import/accepted-formats";
+import { buildSourceDocumentForImport } from "@/lib/import/extract-source-document";
 
 function isImageFormat(fileName: string, mimeType?: string): boolean {
   return isSupportedImageFile(fileName, mimeType);
@@ -100,6 +101,7 @@ export async function parseProgrammationFile(input: {
   let sheetNames: string[] | undefined;
   let activeSheetName: string | undefined;
   let extractedTextPreview = "";
+  let sourceTextLines: string[] | undefined;
 
   if (input.pastedText?.trim()) {
     const text = input.pastedText.trim();
@@ -173,6 +175,7 @@ export async function parseProgrammationFile(input: {
       } else {
         rows = parseStructuredText(text);
         extractedTextPreview = text.slice(0, 1200);
+        sourceTextLines = text.split(/\r?\n/);
         if (rows.length === 0) {
           warnings.push(
             "Texte PDF extrait, mais aucun tableau structuré détecté. Collez un export CSV ou utilisez Excel.",
@@ -201,6 +204,7 @@ export async function parseProgrammationFile(input: {
     } else try {
       const text = (await recognizeImageBuffer(input.buffer)).trim();
       extractedTextPreview = text.slice(0, 1200);
+      sourceTextLines = text.split(/\r?\n/);
 
       if (!text) {
         warnings.push(
@@ -234,6 +238,7 @@ export async function parseProgrammationFile(input: {
     const text = input.buffer.toString("utf8");
     rows = parseStructuredText(text);
     extractedTextPreview = text.slice(0, 1200);
+    sourceTextLines = text.split(/\r?\n/);
   }
 
   const needsColumnMapping =
@@ -247,6 +252,17 @@ export async function parseProgrammationFile(input: {
   if (needsColumnMapping) {
     warnings.push("Structure peu claire : associez manuellement les colonnes pour continuer.");
   }
+
+  const sourceDocument = buildSourceDocumentForImport({
+    format,
+    fileName: input.fileName,
+    buffer: input.pastedText ? undefined : input.buffer,
+    pastedText: input.pastedText,
+    sheetName: activeSheetName,
+    textLines: sourceTextLines,
+    parseCsvLine,
+    detectDelimiter,
+  });
 
   return {
     format,
@@ -265,6 +281,7 @@ export async function parseProgrammationFile(input: {
     columnMapping: input.columnMapping,
     headerRowIndex,
     sourceGrid,
+    sourceDocument,
     extractedTextPreview,
   };
 }

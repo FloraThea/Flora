@@ -4,6 +4,7 @@ import {
   updateWithOptionalColumnFallback,
 } from "@/lib/supabase/schema-compat";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
+import { onlyActive } from "@/lib/trash/active-query";
 import {
   buildIndependentSequenceDraft,
   resolveSequenceLinkMode,
@@ -294,11 +295,9 @@ function mapSequencePayload(
 }
 
 export async function loadSequence(id: string): Promise<SequencePayload | null> {
-  const { data: sequence, error } = await (await floraDb())
-    .from("sequences")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { data: sequence, error } = await onlyActive(
+    (await floraDb()).from("sequences").select("*").eq("id", id),
+  ).single();
 
   if (error || !sequence) return null;
 
@@ -336,25 +335,73 @@ export async function loadSequence(id: string): Promise<SequencePayload | null> 
 }
 
 export async function listSequencesByProgression(progressionId: string) {
-  const { data, error } = await (await floraDb())
-    .from("sequences")
-    .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, progression_row_id, status, link_mode")
-    .eq("progression_id", progressionId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("sequences")
+      .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, progression_row_id, status, link_mode")
+      .eq("progression_id", progressionId),
+  ).order("created_at", { ascending: false });
 
   if (error) throw error;
   return data ?? [];
 }
 
+export async function listAllSequencesForProfile() {
+  const scope = await requireTeacherScope();
+
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("sequences")
+      .select("id, title, matiere, sous_matiere, niveau, period_number, session_count, status, link_mode, created_at, metadata")
+      .eq("teacher_profile_id", scope.profileId),
+  ).order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function updateSequenceSubject(
+  sequenceId: string,
+  input: {
+    matiere: string;
+    sousMatiere?: string;
+    niveau?: string;
+    periode?: string;
+  },
+): Promise<void> {
+  const scope = await requireTeacherScope();
+
+  const { data: existing, error: loadError } = await onlyActive(
+    (await floraDb()).from("sequences").select("id, teacher_profile_id").eq("id", sequenceId),
+  ).single();
+
+  if (loadError || !existing || existing.teacher_profile_id !== scope.profileId) {
+    throw new Error("Séquence introuvable.");
+  }
+
+  const { error } = await (await floraDb())
+    .from("sequences")
+    .update({
+      matiere: input.matiere,
+      sous_matiere: input.sousMatiere ?? "",
+      niveau: input.niveau ?? "",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sequenceId);
+
+  if (error) throw error;
+}
+
 export async function listIndependentSequences() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await (await floraDb())
-    .from("sequences")
-    .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, status, link_mode, created_at")
-    .eq("teacher_profile_id", scope.profileId)
-    .or("link_mode.eq.independent,progression_id.is.null")
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("sequences")
+      .select("id, title, matiere, sous_matiere, period_number, week_numbers, session_count, status, link_mode, created_at")
+      .eq("teacher_profile_id", scope.profileId)
+      .or("link_mode.eq.independent,progression_id.is.null"),
+  ).order("created_at", { ascending: false });
 
   if (error) throw error;
   return (data ?? []).map((row) => ({
@@ -370,11 +417,9 @@ export async function listIndependentSequences() {
 }
 
 export async function getSequenceByRowId(progressionRowId: string) {
-  const { data } = await (await floraDb())
-    .from("sequences")
-    .select("id")
-    .eq("progression_row_id", progressionRowId)
-    .maybeSingle();
+  const { data } = await onlyActive(
+    (await floraDb()).from("sequences").select("id").eq("progression_row_id", progressionRowId),
+  ).maybeSingle();
 
   return data?.id ?? null;
 }

@@ -54,6 +54,63 @@ export async function listPedagogicalChanges(limit = 50): Promise<ChangeLogEntry
   return (data ?? []).map(mapChangeLogRow);
 }
 
+export async function listEntityPedagogicalHistory(input: {
+  entityType: string;
+  entityId: string;
+  limit?: number;
+}): Promise<ChangeLogEntry[]> {
+  const { data, error } = await (await floraDb())
+    .from("pedagogical_change_log")
+    .select("*")
+    .eq("entity_type", input.entityType)
+    .eq("entity_id", input.entityId)
+    .order("created_at", { ascending: false })
+    .limit(input.limit ?? 100);
+
+  if (error) return [];
+  return (data ?? []).map(mapChangeLogRow);
+}
+
+export function comparePedagogicalVersions(
+  left: ChangeLogEntry,
+  right: ChangeLogEntry,
+): { fieldName?: string; leftValue: unknown; rightValue: unknown; changedAtLeft: string; changedAtRight: string } {
+  return {
+    fieldName: left.fieldName ?? right.fieldName,
+    leftValue: left.newValue,
+    rightValue: right.newValue,
+    changedAtLeft: left.createdAt,
+    changedAtRight: right.createdAt,
+  };
+}
+
+export async function findPedagogicalSnapshot(input: {
+  entityType: string;
+  entityId: string;
+  anchor: "yesterday" | "last_week" | "last_month";
+}): Promise<ChangeLogEntry | null> {
+  const now = Date.now();
+  const offsets = {
+    yesterday: 24 * 60 * 60 * 1000,
+    last_week: 7 * 24 * 60 * 60 * 1000,
+    last_month: 30 * 24 * 60 * 60 * 1000,
+  };
+  const target = new Date(now - offsets[input.anchor]).toISOString();
+
+  const { data, error } = await (await floraDb())
+    .from("pedagogical_change_log")
+    .select("*")
+    .eq("entity_type", input.entityType)
+    .eq("entity_id", input.entityId)
+    .lte("created_at", target)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapChangeLogRow(data);
+}
+
 export async function revertPedagogicalChange(logId: string): Promise<RevertResult> {
   const { data: entry, error } = await (await floraDb())
     .from("pedagogical_change_log")

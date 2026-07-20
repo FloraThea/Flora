@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
+import { PedagogicalModuleToolbar } from "@/components/pedagogical/PedagogicalModuleToolbar";
+import { PedagogicalSubjectBrowser } from "@/components/pedagogical/PedagogicalSubjectBrowser";
+import type { PedagogicalDocumentListItem } from "@/components/pedagogical/PedagogicalDocumentCard";
 import type { SequencePayload } from "@/lib/sequences/types";
 import { colors } from "@/lib/theme";
 import { PedagogicalStartMenu } from "@/components/pedagogical/PedagogicalStartMenu";
@@ -30,6 +33,20 @@ export function SequencesPage() {
   const [isLoadingProgressions, setIsLoadingProgressions] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [flowMode, setFlowMode] = useState<null | "linked" | "independent">(null);
+  const [allSequences, setAllSequences] = useState<
+    Array<Record<string, unknown>>
+  >([]);
+
+  const loadAllSequences = useCallback(async () => {
+    const response = await fetch("/api/sequences/list?all=true");
+    const data = (await response.json()) as { sequences?: Array<Record<string, unknown>>; error?: string };
+    if (!response.ok) throw new Error(data.error || "Impossible de charger les séquences.");
+    setAllSequences(data.sequences ?? []);
+  }, []);
+
+  useEffect(() => {
+    void loadAllSequences().catch(() => undefined);
+  }, [loadAllSequences]);
 
   const loadSequences = useCallback(async (progressionId: string) => {
     const response = await fetch(`/api/sequences/list?progressionId=${progressionId}`);
@@ -185,6 +202,34 @@ export function SequencesPage() {
 
   const selectedProgression = progressions.find((item) => item.id === formValues.progressionId);
 
+  const sequenceListItems = useMemo<PedagogicalDocumentListItem[]>(
+    () =>
+      allSequences.map((row) => ({
+        id: String(row.id),
+        title: String(row.title ?? ""),
+        matiere: String(row.matiere ?? ""),
+        sous_matiere: String(row.sous_matiere ?? ""),
+        niveau: String(row.niveau ?? ""),
+        status: String(row.status ?? ""),
+        created_at: String(row.created_at ?? ""),
+        metadata: row.metadata,
+        documentType: "Séquence",
+      })),
+    [allSequences],
+  );
+
+  const handleMoveSequenceSubject = useCallback(
+    async (id: string, matiere: string, sousMatiere: string) => {
+      await fetch("/api/pedagogical/subject", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "sequence", entityId: id, matiere, sousMatiere }),
+      });
+      await loadAllSequences();
+    },
+    [loadAllSequences],
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <FloraPageTitle
@@ -200,6 +245,28 @@ export function SequencesPage() {
           </Link>
         }
       />
+
+      <PedagogicalModuleToolbar
+        importLabel="Importer une séquence"
+        onImport={() => setFlowMode("independent")}
+        onCreateManual={() => setFlowMode("independent")}
+      />
+
+      {allSequences.length > 0 ? (
+        <PedagogicalSubjectBrowser
+          module="sequence"
+          moduleLabel="Séquences"
+          documentTypeLabel="Séquences"
+          items={sequenceListItems}
+          selectedId={selectedPayload?.sequence.id}
+          onSelect={(id) => void openSequence(id)}
+          onImport={() => setFlowMode("independent")}
+          onCreateManual={() => setFlowMode("independent")}
+          onMoveSubject={(id, matiere, sousMatiere) =>
+            void handleMoveSequenceSubject(id, matiere, sousMatiere)
+          }
+        />
+      ) : null}
 
       {!flowMode ? (
         <PedagogicalStartMenu

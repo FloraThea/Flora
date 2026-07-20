@@ -12,6 +12,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ seances });
     }
 
+    if (searchParams.get("all") === "true") {
+      const { listAllSeancesForProfile } = await import("@/lib/seances/seance-service");
+      const seances = await listAllSeancesForProfile();
+      return NextResponse.json({ seances });
+    }
+
     if (!sequenceId) {
       return NextResponse.json({ error: "sequenceId requis." }, { status: 400 });
     }

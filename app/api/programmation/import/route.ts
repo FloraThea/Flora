@@ -25,6 +25,7 @@ import {
 } from "@/lib/programming/import/programming-import-errors";
 import { resolveImportFileName } from "@/lib/import/accepted-formats";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
+import { triggerPedagogicalAnalysis } from "@/lib/pedagogical/intelligence/coherence-trigger";
 
 const ROUTE_PATH = "/api/programmation/import";
 
@@ -318,6 +319,11 @@ export async function POST(request: Request) {
       });
 
       void pedagogicalEngine.genererCahierJournal(payload.programmation.id);
+      void triggerPedagogicalAnalysis({
+        reason: "import",
+        module: "programmation",
+        entityId: payload.programmation.id,
+      });
 
       return NextResponse.json({ route: ROUTE_PATH, ...payload });
     }

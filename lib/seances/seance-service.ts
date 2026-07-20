@@ -4,6 +4,7 @@ import {
   updateWithOptionalColumnFallback,
 } from "@/lib/supabase/schema-compat";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
+import { onlyActive } from "@/lib/trash/active-query";
 import {
   buildIndependentSeanceDraft,
   resolveSeanceLinkMode,
@@ -357,14 +358,15 @@ export async function dissociateSeance(seanceId: string): Promise<SeancePayload>
 export async function listIndependentSeances() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await (await floraDb())
-    .from("seances")
-    .select(
-      "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, sequence_id, sequence_session_id, status, link_mode",
-    )
-    .eq("teacher_profile_id", scope.profileId)
-    .or("link_mode.eq.independent,sequence_id.is.null")
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("seances")
+      .select(
+        "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, sequence_id, sequence_session_id, status, link_mode",
+      )
+      .eq("teacher_profile_id", scope.profileId)
+      .or("link_mode.eq.independent,sequence_id.is.null"),
+  ).order("created_at", { ascending: false });
 
   if (error) throw error;
 
@@ -387,7 +389,9 @@ export async function listIndependentSeances() {
 }
 
 export async function loadSeance(id: string): Promise<SeancePayload | null> {
-  const { data: seance, error } = await (await floraDb()).from("seances").select("*").eq("id", id).single();
+  const { data: seance, error } = await onlyActive(
+    (await floraDb()).from("seances").select("*").eq("id", id),
+  ).single();
   if (error || !seance) return null;
 
   const [{ data: phaseRows }, { data: activityRows }] = await Promise.all([
@@ -414,13 +418,14 @@ export async function loadSeance(id: string): Promise<SeancePayload | null> {
 }
 
 export async function listSeancesBySequence(sequenceId: string) {
-  const { data, error } = await (await floraDb())
-    .from("seances")
-    .select(
-      "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, sequence_id, sequence_session_id, status",
-    )
-    .eq("sequence_id", sequenceId)
-    .order("created_at");
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("seances")
+      .select(
+        "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, sequence_id, sequence_session_id, status",
+      )
+      .eq("sequence_id", sequenceId),
+  ).order("created_at");
 
   if (error) throw error;
 
@@ -449,6 +454,54 @@ export async function listSeancesBySequence(sequenceId: string) {
     sessionNumber: sessionNumbers.get(String(row.sequence_session_id)) ?? 0,
     status: String(row.status ?? ""),
   }));
+}
+
+export async function listAllSeancesForProfile() {
+  const scope = await requireTeacherScope();
+
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("seances")
+      .select(
+        "id, title, matiere, sous_matiere, niveau, period_number, week_number, session_date, duree_minutes, status, link_mode, created_at, metadata",
+      )
+      .eq("teacher_profile_id", scope.profileId),
+  ).order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function updateSeanceSubject(
+  seanceId: string,
+  input: {
+    matiere: string;
+    sousMatiere?: string;
+    niveau?: string;
+    periode?: string;
+  },
+): Promise<void> {
+  const scope = await requireTeacherScope();
+
+  const { data: existing, error: loadError } = await onlyActive(
+    (await floraDb()).from("seances").select("id, teacher_profile_id").eq("id", seanceId),
+  ).single();
+
+  if (loadError || !existing || existing.teacher_profile_id !== scope.profileId) {
+    throw new Error("Séance introuvable.");
+  }
+
+  const { error } = await (await floraDb())
+    .from("seances")
+    .update({
+      matiere: input.matiere,
+      sous_matiere: input.sousMatiere ?? "",
+      niveau: input.niveau ?? "",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", seanceId);
+
+  if (error) throw error;
 }
 
 export async function listSequencesWithSeances() {

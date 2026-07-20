@@ -1,3 +1,4 @@
+import type { SourceDocument } from "@/lib/import/source-document";
 import type { AcademicZone, CalendarSnapshot, ProgrammingTable, SchoolLevel } from "../types";
 import type { ProgrammationImportBatchMeta } from "./batch-types";
 
@@ -70,6 +71,8 @@ export type ParsedProgrammationImport = {
   columnMapping?: Partial<Record<ProgrammationColumnField, number>>;
   headerRowIndex?: number;
   sourceGrid?: string[][];
+  /** Copie fidèle complète du fichier — source de vérité pour l'affichage. */
+  sourceDocument?: SourceDocument;
   batchMeta?: ProgrammationImportBatchMeta;
 };
 

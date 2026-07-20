@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
@@ -18,6 +18,18 @@ import {
 import { ProgressionForm } from "./ProgressionForm";
 import { ProgressionImportWizard } from "./ProgressionImportWizard";
 import { ProgressionTableView } from "./ProgressionTableView";
+import { TrashConfirmDialog } from "@/components/pedagogical/TrashConfirmDialog";
+import { PedagogicalSubjectBrowser } from "@/components/pedagogical/PedagogicalSubjectBrowser";
+import type { PedagogicalDocumentListItem } from "@/components/pedagogical/PedagogicalDocumentCard";
+import { PedagogicalModuleToolbar } from "@/components/pedagogical/PedagogicalModuleToolbar";
+import {
+  DocumentViewModeToggle,
+  FaithfulSourceTableView,
+  resolveDefaultDocumentViewMode,
+  type DocumentViewMode,
+} from "@/components/pedagogical/FaithfulSourceTableView";
+import { isSourceDocumentEmpty } from "@/lib/import/source-document";
+import { downloadSourceDocumentExcel, printFaithfulTable } from "@/lib/import/source-document-export";
 import {
   initialProgressionFormValues,
   type ProgressionFormValues,
@@ -25,6 +37,18 @@ import {
 } from "../types";
 
 const LAST_PROGRESSION_KEY = "flora:last-progression-id";
+
+type SavedProgressionListItem = {
+  id: string;
+  title: string;
+  status: string;
+  matiere?: string;
+  sous_matiere?: string;
+  niveau?: string;
+  periode?: string;
+  created_at?: string;
+  metadata?: unknown;
+};
 
 type ProgressionPageMode = null | "menu" | "generate" | "import" | "manual";
 
@@ -40,9 +64,12 @@ export function ProgressionPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedProgressions, setSavedProgressions] = useState<
-    Array<{ id: string; title: string; status: string }>
-  >([]);
+  const [savedProgressions, setSavedProgressions] = useState<SavedProgressionListItem[]>([]);
+  const [importPrefill, setImportPrefill] = useState({ matiere: "", sousMatiere: "" });
+  const [deleteTarget, setDeleteTarget] = useState<SavedProgressionListItem | null>(null);
+  const [isDeletingProgression, setIsDeletingProgression] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<DocumentViewMode>("structured");
 
   const loadSavedProgression = useCallback(async (progressionId: string) => {
     const response = await fetch(`/api/progression/details?id=${encodeURIComponent(progressionId)}`);
@@ -90,7 +117,7 @@ export function ProgressionPage() {
 
         if (listResponse.ok && !cancelled) {
           const listData = (await listResponse.json()) as {
-            progressions?: Array<{ id: string; title: string; status: string }>;
+            progressions?: SavedProgressionListItem[];
           };
           const progressions = listData.progressions ?? [];
           setSavedProgressions(progressions);
@@ -123,6 +150,125 @@ export function ProgressionPage() {
     };
   }, [loadSavedProgression]);
 
+  useEffect(() => {
+    if (!payload) return;
+    setViewMode(
+      resolveDefaultDocumentViewMode({
+        sourceDocument: payload.sourceDocument,
+        sourceType: payload.sourceType,
+      }),
+    );
+  }, [payload?.progression.id, payload?.sourceDocument, payload?.sourceType]);
+
+  const hasFaithfulSource = Boolean(
+    payload?.sourceDocument && !isSourceDocumentEmpty(payload.sourceDocument),
+  );
+
+  const refreshSavedProgressions = useCallback(async () => {
+    const response = await fetch("/api/progression/list");
+    if (!response.ok) return [];
+
+    const listData = (await response.json()) as {
+      progressions?: SavedProgressionListItem[];
+    };
+    const progressions = listData.progressions ?? [];
+    setSavedProgressions(progressions);
+    return progressions;
+  }, []);
+
+  const closeDeleteDialog = useCallback(() => {
+    if (isDeletingProgression) return;
+    setDeleteTarget(null);
+    setDeleteError(null);
+  }, [isDeletingProgression]);
+
+  const handleConfirmTrash = useCallback(async () => {
+    if (!deleteTarget) return;
+
+    setIsDeletingProgression(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch("/api/progression/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTarget.id }),
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Impossible de placer dans la Corbeille.");
+      }
+
+      const remaining = (await refreshSavedProgressions()).filter(
+        (item) => item.id !== deleteTarget.id,
+      );
+
+      if (payload?.progression.id === deleteTarget.id) {
+        setPayload(null);
+        setActiveTabKey("");
+        setMode("menu");
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem(LAST_PROGRESSION_KEY);
+        }
+
+        const nextId = remaining[0]?.id;
+        if (nextId) {
+          await loadSavedProgression(nextId);
+        }
+      }
+
+      closeDeleteDialog();
+    } catch (deleteFailure) {
+      setDeleteError(
+        deleteFailure instanceof Error
+          ? deleteFailure.message
+          : "Impossible de placer dans la Corbeille.",
+      );
+    } finally {
+      setIsDeletingProgression(false);
+    }
+  }, [closeDeleteDialog, deleteTarget, loadSavedProgression, payload?.progression.id, refreshSavedProgressions]);
+
+  const progressionListItems = useMemo<PedagogicalDocumentListItem[]>(
+    () =>
+      savedProgressions.map((item) => ({
+        id: item.id,
+        title: item.title,
+        matiere: item.matiere,
+        sous_matiere: item.sous_matiere,
+        niveau: item.niveau,
+        periode: item.periode,
+        status: item.status,
+        created_at: item.created_at,
+        metadata: item.metadata,
+        documentType: "Progression",
+      })),
+    [savedProgressions],
+  );
+
+  const handleMoveProgressionSubject = useCallback(
+    async (id: string, matiere: string, sousMatiere: string) => {
+      const response = await fetch("/api/pedagogical/subject", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entityType: "progression",
+          entityId: id,
+          matiere,
+          sousMatiere,
+        }),
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setError(data.error ?? "Impossible de déplacer la progression.");
+        return;
+      }
+      await refreshSavedProgressions();
+    },
+    [refreshSavedProgressions],
+  );
+
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
     setError(null);
@@ -145,6 +291,7 @@ export function ProgressionPage() {
       if (data.progression?.id && typeof window !== "undefined") {
         sessionStorage.setItem(LAST_PROGRESSION_KEY, data.progression.id);
       }
+      void refreshSavedProgressions();
     } catch (generateError) {
       setError(
         generateError instanceof Error
@@ -154,7 +301,7 @@ export function ProgressionPage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [formValues]);
+  }, [formValues, refreshSavedProgressions]);
 
   const updateTab = useCallback((tabKey: string, updater: (tab: ProgressionTab) => ProgressionTab) => {
     setPayload((current) => {
@@ -205,28 +352,73 @@ export function ProgressionPage() {
         }
       />
 
+      <PedagogicalModuleToolbar
+        importLabel="Importer une progression"
+        onImport={() => {
+          setImportPrefill({ matiere: "", sousMatiere: "" });
+          setShowImportWizard(true);
+          setError(null);
+        }}
+        onCreateManual={() => setMode("manual")}
+        onDuplicate={() => setMode("generate")}
+      />
+
       {savedProgressions.length > 0 ? (
-        <FloraCard padding="md" accent="cream">
-          <label className="block text-sm font-light text-flora-text-muted">
-            Progressions enregistrées
-            <select
-              className="mt-2 w-full rounded-2xl border border-white/70 bg-white/60 px-4 py-2.5 text-sm"
-              value={payload?.progression.id ?? ""}
-              disabled={isLoadingProgrammations}
-              onChange={(event) => {
-                const id = event.target.value;
-                if (id) void loadSavedProgression(id);
+        <PedagogicalSubjectBrowser
+          module="progression"
+          moduleLabel="Progressions"
+          documentTypeLabel="Progressions"
+          items={progressionListItems}
+          selectedId={payload?.progression.id}
+          onSelect={(id) => void loadSavedProgression(id)}
+          onImport={(prefill) => {
+            setImportPrefill(prefill);
+            setShowImportWizard(true);
+          }}
+          onCreateManual={() => setMode("manual")}
+          onMoveSubject={(id, matiere, sousMatiere) =>
+            void handleMoveProgressionSubject(id, matiere, sousMatiere)
+          }
+          onTrash={(item) => setDeleteTarget(item as SavedProgressionListItem)}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <TrashConfirmDialog
+          title="Placer dans la Corbeille ?"
+          description={`Voulez-vous placer « ${deleteTarget.title} » dans la Corbeille ? Vous pourrez le restaurer pendant 30 jours.`}
+          isSubmitting={isDeletingProgression}
+          error={deleteError}
+          onCancel={closeDeleteDialog}
+          onConfirm={() => void handleConfirmTrash()}
+        />
+      ) : null}
+
+      {showImportWizard ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/25 p-0 sm:items-center sm:p-4">
+          <div className="h-[100dvh] w-full max-w-3xl overflow-y-auto overflow-x-hidden sm:h-auto sm:max-h-[90vh]">
+            <ProgressionImportWizard
+              programmations={programmations}
+              defaultProgrammationId={formValues.programmationId}
+              defaultMethode={formValues.methode}
+              defaultMatiere={importPrefill.matiere}
+              defaultSousMatiere={importPrefill.sousMatiere}
+              onComplete={(imported) => {
+                setPayload(imported);
+                setActiveTabKey(imported.tabs[0]?.subjectKey ?? "");
+                setShowImportWizard(false);
+                setMode(null);
+                setError(null);
+                if (imported.progression?.id) {
+                  sessionStorage.setItem(LAST_PROGRESSION_KEY, imported.progression.id);
+                  void loadSavedProgression(imported.progression.id);
+                  void refreshSavedProgressions();
+                }
               }}
-            >
-              <option value="">— Choisir —</option>
-              {savedProgressions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title} — {item.status}
-                </option>
-              ))}
-            </select>
-          </label>
-        </FloraCard>
+              onClose={() => setShowImportWizard(false)}
+            />
+          </div>
+        </div>
       ) : null}
 
       {mode === "menu" && !payload ? (
@@ -245,7 +437,7 @@ export function ProgressionPage() {
               id: "import",
               title: "Importer une progression existante",
               description: "Excel, PDF ou JPG — programmation associée facultative.",
-              onSelect: () => setMode("import"),
+              onSelect: () => setShowImportWizard(true),
             },
             {
               id: "generate",
@@ -273,38 +465,8 @@ export function ProgressionPage() {
           isLoadingProgrammations={isLoadingProgrammations}
           onChange={(key, value) => setFormValues((current) => ({ ...current, [key]: value }))}
           onGenerate={() => void handleGenerate()}
-          onImport={() => setMode("import")}
+          onImport={() => setShowImportWizard(true)}
           isGenerating={isGenerating}
-        />
-      ) : null}
-
-      {mode === "import" ? (
-        <ProgressionImportWizard
-          programmations={programmations}
-          defaultProgrammationId={formValues.programmationId}
-          defaultMethode={formValues.methode}
-          onComplete={(imported) => {
-            setPayload(imported);
-            setActiveTabKey(imported.tabs[0]?.subjectKey ?? "");
-            setShowImportWizard(false);
-            setMode(null);
-            setError(null);
-            if (imported.progression?.id) {
-              sessionStorage.setItem(LAST_PROGRESSION_KEY, imported.progression.id);
-              void loadSavedProgression(imported.progression.id);
-              void fetch("/api/progression/list")
-                .then((response) => (response.ok ? response.json() : null))
-                .then((listData: { progressions?: Array<{ id: string; title: string; status: string }> } | null) => {
-                  if (listData?.progressions) {
-                    setSavedProgressions(listData.progressions);
-                  }
-                });
-            }
-          }}
-          onClose={() => {
-            setShowImportWizard(false);
-            setMode("menu");
-          }}
         />
       ) : null}
 
@@ -315,7 +477,7 @@ export function ProgressionPage() {
             programmation pour démarrer rapidement.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <FloraButton onClick={() => setMode("import")}>Importer une progression</FloraButton>
+            <FloraButton onClick={() => setShowImportWizard(true)}>Importer une progression</FloraButton>
             <FloraButton variant="secondary" onClick={() => setMode("menu")}>
               Retour
             </FloraButton>
@@ -369,18 +531,59 @@ export function ProgressionPage() {
             )}
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <FloraButton onClick={() => progressionExporter.exportPayload(payload, "word")}>
-                Exporter Word
-              </FloraButton>
-              <FloraButton variant="secondary" onClick={() => progressionExporter.exportPayload(payload, "excel")}>
-                Exporter Excel
-              </FloraButton>
-              <FloraButton variant="secondary" onClick={() => progressionExporter.exportPayload(payload, "pdf")}>
-                Exporter PDF
-              </FloraButton>
+              {viewMode === "faithful" && payload.sourceDocument ? (
+                <>
+                  <FloraButton
+                    onClick={() =>
+                      downloadSourceDocumentExcel(
+                        payload.sourceDocument!,
+                        payload.progression.title || "progression",
+                      )
+                    }
+                  >
+                    Exporter Excel (fidèle)
+                  </FloraButton>
+                  <FloraButton variant="secondary" onClick={() => printFaithfulTable("faithful-source-table")}>
+                    Imprimer
+                  </FloraButton>
+                </>
+              ) : (
+                <>
+                  <FloraButton onClick={() => progressionExporter.exportPayload(payload, "word")}>
+                    Exporter Word
+                  </FloraButton>
+                  <FloraButton variant="secondary" onClick={() => progressionExporter.exportPayload(payload, "excel")}>
+                    Exporter Excel
+                  </FloraButton>
+                  <FloraButton variant="secondary" onClick={() => progressionExporter.exportPayload(payload, "pdf")}>
+                    Exporter PDF
+                  </FloraButton>
+                </>
+              )}
             </div>
           </FloraCard>
 
+          <FloraCard padding="md" accent="cream">
+            <DocumentViewModeToggle
+              mode={viewMode}
+              hasFaithfulSource={hasFaithfulSource}
+              onChange={setViewMode}
+            />
+          </FloraCard>
+
+          {viewMode === "faithful" && payload.sourceDocument && payload.progression.id ? (
+            <FloraCard padding="lg" accent="sage">
+              <FaithfulSourceTableView
+                sourceDocument={payload.sourceDocument}
+                entityType="progression"
+                entityId={payload.progression.id}
+                onDocumentChange={(sourceDocument) =>
+                  setPayload((current) => (current ? { ...current, sourceDocument } : current))
+                }
+              />
+            </FloraCard>
+          ) : (
+          <>
           <FloraCard padding="md" accent="lavender">
             <div className="flex flex-wrap gap-2">
               {payload.tabs.map((tab) => (
@@ -408,6 +611,8 @@ export function ProgressionPage() {
                 updateTab(activeTab.subjectKey, (tab) => ({ ...tab, rows }))
               }
             />
+          )}
+          </>
           )}
         </>
       )}

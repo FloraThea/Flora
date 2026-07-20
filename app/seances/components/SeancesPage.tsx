@@ -7,6 +7,9 @@ import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
+import { PedagogicalModuleToolbar } from "@/components/pedagogical/PedagogicalModuleToolbar";
+import { PedagogicalSubjectBrowser } from "@/components/pedagogical/PedagogicalSubjectBrowser";
+import type { PedagogicalDocumentListItem } from "@/components/pedagogical/PedagogicalDocumentCard";
 import type { SeanceCardSummary, SeancePayload, SeanceViewMode } from "@/lib/seances/types";
 import { colors } from "@/lib/theme";
 import { PedagogicalStartMenu } from "@/components/pedagogical/PedagogicalStartMenu";
@@ -33,6 +36,18 @@ export function SeancesPage() {
   const [error, setError] = useState<string | null>(null);
   const [flowMode, setFlowMode] = useState<null | "menu" | "linked" | "independent">("menu");
   const [independentSeances, setIndependentSeances] = useState<SeanceCardSummary[]>([]);
+  const [allSeances, setAllSeances] = useState<Array<Record<string, unknown>>>([]);
+
+  const loadAllSeances = useCallback(async () => {
+    const response = await fetch("/api/seances/list?all=true");
+    const data = (await response.json()) as { seances?: Array<Record<string, unknown>>; error?: string };
+    if (!response.ok) throw new Error(data.error || "Impossible de charger les séances.");
+    setAllSeances(data.seances ?? []);
+  }, []);
+
+  useEffect(() => {
+    deferEffect(() => loadAllSeances().catch(() => undefined));
+  }, [loadAllSeances]);
 
   const loadSessions = useCallback(async (sequenceId: string) => {
     const response = await fetch(`/api/seances/sessions?sequenceId=${sequenceId}`);
@@ -260,6 +275,34 @@ export function SeancesPage() {
   const selectedSequence = sequences.find((item) => item.id === formValues.sequenceId);
   const pendingCount = sessions.filter((session) => !session.hasSeance).length;
 
+  const seanceListItems = useMemo<PedagogicalDocumentListItem[]>(
+    () =>
+      allSeances.map((row) => ({
+        id: String(row.id),
+        title: String(row.title ?? ""),
+        matiere: String(row.matiere ?? ""),
+        sous_matiere: String(row.sous_matiere ?? ""),
+        niveau: String(row.niveau ?? ""),
+        status: String(row.status ?? ""),
+        created_at: String(row.created_at ?? ""),
+        metadata: row.metadata,
+        documentType: "Séance",
+      })),
+    [allSeances],
+  );
+
+  const handleMoveSeanceSubject = useCallback(
+    async (id: string, matiere: string, sousMatiere: string) => {
+      await fetch("/api/pedagogical/subject", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "seance", entityId: id, matiere, sousMatiere }),
+      });
+      await loadAllSeances();
+    },
+    [loadAllSeances],
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <FloraPageTitle
@@ -275,6 +318,28 @@ export function SeancesPage() {
           </Link>
         }
       />
+
+      <PedagogicalModuleToolbar
+        importLabel="Importer une séance"
+        onImport={() => setFlowMode("independent")}
+        onCreateManual={() => setFlowMode("independent")}
+      />
+
+      {allSeances.length > 0 ? (
+        <PedagogicalSubjectBrowser
+          module="seance"
+          moduleLabel="Séances"
+          documentTypeLabel="Séances"
+          items={seanceListItems}
+          selectedId={selectedPayload?.seance.id}
+          onSelect={(id) => void openSeance(id)}
+          onImport={() => setFlowMode("independent")}
+          onCreateManual={() => setFlowMode("independent")}
+          onMoveSubject={(id, matiere, sousMatiere) =>
+            void handleMoveSeanceSubject(id, matiere, sousMatiere)
+          }
+        />
+      ) : null}
 
       {flowMode === "menu" ? (
         <PedagogicalStartMenu

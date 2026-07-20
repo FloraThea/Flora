@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
@@ -11,6 +11,17 @@ import type { ProgrammationPayload, ProgrammingCellContent } from "@/lib/program
 import type { ProfilFormValues } from "@/lib/profile/types";
 import { colors } from "@/lib/theme";
 import { CalendarPreview } from "./CalendarPreview";
+import { PedagogicalModuleToolbar } from "@/components/pedagogical/PedagogicalModuleToolbar";
+import { PedagogicalSubjectBrowser } from "@/components/pedagogical/PedagogicalSubjectBrowser";
+import type { PedagogicalDocumentListItem } from "@/components/pedagogical/PedagogicalDocumentCard";
+import {
+  DocumentViewModeToggle,
+  FaithfulSourceTableView,
+  resolveDefaultDocumentViewMode,
+  type DocumentViewMode,
+} from "@/components/pedagogical/FaithfulSourceTableView";
+import { isSourceDocumentEmpty } from "@/lib/import/source-document";
+import { downloadSourceDocumentExcel, printFaithfulTable } from "@/lib/import/source-document-export";
 import { ProgrammationForm } from "./ProgrammationForm";
 import { ProgrammingTableView } from "./ProgrammingTableView";
 import { ProgrammationImportWizard } from "./ProgrammationImportWizard";
@@ -51,11 +62,22 @@ export function ProgrammationPage() {
   const [failedStep, setFailedStep] = useState<string | null>(null);
   const [referentielWarning, setReferentielWarning] = useState<string | null>(null);
   const [profileComplete, setProfileComplete] = useState(true);
-  const [showImportWizard, setShowImportWizard] = useState(false);
   const [savedProgrammations, setSavedProgrammations] = useState<
-    Array<{ id: string; title: string; school_year: string; status: string }>
+    Array<{
+      id: string;
+      title: string;
+      school_year: string;
+      status: string;
+      matiere?: string;
+      sous_matiere?: string;
+      source_file_name?: string;
+      created_at?: string;
+      metadata?: unknown;
+    }>
   >([]);
+  const [showImportWizard, setShowImportWizard] = useState(false);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
+  const [viewMode, setViewMode] = useState<DocumentViewMode>("structured");
 
   const loadSavedProgrammation = useCallback(async (programmationId: string) => {
     const response = await fetch(`/api/programmation/details?id=${encodeURIComponent(programmationId)}`);
@@ -98,7 +120,17 @@ export function ProgrammationPage() {
 
         if (listResponse.ok) {
           const listData = (await listResponse.json()) as {
-            programmations?: Array<{ id: string; title: string; school_year: string; status: string }>;
+            programmations?: Array<{
+              id: string;
+              title: string;
+              school_year: string;
+              status: string;
+              matiere?: string;
+              sous_matiere?: string;
+              source_file_name?: string;
+              created_at?: string;
+              metadata?: unknown;
+            }>;
           };
           const items = listData.programmations ?? [];
           setSavedProgrammations(items);
@@ -118,6 +150,20 @@ export function ProgrammationPage() {
       }
     })();
   }, [loadSavedProgrammation]);
+
+  useEffect(() => {
+    if (!payload) return;
+    setViewMode(
+      resolveDefaultDocumentViewMode({
+        sourceDocument: payload.sourceDocument,
+        sourceType: payload.sourceType,
+      }),
+    );
+  }, [payload?.programmation.id, payload?.sourceDocument, payload?.sourceType]);
+
+  const hasFaithfulSource = Boolean(
+    payload?.sourceDocument && !isSourceDocumentEmpty(payload.sourceDocument),
+  );
 
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
@@ -220,6 +266,51 @@ export function ProgrammationPage() {
     [payload],
   );
 
+  const programmationListItems = useMemo<PedagogicalDocumentListItem[]>(
+    () =>
+      savedProgrammations.map((item) => ({
+        id: item.id,
+        title: item.title,
+        matiere: item.matiere,
+        sous_matiere: item.sous_matiere,
+        school_year: item.school_year,
+        status: item.status,
+        created_at: item.created_at,
+        source_file_name: item.source_file_name,
+        metadata: item.metadata,
+        documentType: "Programmation",
+      })),
+    [savedProgrammations],
+  );
+
+  const handleMoveProgrammationSubject = useCallback(
+    async (id: string, matiere: string, sousMatiere: string) => {
+      const response = await fetch("/api/pedagogical/subject", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entityType: "programmation",
+          entityId: id,
+          matiere,
+          sousMatiere,
+        }),
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setError(data.error ?? "Impossible de déplacer la programmation.");
+        return;
+      }
+      const listResponse = await fetch("/api/programmation/list");
+      if (listResponse.ok) {
+        const listData = (await listResponse.json()) as {
+          programmations?: typeof savedProgrammations;
+        };
+        setSavedProgrammations(listData.programmations ?? []);
+      }
+    },
+    [],
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <FloraPageTitle
@@ -228,28 +319,24 @@ export function ProgrammationPage() {
         meta={payload ? payload.programmation.title : undefined}
       />
 
+      <PedagogicalModuleToolbar
+        importLabel="Importer une programmation"
+        onImport={() => setShowImportWizard(true)}
+      />
+
       {savedProgrammations.length > 0 ? (
-        <FloraCard padding="md" accent="cream">
-          <label className="block text-sm font-light text-flora-text-muted">
-            Programmations enregistrées
-            <select
-              className="mt-2 w-full rounded-2xl border border-white/70 bg-white/60 px-4 py-2.5 text-sm"
-              value={payload?.programmation.id ?? ""}
-              disabled={isLoadingSaved}
-              onChange={(event) => {
-                const id = event.target.value;
-                if (id) void loadSavedProgrammation(id);
-              }}
-            >
-              <option value="">— Choisir —</option>
-              {savedProgrammations.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.title} ({item.school_year}) — {item.status}
-                </option>
-              ))}
-            </select>
-          </label>
-        </FloraCard>
+        <PedagogicalSubjectBrowser
+          module="programmation"
+          moduleLabel="Programmations"
+          documentTypeLabel="Programmations"
+          items={programmationListItems}
+          selectedId={payload?.programmation.id}
+          onSelect={(id) => void loadSavedProgrammation(id)}
+          onImport={() => setShowImportWizard(true)}
+          onMoveSubject={(id, matiere, sousMatiere) =>
+            void handleMoveProgrammationSubject(id, matiere, sousMatiere)
+          }
+        />
       ) : null}
 
       {!profileComplete && (
@@ -357,24 +444,64 @@ export function ProgrammationPage() {
             )}
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <FloraButton onClick={() => programmingExporter.exportPayload(payload, "word")}>
-                Exporter Word
-              </FloraButton>
-              <FloraButton
-                variant="secondary"
-                onClick={() => programmingExporter.exportPayload(payload, "excel")}
-              >
-                Exporter Excel
-              </FloraButton>
-              <FloraButton
-                variant="secondary"
-                onClick={() => programmingExporter.exportPayload(payload, "pdf")}
-              >
-                Exporter PDF
-              </FloraButton>
+              {viewMode === "faithful" && payload.sourceDocument ? (
+                <>
+                  <FloraButton
+                    onClick={() =>
+                      downloadSourceDocumentExcel(
+                        payload.sourceDocument!,
+                        payload.programmation.title || "programmation",
+                      )
+                    }
+                  >
+                    Exporter Excel (fidèle)
+                  </FloraButton>
+                  <FloraButton variant="secondary" onClick={() => printFaithfulTable("faithful-source-table")}>
+                    Imprimer
+                  </FloraButton>
+                </>
+              ) : (
+                <>
+                  <FloraButton onClick={() => programmingExporter.exportPayload(payload, "word")}>
+                    Exporter Word
+                  </FloraButton>
+                  <FloraButton
+                    variant="secondary"
+                    onClick={() => programmingExporter.exportPayload(payload, "excel")}
+                  >
+                    Exporter Excel
+                  </FloraButton>
+                  <FloraButton
+                    variant="secondary"
+                    onClick={() => programmingExporter.exportPayload(payload, "pdf")}
+                  >
+                    Exporter PDF
+                  </FloraButton>
+                </>
+              )}
             </div>
           </FloraCard>
 
+          <FloraCard padding="md" accent="cream">
+            <DocumentViewModeToggle
+              mode={viewMode}
+              hasFaithfulSource={hasFaithfulSource}
+              onChange={setViewMode}
+            />
+          </FloraCard>
+
+          {viewMode === "faithful" && payload.sourceDocument && payload.programmation.id ? (
+            <FloraCard padding="lg" accent="sage">
+              <FaithfulSourceTableView
+                sourceDocument={payload.sourceDocument}
+                entityType="programmation"
+                entityId={payload.programmation.id}
+                onDocumentChange={(sourceDocument) =>
+                  setPayload((current) => (current ? { ...current, sourceDocument } : current))
+                }
+              />
+            </FloraCard>
+          ) : (
           <section className="flex flex-col gap-8">
             {payload.tables.map((table) => (
               <ProgrammingTableView
@@ -386,6 +513,7 @@ export function ProgrammationPage() {
               />
             ))}
           </section>
+          )}
         </>
       )}
 

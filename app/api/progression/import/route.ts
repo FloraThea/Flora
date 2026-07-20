@@ -6,6 +6,7 @@ import {
   saveImportedProgression,
   uploadProgressionImportFile,
 } from "@/lib/progression/import/progression-import-service";
+import { triggerPedagogicalAnalysis } from "@/lib/pedagogical/intelligence/coherence-trigger";
 import type { ParsedProgressionImport } from "@/lib/progression/import/types";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { isMissingSchemaColumnError } from "@/lib/supabase/schema-compat";
@@ -102,6 +103,10 @@ export async function POST(request: Request) {
       programmationId?: string;
       methode?: string;
       title?: string;
+      matiere?: string;
+      sousMatiere?: string;
+      niveau?: string;
+      periode?: string;
       sourceStoragePath?: string;
       sourceFileName?: string;
       pastedText?: string;
@@ -147,6 +152,16 @@ export async function POST(request: Request) {
         session,
         sourceFileName: body.sourceFileName,
         sourceStoragePath: body.sourceStoragePath,
+        matiere: body.matiere,
+        sousMatiere: body.sousMatiere,
+        niveau: body.niveau,
+        periode: body.periode,
+      });
+
+      void triggerPedagogicalAnalysis({
+        reason: "import",
+        module: "progression",
+        entityId: payload.progression.id,
       });
 
       return NextResponse.json({ route: ROUTE_PATH, ...payload });

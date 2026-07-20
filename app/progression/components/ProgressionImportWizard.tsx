@@ -1,12 +1,21 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { ImportBatchPanel } from "@/components/import/ImportBatchPanel";
 import { ImportPreviewTable } from "@/components/import/ImportPreviewTable";
+import {
+  ImportMetadataForm,
+  type ImportMetadataValues,
+} from "@/components/pedagogical/PedagogicalModuleToolbar";
 import { parseImportApiError } from "@/lib/import/import-api-errors";
+import {
+  inferMatiereFromTitle,
+  inferSousMatiereFromTitle,
+  normalizeMatiere,
+} from "@/lib/pedagogical/subjects";
 import type { ProgressionPayload } from "@/lib/progression/types";
 import type {
   ParsedProgressionImport,
@@ -45,6 +54,8 @@ type ProgressionImportWizardProps = {
   programmations: ValidatedProgrammationOption[];
   defaultProgrammationId: string;
   defaultMethode: string;
+  defaultMatiere?: string;
+  defaultSousMatiere?: string;
   onComplete: (payload: ProgressionPayload) => void;
   onClose: () => void;
 };
@@ -78,6 +89,8 @@ export function ProgressionImportWizard({
   programmations,
   defaultProgrammationId,
   defaultMethode,
+  defaultMatiere = "",
+  defaultSousMatiere = "",
   onComplete,
   onClose,
 }: ProgressionImportWizardProps) {
@@ -87,6 +100,14 @@ export function ProgressionImportWizard({
   const [programmationId, setProgrammationId] = useState(defaultProgrammationId);
   const [methode, setMethode] = useState(defaultMethode);
   const [title, setTitle] = useState("");
+  const [importMetadata, setImportMetadata] = useState<ImportMetadataValues>({
+    title: "",
+    matiere: "",
+    sousMatiere: "",
+    niveau: "",
+    periode: "",
+    documentType: "Progression",
+  });
   const [storagePaths, setStoragePaths] = useState<string[]>([]);
   const [sourceFileNames, setSourceFileNames] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,6 +115,15 @@ export function ProgressionImportWizard({
   const [columnMapping, setColumnMapping] = useState<
     Partial<Record<ProgrammationColumnField, number>>
   >({});
+
+  useEffect(() => {
+    if (!defaultMatiere && !defaultSousMatiere) return;
+    setImportMetadata((current) => ({
+      ...current,
+      matiere: defaultMatiere || current.matiere,
+      sousMatiere: defaultSousMatiere || current.sousMatiere,
+    }));
+  }, [defaultMatiere, defaultSousMatiere]);
 
   const handleBatchAnalyze = useCallback(
     async (input: {
@@ -170,6 +200,14 @@ export function ProgressionImportWizard({
       setParsed(merged);
       setColumnMapping(merged.columnMapping ?? {});
       setTitle(`Import progression — ${merged.discipline || "Flora"}`);
+      const inferredMatiere = normalizeMatiere(merged.discipline || inferMatiereFromTitle(merged.fileName));
+      setImportMetadata((current) => ({
+        ...current,
+        title: `Import progression — ${merged.discipline || "Flora"}`,
+        matiere: inferredMatiere,
+        sousMatiere: inferSousMatiereFromTitle(merged.fileName, inferredMatiere),
+        documentType: "Progression",
+      }));
       setStoragePaths(paths);
       setSourceFileNames(names);
       setStep(1);
@@ -192,7 +230,11 @@ export function ProgressionImportWizard({
           parsed,
           programmationId: programmationId || null,
           methode,
-          title,
+          title: importMetadata.title || title,
+          matiere: importMetadata.matiere,
+          sousMatiere: importMetadata.sousMatiere,
+          niveau: importMetadata.niveau,
+          periode: importMetadata.periode,
         }),
       });
       const data = (await response.json()) as {
@@ -214,10 +256,14 @@ export function ProgressionImportWizard({
     } finally {
       setIsLoading(false);
     }
-  }, [parsed, programmationId, methode, title]);
+  }, [importMetadata, parsed, programmationId, methode, title]);
 
   const runSave = useCallback(async () => {
     if (!parsed) return;
+    if (!importMetadata.matiere.trim()) {
+      setError("La matière est obligatoire avant l'enregistrement.");
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -231,7 +277,11 @@ export function ProgressionImportWizard({
           parsed,
           programmationId: programmationId || null,
           methode,
-          title,
+          title: importMetadata.title || title,
+          matiere: importMetadata.matiere,
+          sousMatiere: importMetadata.sousMatiere,
+          niveau: importMetadata.niveau,
+          periode: importMetadata.periode,
           sourceStoragePath: storagePaths[0] ?? "",
           sourceFileName: sourceFileNames.join(", "),
         }),
@@ -251,7 +301,7 @@ export function ProgressionImportWizard({
     } finally {
       setIsLoading(false);
     }
-  }, [parsed, programmationId, methode, title, storagePaths, sourceFileNames, onComplete]);
+  }, [importMetadata, parsed, programmationId, methode, title, storagePaths, sourceFileNames, onComplete]);
 
   function applyColumnMapping() {
     if (!parsed) return;
@@ -413,6 +463,11 @@ export function ProgressionImportWizard({
 
       {step === 2 ? (
         <div className="space-y-4">
+          <p className="text-sm font-light text-flora-text-muted">
+            Vérifiez et corrigez les métadonnées avant l&apos;enregistrement. La matière validée ici
+            sera utilisée pour le classement par onglets.
+          </p>
+
           <label className="block text-sm">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
               Programmation associée (facultatif)
@@ -431,17 +486,13 @@ export function ProgressionImportWizard({
             </select>
           </label>
 
-          <label className="block text-sm">
-            <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">
-              Titre de la progression
-            </span>
-            <input
-              type="text"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm"
-            />
-          </label>
+          <ImportMetadataForm
+            values={importMetadata}
+            onChange={(key, value) => {
+              setImportMetadata((current) => ({ ...current, [key]: value }));
+              if (key === "title") setTitle(value);
+            }}
+          />
 
           <label className="block text-sm">
             <span className="mb-1 block text-[11px] uppercase tracking-wide text-flora-text-subtle">

@@ -84,6 +84,10 @@ export async function saveImportedProgression(input: {
   sourceFileName?: string;
   sourceStoragePath?: string;
   schoolYear?: string;
+  matiere?: string;
+  sousMatiere?: string;
+  niveau?: string;
+  periode?: string;
 }): Promise<ProgressionPayload> {
   const context = input.session.programmationId
     ? await (async () => {
@@ -100,6 +104,16 @@ export async function saveImportedProgression(input: {
 
   const validation = progressionValidator.validate(input.session.tabs, context);
 
+  const primaryTab = input.session.tabs[0];
+  const matiere =
+    input.matiere ??
+    primaryTab?.subjectLabel ??
+    "";
+  const sousMatiere =
+    input.sousMatiere ??
+    primaryTab?.subSubjectLabel ??
+    "";
+
   return saveProgressionWithSync({
     title: input.session.title,
     programmationId: input.session.programmationId,
@@ -108,6 +122,10 @@ export async function saveImportedProgression(input: {
     validation,
     tabs: input.session.tabs,
     linkMode: sessionLinkMode(input.session),
+    matiere,
+    sousMatiere,
+    niveau: input.niveau ?? "",
+    periode: input.periode ?? "",
     importMeta: {
       sourceType: "imported",
       sourceFileName: input.sourceFileName ?? input.session.parsed.fileName,
@@ -115,6 +133,7 @@ export async function saveImportedProgression(input: {
       importFormat: input.session.parsed.format,
       originalImport: input.session.parsed as unknown as Record<string, unknown>,
       competencyMatches: input.session.competencyMatches,
+      sourceDocument: input.session.parsed.sourceDocument,
     },
   });
 }

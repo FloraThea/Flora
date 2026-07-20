@@ -32,7 +32,7 @@ export async function detectPedagogicalConflicts(): Promise<PedagogicalConflict[
 async function detectSeanceWithoutCompetence(conflicts: PedagogicalConflict[]) {
   const { data } = await (await floraDb())
     .from("seances")
-    .select("id, titre")
+    .select("id, title")
     .or("competence_bo.is.null,competence_bo.eq.")
     .limit(20);
 
@@ -41,7 +41,7 @@ async function detectSeanceWithoutCompetence(conflicts: PedagogicalConflict[]) {
       id: `seance-no-comp-${seance.id}`,
       code: "seance_sans_competence",
       severity: "warning",
-      message: `Séance « ${seance.titre} » sans compétence associée.`,
+      message: `Séance « ${seance.title} » sans compétence associée.`,
       suggestion: "Associer une compétence du référentiel BO.",
       module: "seances",
       entityId: String(seance.id),
@@ -102,7 +102,7 @@ async function detectSeancesDuringVacation(
 ) {
   const { data: seances } = await (await floraDb())
     .from("seances")
-    .select("id, titre, session_date")
+    .select("id, title, session_date")
     .not("session_date", "is", null);
 
   for (const seance of seances ?? []) {
@@ -115,7 +115,7 @@ async function detectSeancesDuringVacation(
         id: `vacation-seance-${seance.id}`,
         code: "seance_pendant_vacances",
         severity: "error",
-        message: `Séance « ${seance.titre} » planifiée pendant les vacances (${date}).`,
+        message: `Séance « ${seance.title} » planifiée pendant les vacances (${date}).`,
         suggestion: "Repositionner la séance sur une semaine de classe.",
         module: "seances",
         entityId: String(seance.id),

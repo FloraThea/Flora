@@ -1,3 +1,4 @@
+import type { SourceDocument } from "@/lib/import/source-document";
 import type { FloraAccent } from "@/lib/theme";
 import type {
   CalendarSnapshot,
@@ -113,6 +114,8 @@ export type ProgressionPayload = {
   tabs: ProgressionTab[];
   validation: ProgressionValidationResult;
   programmation: ProgrammationPayload["programmation"];
+  sourceDocument?: SourceDocument | null;
+  sourceType?: string;
 };
 
 export type ValidatedProgrammationSummary = {
@@ -123,4 +126,15 @@ export type ValidatedProgrammationSummary = {
   methode: string;
   levels: string[];
   status: string;
+};
+
+export type ProgressionDeleteMode = "progression_only" | "with_orphan_links";
+
+export type ProgressionDependencies = {
+  hasDependencies: boolean;
+  programmation: { id: string; title: string } | null;
+  sequences: number;
+  seances: number;
+  journalEntries: number;
+  agendaEvents: number;
 };

@@ -1,11 +1,22 @@
 import type { FloraAccent } from "@/lib/theme";
 import { floraDb } from "@/lib/supabase/get-db";
-import { insertWithOptionalColumnFallback } from "@/lib/supabase/schema-compat";
+import {
+  isMissingSchemaColumnError,
+  omitRecordKey,
+  updateWithOptionalColumnFallback,
+} from "@/lib/supabase/schema-compat";
+import type { SourceDocument } from "@/lib/import/source-document";
+import { resolveStoredSourceDocument } from "@/lib/import/source-document-service";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { logPedagogicalChange } from "@/lib/pedagogical/change-history";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 import { resolveReferentielIds } from "@/lib/pedagogical/competence-resolver";
+import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
+import { getStorageBucketName } from "@/lib/supabase/storage-config";
+import { onlyActive } from "@/lib/trash/active-query";
 import type {
+  ProgressionDeleteMode,
+  ProgressionDependencies,
   ProgressionPayload,
   ProgressionRow,
   ProgressionTab,
@@ -22,6 +33,10 @@ export async function saveProgression(input: {
   validation: ProgressionValidationResult;
   tabs: ProgressionTab[];
   linkMode?: "linked" | "independent";
+  matiere?: string;
+  sousMatiere?: string;
+  niveau?: string;
+  periode?: string;
   importMeta?: {
     sourceType?: string;
     sourceFileName?: string;
@@ -29,6 +44,7 @@ export async function saveProgression(input: {
     importFormat?: string;
     originalImport?: Record<string, unknown>;
     competencyMatches?: Record<string, unknown>;
+    sourceDocument?: SourceDocument;
   };
 }): Promise<ProgressionPayload> {
   const scope = await requireTeacherScope();
@@ -47,6 +63,11 @@ export async function saveProgression(input: {
           ? "validated"
           : "draft",
     link_mode: input.linkMode ?? (input.programmationId ? "linked" : "independent"),
+    matiere: input.matiere ?? "",
+    sous_matiere: input.sousMatiere ?? "",
+    niveau: input.niveau ?? "",
+    periode: input.periode ?? "",
+    source_document: input.importMeta?.sourceDocument ?? {},
     metadata: {
       generated_at: new Date().toISOString(),
       source_type: input.importMeta?.sourceType ?? "generated",
@@ -61,14 +82,21 @@ export async function saveProgression(input: {
     },
   };
 
-  const { data: progression, error } = await insertWithOptionalColumnFallback<
-    typeof progressionRow,
-    StoredProgression
-  >(
-    async (row) => (await floraDb()).from("progressions").insert(row).select("*").single(),
-    progressionRow,
-    "link_mode",
-  );
+  async function insertProgression(row: typeof progressionRow) {
+    return (await floraDb()).from("progressions").insert(row).select("*").single();
+  }
+
+  let insertRow: typeof progressionRow = progressionRow;
+  let insertResult = await insertProgression(insertRow);
+
+  for (const optionalColumn of ["source_document", "link_mode"] as const) {
+    if (isMissingSchemaColumnError(insertResult.error, optionalColumn)) {
+      insertRow = omitRecordKey(insertRow, optionalColumn) as typeof progressionRow;
+      insertResult = await insertProgression(insertRow);
+    }
+  }
+
+  const { data: progression, error } = insertResult;
 
   if (error || !progression) {
     throw error ?? new Error("Impossible d'enregistrer la progression.");
@@ -252,11 +280,9 @@ export async function updateProgressionRow(
 }
 
 export async function loadProgression(id: string): Promise<ProgressionPayload | null> {
-  const { data: progression, error } = await (await floraDb())
-    .from("progressions")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { data: progression, error } = await onlyActive(
+    (await floraDb()).from("progressions").select("*").eq("id", id),
+  ).single();
 
   if (error || !progression) return null;
 
@@ -323,17 +349,22 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
     tabs: progressionTabs,
     validation: progression.validation as ProgressionValidationResult,
     programmation: programmation as ProgressionPayload["programmation"],
+    sourceDocument: resolveStoredSourceDocument(progression),
+    sourceType:
+      (progression.metadata as Record<string, unknown> | undefined)?.source_type?.toString() ??
+      undefined,
   };
 }
 
 export async function listProgressionsForProfile() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await (await floraDb())
-    .from("progressions")
-    .select("id, title, methode, status, programmation_id, created_at")
-    .eq("teacher_profile_id", scope.profileId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("progressions")
+      .select("id, title, methode, status, programmation_id, matiere, sous_matiere, niveau, periode, created_at, metadata")
+      .eq("teacher_profile_id", scope.profileId),
+  ).order("created_at", { ascending: false });
 
   if (error) throw error;
   return data ?? [];
@@ -342,12 +373,13 @@ export async function listProgressionsForProfile() {
 export async function listValidatedProgressions() {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await (await floraDb())
-    .from("progressions")
-    .select("id, title, methode, status, programmation_id")
-    .eq("teacher_profile_id", scope.profileId)
-    .in("status", ["validated", "draft"])
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("progressions")
+      .select("id, title, methode, status, programmation_id, matiere, sous_matiere, niveau, periode")
+      .eq("teacher_profile_id", scope.profileId)
+      .in("status", ["validated", "draft"]),
+  ).order("created_at", { ascending: false });
 
   if (error) throw error;
 
@@ -386,11 +418,9 @@ export async function listProgressionRows(progressionId: string) {
       .order("sort_order");
 
     for (const row of tabRows ?? []) {
-      const { data: existingSequence } = await (await floraDb())
-        .from("sequences")
-        .select("id")
-        .eq("progression_row_id", row.id)
-        .maybeSingle();
+      const { data: existingSequence } = await onlyActive(
+        (await floraDb()).from("sequences").select("id").eq("progression_row_id", row.id),
+      ).maybeSingle();
 
       rows.push({
         id: row.id,
@@ -408,4 +438,438 @@ export async function listProgressionRows(progressionId: string) {
   }
 
   return rows;
+}
+
+async function assertProgressionOwnership(progressionId: string) {
+  const scope = await requireTeacherScope();
+
+  const { data: progression, error } = await (await floraDb())
+    .from("progressions")
+    .select("id, teacher_profile_id, programmation_id, metadata")
+    .eq("id", progressionId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!progression || progression.teacher_profile_id !== scope.profileId) {
+    throw new Error("Progression introuvable.");
+  }
+
+  return { scope, progression };
+}
+
+async function listProgressionRowIds(progressionId: string): Promise<string[]> {
+  const { data: rows, error } = await (await floraDb())
+    .from("progression_rows")
+    .select("id")
+    .eq("progression_id", progressionId);
+
+  if (error) throw error;
+  return (rows ?? []).map((row) => String(row.id));
+}
+
+function slotDataReferencesProgression(
+  slotData: unknown,
+  progressionId: string,
+  rowIds: Set<string>,
+): boolean {
+  if (!slotData || typeof slotData !== "object") return false;
+
+  const data = slotData as Record<string, unknown>;
+  if (data.progressionId === progressionId) return true;
+
+  const rowId = data.progressionRowId;
+  return typeof rowId === "string" && rowIds.has(rowId);
+}
+
+async function countJournalEntriesForProgression(
+  profileId: string,
+  progressionId: string,
+  rowIds: string[],
+): Promise<number> {
+  const { data: journals, error: journalsError } = await (await floraDb())
+    .from("journals")
+    .select("id")
+    .eq("teacher_profile_id", profileId);
+
+  if (journalsError) throw journalsError;
+
+  const journalIds = (journals ?? []).map((journal) => String(journal.id));
+  if (journalIds.length === 0) return 0;
+
+  const { data: entries, error: entriesError } = await (await floraDb())
+    .from("journal_entries")
+    .select("id, slot_data")
+    .in("journal_id", journalIds);
+
+  if (entriesError) throw entriesError;
+
+  const rowIdSet = new Set(rowIds);
+  return (entries ?? []).filter((entry) =>
+    slotDataReferencesProgression(entry.slot_data, progressionId, rowIdSet),
+  ).length;
+}
+
+async function clearJournalProgressionLinks(
+  profileId: string,
+  progressionId: string,
+  rowIds: string[],
+): Promise<void> {
+  const { data: journals, error: journalsError } = await (await floraDb())
+    .from("journals")
+    .select("id")
+    .eq("teacher_profile_id", profileId);
+
+  if (journalsError) throw journalsError;
+
+  const journalIds = (journals ?? []).map((journal) => String(journal.id));
+  if (journalIds.length === 0) return;
+
+  const { data: entries, error: entriesError } = await (await floraDb())
+    .from("journal_entries")
+    .select("id, slot_data")
+    .in("journal_id", journalIds);
+
+  if (entriesError) throw entriesError;
+
+  const rowIdSet = new Set(rowIds);
+  const db = await floraDb();
+
+  for (const entry of entries ?? []) {
+    if (!slotDataReferencesProgression(entry.slot_data, progressionId, rowIdSet)) continue;
+
+    const slotData = { ...((entry.slot_data as Record<string, unknown>) ?? {}) };
+    delete slotData.progressionId;
+    delete slotData.progressionRowId;
+
+    const { error } = await db
+      .from("journal_entries")
+      .update({ slot_data: slotData })
+      .eq("id", entry.id);
+
+    if (error) {
+      throw new Error(
+        getSupabaseErrorMessage(error, "Impossible de mettre à jour le cahier journal."),
+      );
+    }
+  }
+}
+
+async function deleteProgressionAgendaEvents(profileId: string, rowIds: string[]): Promise<void> {
+  if (rowIds.length === 0) return;
+
+  const sourceIds = rowIds.map((rowId) => `progression_row:${rowId}`);
+  const { error } = await (await floraDb())
+    .from("agenda_events")
+    .delete()
+    .eq("teacher_profile_id", profileId)
+    .eq("source_module", "progressions")
+    .in("source_id", sourceIds);
+
+  if (error) {
+    throw new Error(getSupabaseErrorMessage(error, "Impossible de supprimer les événements liés."));
+  }
+}
+
+async function unlinkSequencesFromProgression(
+  progressionId: string,
+  rowIds: string[],
+): Promise<void> {
+  const updateRow = {
+    progression_id: null,
+    progression_row_id: null,
+    progression_tab_id: null,
+    link_mode: "independent" as const,
+    updated_at: new Date().toISOString(),
+  };
+
+  const db = await floraDb();
+  const { error: byProgressionError } = await updateWithOptionalColumnFallback(
+    async (row) => db.from("sequences").update(row).eq("progression_id", progressionId).select("id"),
+    updateRow,
+    "link_mode",
+  );
+
+  if (byProgressionError) {
+    throw new Error(getSupabaseErrorMessage(byProgressionError, "Impossible de dissocier les séquences."));
+  }
+
+  if (rowIds.length === 0) return;
+
+  const { error: byRowError } = await updateWithOptionalColumnFallback(
+    async (row) => db.from("sequences").update(row).in("progression_row_id", rowIds).select("id"),
+    updateRow,
+    "link_mode",
+  );
+
+  if (byRowError) {
+    throw new Error(getSupabaseErrorMessage(byRowError, "Impossible de dissocier les séquences."));
+  }
+}
+
+async function unlinkSeancesFromProgression(
+  progressionId: string,
+  rowIds: string[],
+): Promise<void> {
+  const updateRow = {
+    progression_id: null,
+    progression_row_id: null,
+    link_mode: "independent" as const,
+    updated_at: new Date().toISOString(),
+  };
+
+  const db = await floraDb();
+  const { error: byProgressionError } = await updateWithOptionalColumnFallback(
+    async (row) => db.from("seances").update(row).eq("progression_id", progressionId).select("id"),
+    updateRow,
+    "link_mode",
+  );
+
+  if (byProgressionError) {
+    throw new Error(getSupabaseErrorMessage(byProgressionError, "Impossible de dissocier les séances."));
+  }
+
+  if (rowIds.length === 0) return;
+
+  const { error: byRowError } = await updateWithOptionalColumnFallback(
+    async (row) => db.from("seances").update(row).in("progression_row_id", rowIds).select("id"),
+    updateRow,
+    "link_mode",
+  );
+
+  if (byRowError) {
+    throw new Error(getSupabaseErrorMessage(byRowError, "Impossible de dissocier les séances."));
+  }
+}
+
+async function deleteLinkedPedagogicalArtifacts(
+  progressionId: string,
+  rowIds: string[],
+): Promise<void> {
+  const db = await floraDb();
+
+  const { error: seancesByProgressionError } = await db
+    .from("seances")
+    .delete()
+    .eq("progression_id", progressionId);
+  if (seancesByProgressionError) {
+    throw new Error(
+      getSupabaseErrorMessage(seancesByProgressionError, "Impossible de supprimer les séances liées."),
+    );
+  }
+
+  if (rowIds.length > 0) {
+    const { error: seancesByRowError } = await db.from("seances").delete().in("progression_row_id", rowIds);
+    if (seancesByRowError) {
+      throw new Error(
+        getSupabaseErrorMessage(seancesByRowError, "Impossible de supprimer les séances liées."),
+      );
+    }
+  }
+
+  const { error: sequencesByProgressionError } = await db
+    .from("sequences")
+    .delete()
+    .eq("progression_id", progressionId);
+  if (sequencesByProgressionError) {
+    throw new Error(
+      getSupabaseErrorMessage(sequencesByProgressionError, "Impossible de supprimer les séquences liées."),
+    );
+  }
+
+  if (rowIds.length > 0) {
+    const { error: sequencesByRowError } = await db.from("sequences").delete().in("progression_row_id", rowIds);
+    if (sequencesByRowError) {
+      throw new Error(
+        getSupabaseErrorMessage(sequencesByRowError, "Impossible de supprimer les séquences liées."),
+      );
+    }
+  }
+}
+
+async function removeProgressionStorageFile(metadata: unknown): Promise<void> {
+  if (!metadata || typeof metadata !== "object") return;
+
+  const storagePath = String((metadata as Record<string, unknown>).source_storage_path ?? "").trim();
+  if (!storagePath) return;
+
+  const { error } = await (await floraDb()).storage.from(getStorageBucketName()).remove([storagePath]);
+
+  if (error) {
+    console.warn("[progression] Suppression fichier storage ignorée", {
+      storagePath,
+      error: getSupabaseErrorMessage(error, "Suppression storage échouée"),
+    });
+  }
+}
+
+export async function getProgressionDependencies(
+  progressionId: string,
+): Promise<ProgressionDependencies> {
+  const { scope, progression } = await assertProgressionOwnership(progressionId);
+  const rowIds = await listProgressionRowIds(progressionId);
+
+  let programmation: ProgressionDependencies["programmation"] = null;
+
+  if (progression.programmation_id) {
+    const { data: linkedProgrammation } = await (await floraDb())
+      .from("programmations")
+      .select("id, title")
+      .eq("id", progression.programmation_id)
+      .maybeSingle();
+
+    if (linkedProgrammation) {
+      programmation = {
+        id: String(linkedProgrammation.id),
+        title: String(linkedProgrammation.title ?? ""),
+      };
+    }
+  }
+
+  const sequenceFilter =
+    rowIds.length > 0
+      ? `progression_id.eq.${progressionId},progression_row_id.in.(${rowIds.join(",")})`
+      : `progression_id.eq.${progressionId}`;
+
+  const { count: sequencesCount, error: sequencesError } = await (await floraDb())
+    .from("sequences")
+    .select("*", { count: "exact", head: true })
+    .or(sequenceFilter);
+
+  if (sequencesError) throw sequencesError;
+
+  const seanceFilter =
+    rowIds.length > 0
+      ? `progression_id.eq.${progressionId},progression_row_id.in.(${rowIds.join(",")})`
+      : `progression_id.eq.${progressionId}`;
+
+  const { count: seancesCount, error: seancesError } = await (await floraDb())
+    .from("seances")
+    .select("*", { count: "exact", head: true })
+    .or(seanceFilter);
+
+  if (seancesError) throw seancesError;
+
+  const journalEntries = await countJournalEntriesForProgression(
+    scope.profileId,
+    progressionId,
+    rowIds,
+  );
+
+  let agendaEvents = 0;
+  if (rowIds.length > 0) {
+    const sourceIds = rowIds.map((rowId) => `progression_row:${rowId}`);
+    const { count, error: agendaError } = await (await floraDb())
+      .from("agenda_events")
+      .select("*", { count: "exact", head: true })
+      .eq("teacher_profile_id", scope.profileId)
+      .eq("source_module", "progressions")
+      .in("source_id", sourceIds);
+
+    if (agendaError) throw agendaError;
+    agendaEvents = count ?? 0;
+  }
+
+  const sequences = sequencesCount ?? 0;
+  const seances = seancesCount ?? 0;
+  const hasDependencies = sequences > 0 || seances > 0 || journalEntries > 0 || agendaEvents > 0;
+
+  return {
+    hasDependencies,
+    programmation,
+    sequences,
+    seances,
+    journalEntries,
+    agendaEvents,
+  };
+}
+
+export async function trashProgression(progressionId: string, reason?: string): Promise<void> {
+  const { moveToTrash } = await import("@/lib/trash/trash-service");
+  await moveToTrash({ entityType: "progression", id: progressionId, reason });
+}
+
+export async function deleteProgression(
+  progressionId: string,
+  mode: ProgressionDeleteMode,
+): Promise<void> {
+  const { scope, progression } = await assertProgressionOwnership(progressionId);
+  const rowIds = await listProgressionRowIds(progressionId);
+  const dependencies = await getProgressionDependencies(progressionId);
+
+  if (dependencies.hasDependencies) {
+    if (mode === "with_orphan_links") {
+      await deleteLinkedPedagogicalArtifacts(progressionId, rowIds);
+      await clearJournalProgressionLinks(scope.profileId, progressionId, rowIds);
+      await deleteProgressionAgendaEvents(scope.profileId, rowIds);
+    } else if (mode === "progression_only") {
+      await unlinkSequencesFromProgression(progressionId, rowIds);
+      await unlinkSeancesFromProgression(progressionId, rowIds);
+      await clearJournalProgressionLinks(scope.profileId, progressionId, rowIds);
+      await deleteProgressionAgendaEvents(scope.profileId, rowIds);
+    } else {
+      throw new Error("Cette progression est utilisée par d'autres éléments de Flora.");
+    }
+  }
+
+  await removeProgressionStorageFile(progression.metadata);
+
+  const { error } = await (await floraDb()).from("progressions").delete().eq("id", progressionId);
+
+  if (error) {
+    throw new Error(getSupabaseErrorMessage(error, "Impossible de supprimer la progression."));
+  }
+}
+
+export async function updateProgressionSubject(
+  progressionId: string,
+  input: {
+    matiere: string;
+    sousMatiere?: string;
+    niveau?: string;
+    periode?: string;
+    cascadeToLinked?: boolean;
+  },
+): Promise<void> {
+  await assertProgressionOwnership(progressionId);
+
+  const { error } = await (await floraDb())
+    .from("progressions")
+    .update({
+      matiere: input.matiere,
+      sous_matiere: input.sousMatiere ?? "",
+      niveau: input.niveau ?? "",
+      periode: input.periode ?? "",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", progressionId);
+
+  if (error) {
+    throw new Error(getSupabaseErrorMessage(error, "Impossible de mettre à jour la matière."));
+  }
+
+  if (input.cascadeToLinked) {
+    const db = await floraDb();
+    await db
+      .from("sequences")
+      .update({
+        matiere: input.matiere,
+        sous_matiere: input.sousMatiere ?? "",
+        niveau: input.niveau ?? "",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("progression_id", progressionId)
+      .is("deleted_at", null);
+
+    await db
+      .from("seances")
+      .update({
+        matiere: input.matiere,
+        sous_matiere: input.sousMatiere ?? "",
+        niveau: input.niveau ?? "",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("progression_id", progressionId)
+      .is("deleted_at", null);
+  }
 }
