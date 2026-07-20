@@ -89,7 +89,14 @@ export async function saveProgression(input: {
   let insertRow: typeof progressionRow = progressionRow;
   let insertResult = await insertProgression(insertRow);
 
-  for (const optionalColumn of ["source_document", "link_mode"] as const) {
+  for (const optionalColumn of [
+    "source_document",
+    "link_mode",
+    "matiere",
+    "sous_matiere",
+    "niveau",
+    "periode",
+  ] as const) {
     if (isMissingSchemaColumnError(insertResult.error, optionalColumn)) {
       insertRow = omitRecordKey(insertRow, optionalColumn) as typeof progressionRow;
       insertResult = await insertProgression(insertRow);

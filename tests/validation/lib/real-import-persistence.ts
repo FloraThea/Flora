@@ -236,6 +236,10 @@ export async function persistProgressionRows(input: {
       calendar_snapshot: {},
       status: "validated",
       link_mode: "independent",
+      matiere: "EMC",
+      sous_matiere: "",
+      niveau: "CM2",
+      periode: "",
       metadata: {
         source_type: "imported",
         source_file_name: input.fileName,
