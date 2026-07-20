@@ -76,10 +76,10 @@ async function detectSequenceWithoutSeance(profileId: string, issues: CoherenceI
         severity: "warning",
         message: `Séquence « ${sequence.title} » sans séance créée.`,
         suggestion: "Générer ou créer les séances de cette séquence.",
-        module: "progression",
+        module: "sequence",
         entityId: String(sequence.id),
         reason: "La séquence prévoit des sessions mais aucune séance n'est enregistrée.",
-        sources: [{ module: "progression", entityId: String(sequence.id), label: sequence.title }],
+        sources: [{ module: "sequence", entityId: String(sequence.id), label: sequence.title }],
         proposal: "Créer les séances depuis la séquence ou ajuster le nombre de sessions.",
       });
     }

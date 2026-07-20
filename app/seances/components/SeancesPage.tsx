@@ -1,8 +1,9 @@
 "use client";
 
 import { deferEffect } from "@/lib/hooks/defer-effect";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
@@ -24,6 +25,15 @@ import {
 } from "../types";
 
 export function SeancesPage() {
+  return (
+    <Suspense fallback={<p className="text-sm font-light text-flora-text-subtle">Chargement…</p>}>
+      <SeancesPageContent />
+    </Suspense>
+  );
+}
+
+function SeancesPageContent() {
+  const searchParams = useSearchParams();
   const [formValues, setFormValues] = useState(initialSeancesFormValues);
   const [sequences, setSequences] = useState<SequenceWithSeancesSummary[]>([]);
   const [sessions, setSessions] = useState<SequenceSessionOption[]>([]);
@@ -252,6 +262,12 @@ export function SeancesPage() {
 
     setSelectedPayload(data);
   }, []);
+
+  useEffect(() => {
+    const seanceId = searchParams.get("id");
+    if (!seanceId) return;
+    void openSeance(seanceId);
+  }, [openSeance, searchParams]);
 
   const sortedSeances = useMemo(() => {
     const copy = [...seances];

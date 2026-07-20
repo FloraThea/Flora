@@ -1,6 +1,7 @@
 import "server-only";
 
 import { floraDb } from "@/lib/supabase/get-db";
+import { isMissingSchemaColumnError } from "@/lib/supabase/schema-compat";
 import { onlyActive } from "@/lib/trash/active-query";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import type { PedagogicalModule } from "../types";
@@ -41,6 +42,38 @@ type SearchableRow = {
   module: PedagogicalModule;
 };
 
+type ProgressionSearchRow = {
+  id: string;
+  title: string;
+  matiere?: string | null;
+  objectif?: string | null;
+};
+
+async function loadProgressionsForSearch(
+  profileId: string,
+): Promise<{ data: ProgressionSearchRow[] | null; error: Error | null }> {
+  const db = await floraDb();
+  const withObjectif = await onlyActive(
+    db.from("progressions").select("id, title, matiere, objectif").eq("teacher_profile_id", profileId).limit(300),
+  );
+
+  if (!withObjectif.error) {
+    return { data: (withObjectif.data ?? []) as ProgressionSearchRow[], error: null };
+  }
+
+  if (isMissingSchemaColumnError(withObjectif.error, "objectif")) {
+    const fallback = await onlyActive(
+      db.from("progressions").select("id, title, matiere").eq("teacher_profile_id", profileId).limit(300),
+    );
+    if (fallback.error) {
+      return { data: null, error: new Error(fallback.error.message) };
+    }
+    return { data: (fallback.data ?? []) as ProgressionSearchRow[], error: null };
+  }
+
+  return { data: null, error: new Error(withObjectif.error.message) };
+}
+
 export async function searchPedagogicalDocuments(input: {
   query: string;
   limit?: number;
@@ -56,37 +89,22 @@ export async function searchPedagogicalDocuments(input: {
   }
 
   const rows: SearchableRow[] = [];
+  const db = await floraDb();
 
   const [programmations, progressions, sequences, seances] = await Promise.all([
     onlyActive(
-      (await floraDb())
-        .from("programmations")
-        .select("id, title, matiere")
-        .eq("teacher_profile_id", scope.profileId)
-        .limit(200),
+      db.from("programmations").select("id, title, matiere").eq("teacher_profile_id", scope.profileId).limit(200),
+    ),
+    loadProgressionsForSearch(scope.profileId),
+    onlyActive(
+      db.from("sequences").select("id, title, matiere, competence_bo").eq("teacher_profile_id", scope.profileId).limit(500),
     ),
     onlyActive(
-      (await floraDb())
-        .from("progressions")
-        .select("id, title, matiere, objectif")
-        .eq("teacher_profile_id", scope.profileId)
-        .limit(300),
-    ),
-    onlyActive(
-      (await floraDb())
-        .from("sequences")
-        .select("id, title, matiere, competence_bo")
-        .eq("teacher_profile_id", scope.profileId)
-        .limit(500),
-    ),
-    onlyActive(
-      (await floraDb())
-        .from("seances")
-        .select("id, title, matiere, objectif, methode, competence_bo")
-        .eq("teacher_profile_id", scope.profileId)
-        .limit(1000),
+      db.from("seances").select("id, title, matiere, objectif, methode, competence_bo").eq("teacher_profile_id", scope.profileId).limit(1000),
     ),
   ]);
+
+  if (progressions.error) throw progressions.error;
 
   for (const row of programmations.data ?? []) {
     rows.push({
@@ -117,7 +135,7 @@ export async function searchPedagogicalDocuments(input: {
       matiere: String(row.matiere ?? ""),
       extra: String(row.competence_bo ?? ""),
       href: `/sequences?id=${row.id}`,
-      module: "progression",
+      module: "sequence",
     });
   }
 

@@ -2,6 +2,7 @@ export type PedagogicalModule =
   | "referentiel"
   | "programmation"
   | "progression"
+  | "sequence"
   | "emploi_du_temps"
   | "rituels"
   | "cahier_journal"

@@ -450,12 +450,19 @@ export async function restoreAllTrash(): Promise<number> {
   let restored = 0;
 
   for (const item of items) {
-    await restoreFromTrash({
-      entityType: item.entityType,
-      id: item.id,
-      mode: item.parentInTrash ? "with_parent" : "entity_only",
-    });
-    restored += 1;
+    try {
+      await restoreFromTrash({
+        entityType: item.entityType,
+        id: item.id,
+        mode: item.parentInTrash ? "with_parent" : "entity_only",
+      });
+      restored += 1;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("n'est pas dans la Corbeille")) {
+        continue;
+      }
+      throw error;
+    }
   }
 
   return restored;

@@ -43,3 +43,31 @@ export async function updateWithOptionalColumnFallback<T extends Record<string, 
 ): Promise<{ data: R | null; error: PostgrestError | null }> {
   return insertWithOptionalColumnFallback(updateFn, row, optionalColumn);
 }
+
+export async function queryWithOptionalSelectColumns<T>(
+  queryFn: (select: string) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
+  select: string,
+  optionalColumns: string[],
+): Promise<{ data: T[] | null; error: PostgrestError | null }> {
+  let currentSelect = select;
+  let result = await queryFn(currentSelect);
+
+  while (result.error) {
+    const missingColumn = optionalColumns.find((column) =>
+      isMissingSchemaColumnError(result.error, column),
+    );
+    if (!missingColumn) break;
+
+    console.warn(
+      `[schema-compat] Column "${missingColumn}" missing in schema cache — retrying select without it.`,
+    );
+    currentSelect = currentSelect
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part !== missingColumn)
+      .join(", ");
+    result = await queryFn(currentSelect);
+  }
+
+  return result;
+}

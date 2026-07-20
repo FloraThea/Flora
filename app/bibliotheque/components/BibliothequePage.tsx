@@ -49,7 +49,9 @@ function BibliothequePageContent() {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isArchiving, setIsArchiving] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(
+    () => searchParams.get("q") ?? searchParams.get("query") ?? "",
+  );
   const [filters, setFilters] = useState<LibraryFilterValues>(initialLibraryFilterValues);
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 

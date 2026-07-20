@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
@@ -54,6 +55,15 @@ function applyProfileToFormValues(
 }
 
 export function ProgrammationPage() {
+  return (
+    <Suspense fallback={<p className="text-sm font-light text-flora-text-subtle">Chargement…</p>}>
+      <ProgrammationPageContent />
+    </Suspense>
+  );
+}
+
+function ProgrammationPageContent() {
+  const searchParams = useSearchParams();
   const [formValues, setFormValues] = useState<ProgrammationFormValues>(initialFormValues);
   const [payload, setPayload] = useState<ProgrammationPayload | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -134,11 +144,15 @@ export function ProgrammationPage() {
           };
           const items = listData.programmations ?? [];
           setSavedProgrammations(items);
+          const urlId = searchParams.get("id");
           const lastId =
             typeof window !== "undefined"
               ? sessionStorage.getItem(LAST_PROGRAMMATION_KEY)
               : null;
-          const targetId = items.find((item) => item.id === lastId)?.id ?? items[0]?.id;
+          const targetId =
+            items.find((item) => item.id === urlId)?.id ??
+            items.find((item) => item.id === lastId)?.id ??
+            items[0]?.id;
           if (targetId) {
             await loadSavedProgrammation(targetId);
           }
@@ -149,7 +163,7 @@ export function ProgrammationPage() {
         setIsLoadingSaved(false);
       }
     })();
-  }, [loadSavedProgrammation]);
+  }, [loadSavedProgrammation, searchParams]);
 
   useEffect(() => {
     if (!payload) return;

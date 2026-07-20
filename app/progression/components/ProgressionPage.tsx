@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
@@ -53,6 +54,15 @@ type SavedProgressionListItem = {
 type ProgressionPageMode = null | "menu" | "generate" | "import" | "manual";
 
 export function ProgressionPage() {
+  return (
+    <Suspense fallback={<p className="text-sm font-light text-flora-text-subtle">Chargement…</p>}>
+      <ProgressionPageContent />
+    </Suspense>
+  );
+}
+
+function ProgressionPageContent() {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<ProgressionPageMode>("menu");
   const [formValues, setFormValues] = useState<ProgressionFormValues>(
     initialProgressionFormValues,
@@ -121,9 +131,13 @@ export function ProgressionPage() {
           };
           const progressions = listData.progressions ?? [];
           setSavedProgressions(progressions);
+          const urlId = searchParams.get("id");
           const lastId =
             typeof window !== "undefined" ? sessionStorage.getItem(LAST_PROGRESSION_KEY) : null;
-          const targetId = progressions.find((p) => p.id === lastId)?.id ?? progressions[0]?.id;
+          const targetId =
+            progressions.find((p) => p.id === urlId)?.id ??
+            progressions.find((p) => p.id === lastId)?.id ??
+            progressions[0]?.id;
           if (targetId) {
             await loadSavedProgression(targetId);
           }
@@ -148,7 +162,7 @@ export function ProgressionPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadSavedProgression]);
+  }, [loadSavedProgression, searchParams]);
 
   useEffect(() => {
     if (!payload) return;

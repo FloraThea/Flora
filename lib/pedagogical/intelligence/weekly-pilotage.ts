@@ -27,7 +27,7 @@ export async function buildWeeklyPilotage(): Promise<WeeklyPilotageWeek[]> {
 
   const { data: progressionRows } = await (await floraDb())
     .from("progression_rows")
-    .select("period_number, week_number, competence_bo, sequence_module, progression_id, matiere")
+    .select("period_number, week_number, competence_bo, sequence_module, progression_id")
     .limit(5000);
 
   const { data: ownedProgressions } = await onlyActive(
@@ -71,13 +71,13 @@ export async function buildWeeklyPilotage(): Promise<WeeklyPilotageWeek[]> {
     const key = `${row.period_number}-${row.week_number}`;
     const bucket = weekMap.get(key);
     if (!bucket) continue;
-    const matiere = String(row.matiere ?? matiereByProgression.get(String(row.progression_id)) ?? "");
+    const matiere = String(matiereByProgression.get(String(row.progression_id)) ?? "");
     if (matiere && !bucket.subjects.includes(matiere)) bucket.subjects.push(matiere);
     const competence = String(row.competence_bo ?? "").trim();
     if (competence && !bucket.competences.includes(competence)) bucket.competences.push(competence);
-    const module = String(row.sequence_module ?? "").toLowerCase();
-    if (module.includes("projet")) bucket.projectCount += 1;
-    if (module.includes("sortie")) bucket.outingCount += 1;
+    const sequenceModule = String(row.sequence_module ?? "").toLowerCase();
+    if (sequenceModule.includes("projet")) bucket.projectCount += 1;
+    if (sequenceModule.includes("sortie")) bucket.outingCount += 1;
   }
 
   for (const seance of seances ?? []) {

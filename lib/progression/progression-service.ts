@@ -3,6 +3,7 @@ import { floraDb } from "@/lib/supabase/get-db";
 import {
   isMissingSchemaColumnError,
   omitRecordKey,
+  queryWithOptionalSelectColumns,
   updateWithOptionalColumnFallback,
 } from "@/lib/supabase/schema-compat";
 import type { SourceDocument } from "@/lib/import/source-document";
@@ -365,13 +366,16 @@ export async function loadProgression(id: string): Promise<ProgressionPayload | 
 
 export async function listProgressionsForProfile() {
   const scope = await requireTeacherScope();
+  const db = await floraDb();
 
-  const { data, error } = await onlyActive(
-    (await floraDb())
-      .from("progressions")
-      .select("id, title, methode, status, programmation_id, matiere, sous_matiere, niveau, periode, created_at, metadata")
-      .eq("teacher_profile_id", scope.profileId),
-  ).order("created_at", { ascending: false });
+  const { data, error } = await queryWithOptionalSelectColumns(
+    (select) =>
+      onlyActive(
+        db.from("progressions").select(select).eq("teacher_profile_id", scope.profileId),
+      ).order("created_at", { ascending: false }),
+    "id, title, methode, status, programmation_id, matiere, sous_matiere, niveau, periode, created_at, metadata",
+    ["matiere", "sous_matiere", "niveau", "periode"],
+  );
 
   if (error) throw error;
   return data ?? [];

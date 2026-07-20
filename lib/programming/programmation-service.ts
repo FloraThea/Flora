@@ -1,6 +1,6 @@
 import type { FloraAccent } from "@/lib/theme";
 import { floraDb } from "@/lib/supabase/get-db";
-import { insertWithOptionalColumnFallback } from "@/lib/supabase/schema-compat";
+import { insertWithOptionalColumnFallback, queryWithOptionalSelectColumns } from "@/lib/supabase/schema-compat";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { onlyActive } from "@/lib/trash/active-query";
 import {
@@ -290,15 +290,16 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
 
 export async function listProgrammationsForProfile() {
   const scope = await requireTeacherScope();
+  const db = await floraDb();
 
-  const { data, error } = await onlyActive(
-    (await floraDb())
-      .from("programmations")
-      .select(
-        "id, title, school_year, matiere, sous_matiere, methode, levels, status, created_at, metadata, source_type, source_file_name",
-      )
-      .eq("teacher_profile_id", scope.profileId),
-  ).order("created_at", { ascending: false });
+  const { data, error } = await queryWithOptionalSelectColumns(
+    (select) =>
+      onlyActive(
+        db.from("programmations").select(select).eq("teacher_profile_id", scope.profileId),
+      ).order("created_at", { ascending: false }),
+    "id, title, school_year, matiere, sous_matiere, methode, levels, status, created_at, metadata, source_type, source_file_name",
+    ["matiere", "sous_matiere", "source_type", "source_file_name"],
+  );
 
   if (error) throw error;
   return data ?? [];

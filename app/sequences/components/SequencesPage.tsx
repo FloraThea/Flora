@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
@@ -24,6 +25,15 @@ import {
 } from "../types";
 
 export function SequencesPage() {
+  return (
+    <Suspense fallback={<p className="text-sm font-light text-flora-text-subtle">Chargement…</p>}>
+      <SequencesPageContent />
+    </Suspense>
+  );
+}
+
+function SequencesPageContent() {
+  const searchParams = useSearchParams();
   const [formValues, setFormValues] = useState<SequencesFormValues>(initialSequencesFormValues);
   const [progressions, setProgressions] = useState<ValidatedProgressionSummary[]>([]);
   const [rows, setRows] = useState<ProgressionRowOption[]>([]);
@@ -199,6 +209,12 @@ export function SequencesPage() {
 
     setSelectedPayload(data);
   }, []);
+
+  useEffect(() => {
+    const sequenceId = searchParams.get("id");
+    if (!sequenceId) return;
+    void openSequence(sequenceId);
+  }, [openSequence, searchParams]);
 
   const selectedProgression = progressions.find((item) => item.id === formValues.progressionId);
 
