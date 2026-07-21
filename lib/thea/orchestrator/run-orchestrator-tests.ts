@@ -49,16 +49,16 @@ async function main() {
   assert.equal(classifyAiError(new Error("invalid json schema")).transient, false);
 
   resetAiProviderRegistry();
-  process.env.FLORA_AI_FALLBACK = "openai";
+  process.env.FLORA_AI_FALLBACK = "openrouter";
   registerAiProvider(mockProvider({ id: "gemini", responses: ['{"ok":1}'] }));
-  registerAiProvider(mockProvider({ id: "openai", responses: ['{"ok":2}'] }));
+  registerAiProvider(mockProvider({ id: "openrouter", responses: ['{"ok":2}'] }));
   assert.equal(resolveProviderChain()[0]?.id, "gemini");
 
   resetAiProviderRegistry();
   resetAiQueueForTests();
 
   registerAiProvider(mockProvider({ id: "gemini", alwaysThrow: true }));
-  registerAiProvider(mockProvider({ id: "openai", responses: ['{"source":"openai"}'] }));
+  registerAiProvider(mockProvider({ id: "openrouter", responses: ['{"source":"openrouter"}'] }));
 
   const orchestrator = new AiOrchestrator();
   const fallbackResult = await orchestrator.completeWithMeta({
@@ -66,8 +66,8 @@ async function main() {
     label: "test-fallback",
   });
 
-  assert.equal(fallbackResult.text, '{"source":"openai"}');
-  assert.equal(fallbackResult.meta.providerId, "openai");
+  assert.equal(fallbackResult.text, '{"source":"openrouter"}');
+  assert.equal(fallbackResult.meta.providerId, "openrouter");
   assert.equal(fallbackResult.meta.fallbackFrom, "gemini");
 
   resetAiProviderRegistry();

@@ -3,9 +3,11 @@ import type { AiProvider, AiProviderId } from "../types";
 import { AnthropicProvider } from "./anthropic-provider";
 import { GeminiProvider } from "./gemini-provider";
 import { OpenAiProvider } from "./openai-provider";
+import { OpenRouterProvider } from "./openrouter-provider";
 
 const providerConstructors: Record<AiProviderId, () => AiProvider> = {
   gemini: () => new GeminiProvider(),
+  openrouter: () => new OpenRouterProvider(),
   openai: () => new OpenAiProvider(),
   anthropic: () => new AnthropicProvider(),
 };

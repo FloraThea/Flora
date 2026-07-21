@@ -1,5 +1,4 @@
-export const maxDuration = 300;
-
+import { VERCEL_MAX_DURATION_SECONDS } from "@/lib/api/vercel-serverless-config";
 import { importQueue } from "@/lib/documents/import/ImportQueue";
 import {
   handleImportRouteError,
@@ -9,6 +8,8 @@ import {
 } from "@/lib/documents/import/route-helpers";
 
 const SUBPATH = "/analyze";
+
+export const maxDuration = VERCEL_MAX_DURATION_SECONDS;
 
 export async function POST(request: Request) {
   try {

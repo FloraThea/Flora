@@ -53,6 +53,10 @@ export async function GET(request: Request) {
         sections: Array.isArray(document.metadata?.sectionsProcessed)
           ? document.metadata.sectionsProcessed
           : [],
+        analyzeProgress:
+          document.metadata?.analyzeProgress && typeof document.metadata.analyzeProgress === "object"
+            ? document.metadata.analyzeProgress
+            : null,
         validation: document.validation,
       })),
       storage,

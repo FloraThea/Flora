@@ -29,7 +29,7 @@ type AnalyzeResult = {
   insertedCount?: number;
   sectionsProcessed?: string[];
   competences?: Array<{ competence?: string; section?: string; niveau?: string }>;
-  mode: "http" | "http+poll";
+  mode: "http" | "http+poll" | "http+progressive";
 };
 
 function sleep(ms: number) {
@@ -81,6 +81,57 @@ async function importBo(session: ApiTestSession, filePath: string) {
   }
 
   return data;
+}
+
+async function analyzeBoProgressive(session: ApiTestSession, documentId: string): Promise<AnalyzeResult> {
+  let reset = true;
+  let lastPayload: {
+    done?: boolean;
+    documentStatus?: string;
+    insertedCount?: number;
+    sectionsProcessed?: string[];
+    progress?: number;
+    error?: string;
+    details?: string;
+  } = {};
+
+  for (let guard = 0; guard < 500; guard += 1) {
+    const response = await fetch(`${session.baseUrl}/api/centre-ressources/analyze`, {
+      method: "POST",
+      headers: {
+        Cookie: session.cookieHeader,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ documentId, reset }),
+    });
+
+    lastPayload = (await response.json()) as typeof lastPayload;
+
+    if (!response.ok) {
+      throw new Error(lastPayload.error || lastPayload.details || `Analyse HTTP ${response.status}`);
+    }
+
+    reset = false;
+
+    if (lastPayload.done) {
+      const { data: sampleRows } = await session.dbClient
+        .from("referentiels")
+        .select("competence, section, niveau")
+        .eq("document_source_id", documentId)
+        .order("sort_order", { ascending: true })
+        .limit(120);
+
+      return {
+        documentStatus: lastPayload.documentStatus,
+        insertedCount: lastPayload.insertedCount ?? 0,
+        sectionsProcessed: lastPayload.sectionsProcessed ?? [],
+        competences: sampleRows ?? [],
+        mode: "http+progressive",
+      };
+    }
+  }
+
+  throw new Error("Analyse progressive interrompue (limite de ticks HTTP).");
 }
 
 async function triggerAnalyzeHttp(session: ApiTestSession, documentId: string): Promise<void> {
@@ -213,8 +264,7 @@ async function analyzeBo(session: ApiTestSession, documentId: string): Promise<A
     return analyzeBoHttpStrict(session, documentId);
   }
 
-  await triggerAnalyzeHttp(session, documentId);
-  return waitForBoAnalysis(session, documentId);
+  return analyzeBoProgressive(session, documentId);
 }
 
 function writeReport(input: {
@@ -271,7 +321,7 @@ async function main() {
 
   console.log(`Base URL : ${BASE_URL}`);
   console.log(`Fichier BO : ${path.basename(filePath)}`);
-  console.log(`Mode analyse : ${STRICT_HTTP ? "HTTP strict" : "HTTP + polling Supabase"}`);
+  console.log(`Mode analyse : ${STRICT_HTTP ? "HTTP strict" : "HTTP progressif (tick par bloc)"}`);
 
   try {
     console.log("\n→ Import + extraction (HTTP)…");

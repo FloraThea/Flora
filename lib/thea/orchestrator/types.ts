@@ -1,4 +1,4 @@
-export type AiProviderId = "gemini" | "openai" | "anthropic";
+export type AiProviderId = "gemini" | "openrouter" | "openai" | "anthropic";
 
 export type AiFallbackReason =
   | "quota_exceeded"

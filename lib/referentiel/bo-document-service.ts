@@ -172,24 +172,29 @@ export async function updateBoDocument(
   return data as BoDocumentRow;
 }
 
-export async function saveBoCompetences(input: {
-  documentId: string;
-  competences: BoCompetenceDraft[];
-}): Promise<number> {
-  const { error: deleteError } = await (await floraDb())
+export async function clearBoCompetences(documentId: string): Promise<void> {
+  const { error } = await (await floraDb())
     .from("referentiels")
     .delete()
-    .eq("document_source_id", input.documentId);
+    .eq("document_source_id", documentId);
 
-  if (deleteError) {
-    throw new Error(
-      getSupabaseErrorMessage(deleteError, "Impossible de remplacer les compétences existantes."),
-    );
+  if (error) {
+    throw new Error(getSupabaseErrorMessage(error, "Impossible de supprimer les compétences existantes."));
   }
+}
 
+export async function appendBoCompetences(input: {
+  documentId: string;
+  competences: BoCompetenceDraft[];
+  sortOrderStart?: number;
+}): Promise<number> {
   if (input.competences.length === 0) {
     return 0;
   }
+
+  const sortOrderStart =
+    input.sortOrderStart ??
+    (await countBoCompetences(input.documentId)) + 1;
 
   const rows = input.competences.map((item, index) => ({
     document_source_id: input.documentId,
@@ -205,10 +210,10 @@ export async function saveBoCompetences(input: {
     source_excerpt: item.sourceExcerpt || null,
     competence_type: item.competenceType,
     source_document: null,
-    sort_order: index + 1,
+    sort_order: sortOrderStart + index,
     metadata: {
       section_id: item.sectionId,
-      sort_order: index + 1,
+      sort_order: sortOrderStart + index,
     },
   }));
 
@@ -220,6 +225,28 @@ export async function saveBoCompetences(input: {
   }
 
   return data?.length ?? 0;
+}
+
+export async function saveBoCompetences(input: {
+  documentId: string;
+  competences: BoCompetenceDraft[];
+}): Promise<number> {
+  const { error: deleteError } = await (await floraDb())
+    .from("referentiels")
+    .delete()
+    .eq("document_source_id", input.documentId);
+
+  if (deleteError) {
+    throw new Error(
+      getSupabaseErrorMessage(deleteError, "Impossible de remplacer les compétences existantes."),
+    );
+  }
+
+  return appendBoCompetences({
+    documentId: input.documentId,
+    competences: input.competences,
+    sortOrderStart: 1,
+  });
 }
 
 export async function countBoCompetences(documentId: string): Promise<number> {

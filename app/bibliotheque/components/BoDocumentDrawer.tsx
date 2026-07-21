@@ -28,6 +28,13 @@ type CentreDocument = {
   page_count: number | null;
   created_at: string;
   sections: string[];
+  analyzeProgress?: {
+    progress?: number;
+    stageLabel?: string;
+    sectionsTotal?: number;
+    partsCompleted?: number;
+    partsTotal?: number;
+  } | null;
   validation?: {
     warnings?: string[];
     sectionsMissing?: string[];
@@ -49,6 +56,8 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [analyzeProgress, setAnalyzeProgress] = useState(0);
+  const [analyzeStage, setAnalyzeStage] = useState<string | null>(null);
 
   const loadDocument = useCallback(async () => {
     const payload = await fetchApiWithDiagnostics<{ documents: CentreDocument[] }>(
@@ -76,6 +85,75 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
       void loadCompetences();
     });
   }, [loadDocument, loadCompetences]);
+
+  useEffect(() => {
+    if (document?.status !== "ANALYZING") return;
+    const progress = document.analyzeProgress?.progress;
+    if (typeof progress === "number") {
+      setAnalyzeProgress(progress);
+    }
+    if (document.analyzeProgress?.stageLabel) {
+      setAnalyzeStage(document.analyzeProgress.stageLabel);
+    }
+  }, [document]);
+
+  async function runProgressiveAnalyze(reset = true) {
+    setBusyAction("analyze");
+    setError(null);
+    setMessage(null);
+    setAnalyzeProgress(0);
+    setAnalyzeStage("Analyse Théa démarrée…");
+
+    try {
+      let done = false;
+
+      while (!done) {
+        const payload = await fetchApiWithDiagnostics<{
+          done?: boolean;
+          progress?: number;
+          stageLabel?: string;
+          insertedCount?: number;
+          error?: string;
+        }>(
+          "/api/centre-ressources/analyze",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ documentId, reset }),
+          },
+          { label: "BoDocumentDrawer" },
+        );
+
+        reset = false;
+        done = payload.done === true;
+        setAnalyzeProgress(typeof payload.progress === "number" ? payload.progress : analyzeProgress);
+        setAnalyzeStage(payload.stageLabel ?? "Analyse en cours…");
+        await loadCompetences();
+
+        if (!done) {
+          await loadDocument();
+        }
+      }
+
+      setMessage("Analyse Théa terminée.");
+      setAnalyzeProgress(100);
+      await loadDocument();
+      await loadCompetences();
+      onUpdated();
+    } catch (actionError) {
+      setError(
+        actionError instanceof ApiFetchDiagnosticError
+          ? actionError.message
+          : actionError instanceof Error
+            ? actionError.message
+            : "Analyse impossible.",
+      );
+      await loadDocument();
+    } finally {
+      setBusyAction(null);
+      setAnalyzeStage(null);
+    }
+  }
 
   async function runAction(
     action: string,
@@ -147,22 +225,41 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
         <p className="text-sm font-light text-[#b88989]">{document.error_message}</p>
       ) : null}
 
+      {busyAction === "analyze" || document.status === "ANALYZING" ? (
+        <div className="space-y-2 rounded-2xl bg-white/45 px-4 py-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-light text-flora-text-subtle">
+              {analyzeStage ?? "Analyse Théa en cours…"}
+            </span>
+            <span className="font-medium text-flora-text">{analyzeProgress}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/60">
+            <div
+              className="h-full rounded-full bg-lavande transition-all duration-500"
+              style={{ width: `${Math.max(4, analyzeProgress)}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
-        {canAnalyzeBo(document.status) ? (
+        {canAnalyzeBo(document.status) && document.status !== "ANALYZING" ? (
           <FloraButton
             accent="lavender"
             size="sm"
             disabled={Boolean(busyAction)}
-            onClick={() =>
-              void runAction(
-                "analyze",
-                "/api/centre-ressources/analyze",
-                { documentId },
-                "Analyse Théa terminée.",
-              )
-            }
+            onClick={() => void runProgressiveAnalyze(true)}
           >
             🧠 Réanalyser
+          </FloraButton>
+        ) : null}
+        {document.status === "ANALYZING" && !busyAction ? (
+          <FloraButton
+            accent="lavender"
+            size="sm"
+            onClick={() => void runProgressiveAnalyze(false)}
+          >
+            Reprendre l&apos;analyse
           </FloraButton>
         ) : null}
         {canValidateBo(document.status) ? (

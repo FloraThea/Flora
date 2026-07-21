@@ -1,12 +1,17 @@
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
+import { VERCEL_MAX_DURATION_SECONDS } from "@/lib/api/vercel-serverless-config";
+import {
+  readBoAnalyzeProgress,
+  runBoAnalyzeTick,
+  startBoAnalyzeJob,
+} from "@/lib/referentiel/bo-analyze-progressive";
 import { getBoDocumentById } from "@/lib/referentiel/bo-document-service";
-import { runBoAnalyzeStep } from "@/lib/referentiel/bo-pipeline";
 import { AiExhaustedError } from "@/lib/thea/orchestrator";
 import { AI_QUEUE_USER_MESSAGE } from "@/lib/thea/messages";
 
 const ROUTE_PATH = "/api/centre-ressources/analyze";
 
-export const maxDuration = 600;
+export const maxDuration = VERCEL_MAX_DURATION_SECONDS;
 
 function isTransientTheaError(message: string): boolean {
   const upper = message.toUpperCase();
@@ -18,31 +23,89 @@ function isTransientTheaError(message: string): boolean {
   );
 }
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const documentId = searchParams.get("documentId");
+
+    if (!documentId) {
+      return jsonRouteError(ROUTE_PATH, 400, "documentId requis.");
+    }
+
+    const document = await getBoDocumentById(documentId);
+    if (!document) {
+      return jsonRouteError(ROUTE_PATH, 404, "Document BO introuvable.");
+    }
+
+    const progress = readBoAnalyzeProgress(document);
+
+    return Response.json({
+      route: ROUTE_PATH,
+      documentId,
+      documentStatus: document.status,
+      progress: progress?.progress ?? (document.status === "ANALYZED" ? 100 : 0),
+      stageLabel: progress?.stageLabel ?? null,
+      sectionsProcessed: progress?.sectionsProcessed ?? [],
+      sectionsTotal: progress?.sectionsTotal ?? 0,
+      insertedCount: progress?.insertedCount ?? 0,
+      done: progress?.done ?? document.status === "ANALYZED",
+      async: true,
+    });
+  } catch (error) {
+    return jsonRouteError(ROUTE_PATH, 500, "Statut analyse impossible.", toErrorMessage(error));
+  }
+}
+
 export async function POST(request: Request) {
   let documentId: string | undefined;
 
   try {
-    const body = (await request.json()) as { documentId?: string };
+    const body = (await request.json()) as { documentId?: string; reset?: boolean };
     documentId = body.documentId;
 
     if (!documentId) {
       return jsonRouteError(ROUTE_PATH, 400, "documentId requis.");
     }
 
-    logRouteInfo(ROUTE_PATH, "Analyse Théa", { documentId });
+    logRouteInfo(ROUTE_PATH, "Analyse Théa (tick progressif)", { documentId, reset: body.reset === true });
 
-    const result = await runBoAnalyzeStep(documentId);
+    if (body.reset) {
+      await startBoAnalyzeJob(documentId);
+    }
+
+    const result = await runBoAnalyzeTick(documentId);
+
+    if (result.done && "document" in result && result.document) {
+      return Response.json({
+        route: ROUTE_PATH,
+        success: true,
+        async: true,
+        done: true,
+        progress: 100,
+        documentId: result.document.id,
+        documentStatus: result.document.status,
+        referencesCount: result.validation.totalCompetences,
+        insertedCount: result.insertedCount,
+        sectionsProcessed: result.sectionsProcessed,
+        validation: result.validation,
+        stageLabel: result.stageLabel,
+      });
+    }
 
     return Response.json({
       route: ROUTE_PATH,
       success: true,
-      documentId: result.document.id,
-      documentStatus: result.document.status,
-      referencesCount: result.validation.totalCompetences,
-      insertedCount: result.insertedCount,
+      async: true,
+      done: false,
+      progress: result.progress,
+      stageLabel: result.stageLabel,
+      documentId,
+      documentStatus: result.documentStatus,
       sectionsProcessed: result.sectionsProcessed,
-      validation: result.validation,
-      competences: result.competences.slice(0, 120),
+      sectionsTotal: result.sectionsTotal,
+      partsCompleted: result.partsCompleted,
+      partsTotal: result.partsTotal,
+      insertedCount: result.insertedCount,
     });
   } catch (error) {
     const message = toErrorMessage(error);
@@ -57,6 +120,7 @@ export async function POST(request: Request) {
         {
           documentId: document?.id ?? documentId,
           documentStatus: document?.status,
+          async: true,
         },
         error,
       );
@@ -70,6 +134,7 @@ export async function POST(request: Request) {
       {
         documentId: document?.id ?? documentId,
         documentStatus: document?.status,
+        async: true,
       },
       error,
     );

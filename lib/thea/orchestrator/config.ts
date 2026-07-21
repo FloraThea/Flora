@@ -12,7 +12,7 @@ function readProviderList(envKey: string, fallback: AiProviderId[]): AiProviderI
   const raw = process.env[envKey]?.trim();
   if (!raw || raw === "none") return [];
 
-  const allowed = new Set<AiProviderId>(["gemini", "openai", "anthropic"]);
+  const allowed = new Set<AiProviderId>(["gemini", "openrouter", "openai", "anthropic"]);
   const items = raw
     .split(",")
     .map((entry) => entry.trim().toLowerCase())
@@ -26,7 +26,7 @@ export const AI_ORCHESTRATOR_CONFIG = {
     return (process.env.FLORA_AI_PRIMARY?.trim().toLowerCase() ?? "gemini") as AiProviderId;
   },
   get fallbackProviders(): AiProviderId[] {
-    return readProviderList("FLORA_AI_FALLBACK", ["openai"]);
+    return readProviderList("FLORA_AI_FALLBACK", ["openrouter"]);
   },
   providerTimeoutMs: readInt("FLORA_AI_PROVIDER_TIMEOUT_MS", 120_000),
   primaryMaxAttempts: IMPORT_CONFIG.gemini.retryAttempts,
@@ -38,6 +38,7 @@ export const AI_ORCHESTRATOR_CONFIG = {
   queuePollIntervalMs: readInt("FLORA_AI_QUEUE_POLL_MS", 5_000),
   queueMaxWaitMs: readInt("FLORA_AI_QUEUE_MAX_WAIT_MS", 600_000),
   geminiModel: process.env.FLORA_GEMINI_MODEL?.trim() || "gemini-2.5-flash",
+  openrouterModel: process.env.FLORA_OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
   openaiModel: process.env.FLORA_OPENAI_MODEL?.trim() || "gpt-4o-mini",
   anthropicModel: process.env.FLORA_ANTHROPIC_MODEL?.trim() || "claude-3-5-haiku-latest",
 } as const;

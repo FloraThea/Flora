@@ -64,7 +64,7 @@ export async function POST(request: Request) {
         ROUTE_PATH,
         500,
         "Configuration serveur invalide.",
-        "Aucun fournisseur IA configuré (GEMINI_API_KEY, OPENAI_API_KEY…).",
+        "Aucun fournisseur IA configuré (GEMINI_API_KEY, OPENROUTER_API_KEY…).",
       );
     }
 

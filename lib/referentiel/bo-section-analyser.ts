@@ -60,6 +60,32 @@ function parseSectionResponse(
     .filter((item) => item.competence.length > 0);
 }
 
+export async function analyseBoSectionPart(input: {
+  section: BoSectionChunk;
+  text: string;
+  partLabel?: string;
+  defaults: { cycle: string; matiere: string };
+}): Promise<BoCompetenceDraft[]> {
+  const prompt = buildBoSectionPrompt({
+    sectionLabel: input.section.label,
+    sectionPart: input.partLabel,
+    cycle: input.defaults.cycle,
+    matiere: input.defaults.matiere,
+    text: input.text,
+  });
+
+  const raw = await askThea(prompt);
+  const items = parseSectionResponse(raw, input.section, input.defaults);
+
+  for (const item of items) {
+    if (!item.sourceExcerpt) {
+      item.sourceExcerpt = input.text.slice(0, 240);
+    }
+  }
+
+  return items;
+}
+
 export async function analyseBoSection(
   section: BoSectionChunk,
   defaults: { cycle: string; matiere: string },
@@ -68,23 +94,13 @@ export async function analyseBoSection(
   const allItems: BoCompetenceDraft[] = [];
 
   for (const [index, part] of parts.entries()) {
-    const prompt = buildBoSectionPrompt({
-      sectionLabel: section.label,
-      sectionPart: parts.length > 1 ? `${index + 1}/${parts.length}` : undefined,
-      cycle: defaults.cycle,
-      matiere: defaults.matiere,
+    const items = await analyseBoSectionPart({
+      section,
       text: part,
+      partLabel: parts.length > 1 ? `${index + 1}/${parts.length}` : undefined,
+      defaults,
     });
-
-    const raw = await askThea(prompt);
-    const items = parseSectionResponse(raw, section, defaults);
-
-    for (const item of items) {
-      if (!item.sourceExcerpt) {
-        item.sourceExcerpt = part.slice(0, 240);
-      }
-      allItems.push(item);
-    }
+    allItems.push(...items);
   }
 
   return allItems;
@@ -111,6 +127,10 @@ export async function analyseBoSections(
   }
 
   return dedupeCompetences(results);
+}
+
+export function dedupeBoCompetences(items: BoCompetenceDraft[]): BoCompetenceDraft[] {
+  return dedupeCompetences(items);
 }
 
 function dedupeCompetences(items: BoCompetenceDraft[]): BoCompetenceDraft[] {

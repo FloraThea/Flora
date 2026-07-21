@@ -1,13 +1,10 @@
 import type { DocumentExtractionResult } from "@/lib/documents/extraction/types";
-import { toErrorMessage } from "@/lib/api/route-diagnostics";
-import { analyseBoSections } from "./bo-section-analyser";
+import { runBoAnalyzeStepProgressive } from "./bo-analyze-progressive";
 import {
   activateBoDocument,
   countBoCompetences,
   createBoDocument,
   getBoDocumentById,
-  markBoDocumentError,
-  saveBoCompetences,
   tryUploadBoFileOptional,
   updateBoDocument,
 } from "./bo-document-service";
@@ -80,68 +77,9 @@ export async function runBoImportAndExtractStep(input: {
   };
 }
 
-/** Étape 3 : analyse Théa (relançable). */
+/** Étape 3 : analyse Théa progressive (relançable). */
 export async function runBoAnalyzeStep(documentId: string): Promise<BoImportResult> {
-  const existing = await getBoDocumentById(documentId);
-  if (!existing) {
-    throw new Error("Document BO introuvable.");
-  }
-
-  if (!existing.extracted_text?.trim()) {
-    throw new Error("Aucun texte extrait. Relancez l'extraction avant l'analyse.");
-  }
-
-  await updateBoDocument(documentId, {
-    status: "ANALYZING",
-    metadata: { ...(existing.metadata ?? {}), error_message: "" },
-  });
-
-  try {
-    const metadata = inferBoMetadata(existing.extracted_text);
-    const sections = splitBoTextIntoSections(existing.extracted_text);
-
-    const competences = await analyseBoSections(sections, {
-      cycle: existing.cycle || metadata.cycle,
-      matiere: existing.matiere || metadata.matiere,
-    });
-
-    const validation = validateBoExtraction({
-      competences,
-      sections,
-      matiere: existing.matiere || metadata.matiere,
-    });
-
-    const insertedCount = await saveBoCompetences({
-      documentId,
-      competences,
-    });
-
-    const document = await updateBoDocument(documentId, {
-      status: "ANALYZED",
-      validation,
-      metadata: {
-        ...(existing.metadata ?? {}),
-        sectionsProcessed: sections.map((section) => section.label),
-        insertedCount,
-        analyzedAt: new Date().toISOString(),
-        savedToLibrary: false,
-        error_message: "",
-      },
-    });
-
-    return {
-      document,
-      competences,
-      validation,
-      insertedCount,
-      sectionsProcessed: sections.map((section) => section.label),
-      savedToLibrary: false,
-    };
-  } catch (error) {
-    const message = toErrorMessage(error);
-    await markBoDocumentError(documentId, message, "TEXT_EXTRACTED");
-    throw new Error(message);
-  }
+  return runBoAnalyzeStepProgressive(documentId);
 }
 
 /** Analyse complète depuis un fichier (import + extract + analyze). */

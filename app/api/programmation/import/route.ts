@@ -25,11 +25,12 @@ import {
 } from "@/lib/programming/import/programming-import-errors";
 import { resolveImportFileName } from "@/lib/import/accepted-formats";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
+import { VERCEL_MAX_DURATION_SECONDS } from "@/lib/api/vercel-serverless-config";
 import { triggerPedagogicalAnalysis } from "@/lib/pedagogical/intelligence/coherence-trigger";
 
 const ROUTE_PATH = "/api/programmation/import";
 
-export const maxDuration = 300;
+export const maxDuration = VERCEL_MAX_DURATION_SECONDS;
 
 function mapImportStepError(action: string | undefined, error: unknown): { status: number; message: string } {
   const details = toErrorMessage(error).toLowerCase();

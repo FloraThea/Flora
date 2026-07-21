@@ -34,7 +34,7 @@ Le document est passé en **ANALYZED** avec insertion en base (`referentiels`).
 
 ### Limites rencontrées en validation automatisée
 
-1. **`next dev` — timeout HTTP ~5 min** : la route `/api/centre-ressources/analyze` peut dépasser 5 min (4 sections × Gemini). La connexion client est coupée alors que le serveur continue (`maxDuration` porté à **600 s**).
+1. **Limite Vercel Hobby (300 s)** : l'analyse BO est découpée en ticks progressifs (`POST /api/centre-ressources/analyze` = un bloc par requête).
 2. **Quota Gemini free tier** : limite **20 requêtes/jour** pour `gemini-2.5-flash`. Les relances de test ont épuisé le quota (`429 RESOURCE_EXHAUSTED`).
 
 Le test `npm run test:validation:bo-analyze` utilise **HTTP + polling Supabase** pour attendre le statut `ANALYZED` malgré la coupure HTTP en dev.
