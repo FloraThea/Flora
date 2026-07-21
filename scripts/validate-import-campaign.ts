@@ -56,7 +56,7 @@ async function testPdfFile(label: string, filePath: string): Promise<CampaignRes
       format: "PDF",
       label,
       filePath,
-      ok: result.textLength > 0,
+      ok: result.textLength > 0 && (label.includes("scanné") ? result.usedOcr === true : true),
       stage: "extraction",
       fileSizeBytes: buffer.length,
       pageCount: result.pageCount,
@@ -291,6 +291,16 @@ async function main() {
   const boPdf = resolveOptionalBoPdfPath();
   if (boPdf) {
     pdfCases.push(["Bulletin officiel EVAR (utilisateur)", boPdf]);
+  }
+
+  const fixtureBo = resolveValidationPath("referentiel/Programme_EVAR_elementaire-405261.pdf");
+  if (fs.existsSync(fixtureBo) && !pdfCases.some(([, p]) => p === fixtureBo)) {
+    pdfCases.push(["Bulletin officiel EVAR (fixture)", fixtureBo]);
+  }
+
+  const scanPath = resolveValidationPath("documents_divers/scan_ocr_test.pdf");
+  if (fs.existsSync(scanPath)) {
+    pdfCases.push(["PDF scanné OCR", scanPath]);
   }
 
   for (const [label, filePath] of pdfCases) {

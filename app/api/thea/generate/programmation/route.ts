@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import {
   extractJsonObject,
@@ -6,6 +5,8 @@ import {
   logRouteInfo,
   toErrorMessage,
 } from "@/lib/api/route-diagnostics";
+import { askThea } from "@/lib/thea/services/gemini";
+import { isAnyAiProviderConfigured } from "@/lib/thea/orchestrator";
 
 const ROUTE_PATH = "/api/thea/generate/programmation";
 
@@ -17,18 +18,14 @@ export async function POST(request: Request) {
       keys: Object.keys(body ?? {}),
     });
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!isAnyAiProviderConfigured()) {
       return jsonRouteError(
         ROUTE_PATH,
         500,
         "Configuration serveur invalide.",
-        "La variable d'environnement GEMINI_API_KEY est absente.",
+        "Aucun fournisseur IA configuré (GEMINI_API_KEY, OPENAI_API_KEY…).",
       );
     }
-
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    });
 
     const prompt = `
 Tu es Théa, l'assistante pédagogique de Flora.
@@ -39,12 +36,7 @@ Données :
 ${JSON.stringify(body, null, 2)}
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
-
-    const rawText = (response.text ?? "").trim();
+    const rawText = (await askThea(prompt)).trim();
     const safeJson =
       extractJsonObject(rawText.replace(/```json/g, "").replace(/```/g, "").trim()) ??
       extractJsonObject(rawText);

@@ -1,10 +1,12 @@
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
 import { getBoDocumentById } from "@/lib/referentiel/bo-document-service";
 import { runBoAnalyzeStep } from "@/lib/referentiel/bo-pipeline";
-import { GeminiExhaustedError } from "@/lib/thea/services/gemini-errors";
-import { GEMINI_QUEUE_USER_MESSAGE } from "@/lib/thea/messages";
+import { AiExhaustedError } from "@/lib/thea/orchestrator";
+import { AI_QUEUE_USER_MESSAGE } from "@/lib/thea/messages";
 
 const ROUTE_PATH = "/api/centre-ressources/analyze";
+
+export const maxDuration = 600;
 
 function isTransientTheaError(message: string): boolean {
   const upper = message.toUpperCase();
@@ -46,11 +48,11 @@ export async function POST(request: Request) {
     const message = toErrorMessage(error);
     const document = documentId ? await getBoDocumentById(documentId) : null;
 
-    if (error instanceof GeminiExhaustedError || isTransientTheaError(message)) {
+    if (error instanceof AiExhaustedError || isTransientTheaError(message)) {
       return jsonRouteError(
         ROUTE_PATH,
         503,
-        GEMINI_QUEUE_USER_MESSAGE,
+        AI_QUEUE_USER_MESSAGE,
         message,
         {
           documentId: document?.id ?? documentId,

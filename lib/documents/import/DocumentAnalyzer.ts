@@ -1,7 +1,7 @@
 import { floraDb } from "@/lib/supabase/get-db";
 import { readDocumentStorageProvider, storageService } from "@/lib/storage";
-import { GeminiExhaustedError } from "@/lib/thea/services/gemini-errors";
-import { GEMINI_QUEUE_USER_MESSAGE } from "@/lib/thea/messages";
+import { AiExhaustedError } from "@/lib/thea/orchestrator";
+import { AI_QUEUE_USER_MESSAGE } from "@/lib/thea/messages";
 import {
   canAnalyzeExtension,
   DocumentExtractionError,
@@ -214,7 +214,7 @@ export class DocumentAnalyzer {
     try {
       analysisResult = await vectorIndexer.analyzeWithThea(checkpoint.extractedText);
     } catch (error) {
-      if (error instanceof GeminiExhaustedError) {
+      if (error instanceof AiExhaustedError) {
         await this.deferToGeminiQueue(document, job, checkpoint);
         return;
       }
@@ -355,7 +355,7 @@ export class DocumentAnalyzer {
     await this.updateJob(job.id, {
       status: "waiting_ai",
       progress: 52,
-      stageLabel: GEMINI_QUEUE_USER_MESSAGE,
+      stageLabel: AI_QUEUE_USER_MESSAGE,
       errorMessage: "",
       metadata: {
         analysisCheckpoint: deferredCheckpoint,
@@ -367,7 +367,7 @@ export class DocumentAnalyzer {
       documentId: document.id,
       jobId: job.id,
       type: "analysis_deferred",
-      message: GEMINI_QUEUE_USER_MESSAGE,
+      message: AI_QUEUE_USER_MESSAGE,
     });
 
     console.info("[import] Analyse IA différée", {

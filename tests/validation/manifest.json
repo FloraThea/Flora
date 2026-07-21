@@ -31,6 +31,13 @@
       "file": "guides_maitre/MHM_CE1_CE2_GUIDE.pdf",
       "expected": "resultats_attendus/guide_mhm_ce1_ce2.json",
       "label": "MHM CE1 CE2 — Guide du maître"
+    },
+    {
+      "id": "bo_evar_elementaire",
+      "category": "referentiel",
+      "file": "referentiel/Programme_EVAR_elementaire-405261.pdf",
+      "expected": "resultats_attendus/bo_evar_elementaire.json",
+      "label": "Programme EVAR élémentaire"
     }
   ]
 }

@@ -21,7 +21,11 @@ export type BoSectionId =
   | "lecture"
   | "ecriture"
   | "etude_langue"
-  | "culture_litteraire";
+  | "culture_litteraire"
+  | "evar_intro"
+  | "evar_organisation"
+  | "evar_contenus"
+  | "evar_niveaux";
 
 export type BoSectionDefinition = {
   id: BoSectionId;

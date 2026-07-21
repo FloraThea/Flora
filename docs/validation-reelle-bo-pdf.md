@@ -1,7 +1,7 @@
 # Validation réelle — Bulletin officiel PDF
 
 - Fichier : `/Users/camille/Downloads/Programme d’éducation à la vie affective et relationnelle à l’école élémentaire-405261.pdf`
-- Date : 2026-07-21T04:30:07.047Z
+- Date : 2026-07-21T06:22:00.654Z
 
 ## Extraction
 
@@ -11,7 +11,7 @@
 - Couche texte : oui
 - OCR : non
 - Méthode : pdf-text
-- Durée : 2049 ms
+- Durée : 1803 ms
 - Pages avec texte : 18
 
 ## Interprétation Flora
@@ -19,7 +19,7 @@
 - Type document : séance
 - Matière inférée : EMC
 - Cycle : Cycle 3
-- Domaine : Éducation morale et civique
+- Domaine : Éducation à la vie affective et relationnelle
 - Discipline (metadata) : 
 - Sections repérées : 4
 
@@ -42,5 +42,5 @@ classe
 
 ## Validation BO (sans IA)
 
-- Avertissements : Aucune compétence détectée pour la section « Français ». ; Aucune compétence détectée pour la section « Étude de la langue ». ; Aucune compétence détectée pour la section « Culture littéraire et artistique ». ; Aucune compétence détectée pour la section « Lecture et compréhension de l'écrit ». ; Aucun attendu de fin de cycle explicitement détecté.
+- Avertissements : aucun
 

@@ -1,3 +1,4 @@
+import { BO_EVAR_SECTIONS } from "./bo-emc-sections";
 import type { BoSectionChunk, BoSectionDefinition, BoSectionId } from "./bo-types";
 import { BO_FRANCAIS_SECTIONS } from "./bo-types";
 
@@ -11,8 +12,7 @@ function normalizeForMatch(value: string): string {
 function findAnchorPosition(text: string, anchor: string): number {
   const normalizedText = normalizeForMatch(text);
   const normalizedAnchor = normalizeForMatch(anchor);
-  const index = normalizedText.indexOf(normalizedAnchor);
-  return index;
+  return normalizedText.indexOf(normalizedAnchor);
 }
 
 function findBestSectionStart(
@@ -35,14 +35,64 @@ function findBestSectionStart(
   return best;
 }
 
+export function inferBoMetadata(text: string): {
+  cycle: string;
+  matiere: string;
+  domaine: string;
+  programme: "francais" | "emc";
+} {
+  const normalized = normalizeForMatch(text);
+
+  let cycle = "";
+  if (normalized.includes("cycle 3")) cycle = "Cycle 3";
+  else if (normalized.includes("cycle 2")) cycle = "Cycle 2";
+  else if (normalized.includes("cycle 1")) cycle = "Cycle 1";
+  else if (normalized.includes("ecole elementaire")) cycle = "Cycle 2";
+
+  let matiere = "Français";
+  let programme: "francais" | "emc" = "francais";
+
+  if (
+    normalized.includes("education a la vie affective") ||
+    normalized.includes("vie affective et relationnelle") ||
+    normalized.includes("evar") ||
+    normalized.includes("education a la sexualite")
+  ) {
+    matiere = "EMC";
+    programme = "emc";
+  } else if (normalized.includes("mathematiques") || normalized.includes("mathematique")) {
+    matiere = "Mathématiques";
+  } else if (normalized.includes("francais")) {
+    matiere = "Français";
+  }
+
+  return {
+    cycle,
+    matiere,
+    programme,
+    domaine:
+      matiere === "EMC"
+        ? "Éducation à la vie affective et relationnelle"
+        : matiere === "Français"
+          ? "Français"
+          : matiere,
+  };
+}
+
+export function resolveBoSectionCatalog(text: string): BoSectionDefinition[] {
+  return inferBoMetadata(text).programme === "emc" ? BO_EVAR_SECTIONS : BO_FRANCAIS_SECTIONS;
+}
+
 export function splitBoTextIntoSections(
   text: string,
-  sections: BoSectionDefinition[] = BO_FRANCAIS_SECTIONS,
+  sections?: BoSectionDefinition[],
 ): BoSectionChunk[] {
+  const catalog = sections ?? resolveBoSectionCatalog(text);
+  const introSection = catalog[0];
   const hits: Array<{ section: BoSectionDefinition; start: number }> = [];
 
-  for (const section of sections) {
-    if (section.id === "francais") continue;
+  for (const section of catalog) {
+    if (section.id === introSection.id) continue;
     const start = findBestSectionStart(text, section, 0);
     if (start !== null) {
       hits.push({ section, start });
@@ -57,24 +107,25 @@ export function splitBoTextIntoSections(
     if (!duplicate) uniqueHits.push(hit);
   }
 
-  const chunks: BoSectionChunk[] = [];
-
   if (uniqueHits.length === 0) {
-    chunks.push({
-      id: "francais",
-      label: "Français",
-      text,
-      charStart: 0,
-      charEnd: text.length,
-    });
-    return chunks;
+    return [
+      {
+        id: introSection.id,
+        label: introSection.label,
+        text,
+        charStart: 0,
+        charEnd: text.length,
+      },
+    ];
   }
 
+  const chunks: BoSectionChunk[] = [];
   const introEnd = uniqueHits[0].start;
+
   if (introEnd > 0) {
     chunks.push({
-      id: "francais",
-      label: "Français",
+      id: introSection.id,
+      label: introSection.label,
       text: text.slice(0, introEnd).trim(),
       charStart: 0,
       charEnd: introEnd,
@@ -102,38 +153,6 @@ export function splitBoTextIntoSections(
   return chunks.filter((chunk) => chunk.text.trim().length > 0);
 }
 
-export function inferBoMetadata(text: string): {
-  cycle: string;
-  matiere: string;
-  domaine: string;
-} {
-  const normalized = normalizeForMatch(text);
-
-  let cycle = "";
-  if (normalized.includes("cycle 2")) cycle = "Cycle 2";
-  else if (normalized.includes("cycle 3")) cycle = "Cycle 3";
-  else if (normalized.includes("cycle 1")) cycle = "Cycle 1";
-
-  let matiere = "Français";
-  if (
-    normalized.includes("education a la vie affective") ||
-    normalized.includes("vie affective et relationnelle") ||
-    normalized.includes("evar")
-  ) {
-    matiere = "EMC";
-  } else if (normalized.includes("mathematiques") || normalized.includes("mathematique")) {
-    matiere = "Mathématiques";
-  } else if (normalized.includes("francais")) {
-    matiere = "Français";
-  }
-
-  return {
-    cycle,
-    matiere,
-    domaine: matiere === "EMC" ? "Éducation morale et civique" : matiere === "Français" ? "Français" : matiere,
-  };
-}
-
 export function chunkSectionText(text: string, maxChars = 14000): string[] {
   if (text.length <= maxChars) return [text];
 
@@ -149,7 +168,8 @@ export function chunkSectionText(text: string, maxChars = 14000): string[] {
 }
 
 export function sectionIdFromLabel(label: string): BoSectionId {
-  const match = BO_FRANCAIS_SECTIONS.find(
+  const catalogs = [...BO_FRANCAIS_SECTIONS, ...BO_EVAR_SECTIONS];
+  const match = catalogs.find(
     (section) => normalizeForMatch(section.label) === normalizeForMatch(label),
   );
   return match?.id ?? "francais";

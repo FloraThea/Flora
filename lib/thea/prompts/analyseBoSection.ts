@@ -6,21 +6,35 @@ export function buildBoSectionPrompt(input: {
   text: string;
 }) {
   const partLabel = input.sectionPart ? ` (partie ${input.sectionPart})` : "";
+  const isEmc =
+    input.matiere === "EMC" ||
+    /vie affective|EVAR|éducation à la sexualité/i.test(input.sectionLabel + input.text.slice(0, 400));
+
+  const elementTypes = isEmc
+    ? `- objectifs pédagogiques et thématiques (competenceType: "competence")
+- contenus par niveau CP–CM2 (competenceType: "connaissance")
+- principes, valeurs, organisation (competenceType: "progressivite")
+- exemples de situations / modalités (competenceType: "exemple")`
+    : `- attendus de fin de cycle (competenceType: "attendu")
+- compétences travaillées (competenceType: "competence")
+- connaissances et compétences associées (competenceType: "connaissance")
+- exemples de situations / activités (competenceType: "exemple")
+- repères de progressivité (competenceType: "progressivite")`;
+
+  const documentLabel = isEmc
+    ? "programme officiel d'éducation à la vie affective et relationnelle (EVAR/EMC)"
+    : "Bulletin officiel";
 
   return `
 Tu es Théa, l'assistante pédagogique de Flora.
 
-Analyse EXHAUSTIVEMENT cette section du Bulletin officiel :
+Analyse EXHAUSTIVEMENT cette section du ${documentLabel} :
 - Section : ${input.sectionLabel}${partLabel}
 - Cycle : ${input.cycle || "non précisé"}
 - Matière : ${input.matiere || "Français"}
 
 Extrais TOUS les éléments pédagogiques présents, sans en inventer :
-- attendus de fin de cycle (competenceType: "attendu")
-- compétences travaillées (competenceType: "competence")
-- connaissances et compétences associées (competenceType: "connaissance")
-- exemples de situations / activités (competenceType: "exemple")
-- repères de progressivité (competenceType: "progressivite")
+${elementTypes}
 
 Pour chaque élément, conserve les formulations officielles et indique le niveau (CP, CE1, CE2, CM1, CM2…) quand il est identifiable.
 
@@ -50,6 +64,7 @@ Règles :
 - sourceExcerpt = extrait court du texte source (max 240 caractères).
 - Ne fusionne pas plusieurs compétences en une seule entrée.
 - Si le niveau n'est pas explicite, laisse niveau vide.
+- matiere = "${input.matiere || "Français"}" sauf indication contraire dans le texte.
 
 Texte de la section :
 ${input.text}
