@@ -36,9 +36,9 @@ export const ACCEPTED_RESOURCE_EXTENSIONS = [
 export type AcceptedResourceExtension =
   (typeof ACCEPTED_RESOURCE_EXTENSIONS)[number];
 
-export const FULLY_SUPPORTED_EXTENSIONS = [".txt", ".pdf"] as const;
+export const FULLY_SUPPORTED_EXTENSIONS = [".txt", ".pdf", ".docx"] as const;
 
-export const COMING_SOON_EXTENSIONS = [".docx", ".pptx", ".xlsx"] as const;
+export const COMING_SOON_EXTENSIONS = [".pptx", ".xlsx"] as const;
 
 export type FloraDocument = {
   id: string;

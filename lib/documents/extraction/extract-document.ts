@@ -6,6 +6,7 @@ import {
 } from "@/lib/documents/types";
 import { recognizeImageBuffer } from "@/lib/documents/extraction/ocr-extractor";
 import { isSupportedImageFile } from "@/lib/import/accepted-formats";
+import { extractDocxBuffer } from "./docx-extractor";
 import { DocumentExtractionError } from "./errors";
 import { extractPdfBuffer } from "./pdf-extractor";
 import type { DocumentExtractionResult, ExtractionMethod } from "./types";
@@ -34,6 +35,10 @@ export async function extractTextFromBuffer(
 
   if (extension === ".pdf") {
     return extractPdfBuffer(buffer);
+  }
+
+  if (extension === ".docx") {
+    return extractDocxBuffer(buffer);
   }
 
   if (isSupportedImageFile(fileName)) {
@@ -85,9 +90,14 @@ export async function extractTextFromFile(
     return extractPdfBuffer(buffer);
   }
 
+  if (extension === ".docx") {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    return extractDocxBuffer(buffer);
+  }
+
   if (COMING_SOON_EXTENSIONS.includes(extension as never)) {
     throw new DocumentExtractionError(
-      "Format bientôt pris en charge. Seuls TXT et PDF sont analysés automatiquement pour l'instant.",
+      "Format bientôt pris en charge. Seuls TXT, PDF et DOCX sont analysés automatiquement pour l'instant.",
       { reason: "unsupported_format" },
     );
   }
@@ -113,6 +123,7 @@ export function canAnalyzeExtension(extension: string): boolean {
   return (
     extension === ".txt" ||
     extension === ".pdf" ||
+    extension === ".docx" ||
     extension === ".png" ||
     extension === ".jpg" ||
     extension === ".jpeg"

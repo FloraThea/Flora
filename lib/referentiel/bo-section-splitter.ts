@@ -115,7 +115,13 @@ export function inferBoMetadata(text: string): {
   else if (normalized.includes("cycle 1")) cycle = "Cycle 1";
 
   let matiere = "Français";
-  if (normalized.includes("mathematiques") || normalized.includes("mathematique")) {
+  if (
+    normalized.includes("education a la vie affective") ||
+    normalized.includes("vie affective et relationnelle") ||
+    normalized.includes("evar")
+  ) {
+    matiere = "EMC";
+  } else if (normalized.includes("mathematiques") || normalized.includes("mathematique")) {
     matiere = "Mathématiques";
   } else if (normalized.includes("francais")) {
     matiere = "Français";
@@ -124,7 +130,7 @@ export function inferBoMetadata(text: string): {
   return {
     cycle,
     matiere,
-    domaine: matiere === "Français" ? "Français" : matiere,
+    domaine: matiere === "EMC" ? "Éducation morale et civique" : matiere === "Français" ? "Français" : matiere,
   };
 }
 

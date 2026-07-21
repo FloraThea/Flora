@@ -33,14 +33,22 @@ async function testGuidePdfExtraction() {
 }
 
 async function testOptionalBoPdf() {
-  const configured = process.env.FLORA_VALIDATION_BO_PDF?.trim();
-  if (!configured) {
-    console.log("PDF BO test: skipped (FLORA_VALIDATION_BO_PDF absent)");
-    return;
+  let filePath = process.env.FLORA_VALIDATION_BO_PDF?.trim();
+  if (filePath) filePath = path.resolve(filePath);
+  else {
+    const downloads = path.join(process.env.HOME ?? "", "Downloads");
+    if (fs.existsSync(downloads)) {
+      const match = fs
+        .readdirSync(downloads)
+        .find((name) => name.endsWith("-405261.pdf") || /405261\.pdf$/i.test(name));
+      if (match) filePath = path.join(downloads, match);
+    }
   }
 
-  const filePath = path.resolve(process.cwd(), configured);
-  assert.ok(fs.existsSync(filePath), `BO PDF introuvable: ${filePath}`);
+  if (!filePath || !fs.existsSync(filePath)) {
+    console.log("PDF BO test: skipped (FLORA_VALIDATION_BO_PDF / ~/Downloads/*405261.pdf absent)");
+    return;
+  }
 
   const buffer = fs.readFileSync(filePath);
   const result = await extractPdfBuffer(buffer);

@@ -56,6 +56,11 @@ export async function POST(request: Request) {
       pdfArchived: result.pdfArchived ?? false,
     });
   } catch (error) {
-    return jsonRouteError(ROUTE_PATH, 500, "Import impossible.", toErrorMessage(error));
+    return jsonRouteError(
+      ROUTE_PATH,
+      500,
+      error instanceof Error ? error.message : "Import impossible.",
+      toErrorMessage(error),
+    );
   }
 }

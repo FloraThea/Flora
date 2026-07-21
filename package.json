@@ -25,6 +25,8 @@
     "test:profile:completion": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs lib/profile/run-profile-completion-tests.ts",
     "test:validation:profile-edt": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-profile-edt-detection.ts",
     "test:validation:import-campaign": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/validate-import-campaign.ts",
+    "test:validation:bo-pdf": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-bo-pdf.ts",
+    "test:validation:bo-api": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-bo-api.ts",
     "db:migrate": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/apply-pending-migrations.ts",
     "db:audit": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/audit-supabase-live.ts"
   },
@@ -35,6 +37,7 @@
     "@supabase/supabase-js": "^2.108.2",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
+    "mammoth": "^1.12.0",
     "next": "16.2.9",
     "pdf-parse": "^2.4.5",
     "pg": "^8.22.0",

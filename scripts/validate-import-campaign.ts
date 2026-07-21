@@ -268,6 +268,19 @@ function writeReport(results: CampaignResult[]) {
   fs.writeFileSync(REPORT_PATH, `${lines.join("\n")}\n`);
 }
 
+function resolveOptionalBoPdfPath(): string | null {
+  const fromEnv = process.env.FLORA_VALIDATION_BO_PDF?.trim();
+  if (fromEnv && fs.existsSync(fromEnv)) return path.resolve(fromEnv);
+
+  const downloads = path.join(process.env.HOME ?? "", "Downloads");
+  if (!fs.existsSync(downloads)) return null;
+
+  const match = fs
+    .readdirSync(downloads)
+    .find((name) => name.endsWith("-405261.pdf") || /405261\.pdf$/i.test(name));
+  return match ? path.join(downloads, match) : null;
+}
+
 async function main() {
   const results: CampaignResult[] = [];
 
@@ -275,9 +288,9 @@ async function main() {
     ["Guide du maître MHM CE1/CE2", resolveValidationPath("guides_maitre/MHM_CE1_CE2_GUIDE.pdf")],
   ];
 
-  const boPdf = process.env.FLORA_VALIDATION_BO_PDF?.trim();
+  const boPdf = resolveOptionalBoPdfPath();
   if (boPdf) {
-    pdfCases.push(["Bulletin officiel (utilisateur)", path.resolve(process.cwd(), boPdf)]);
+    pdfCases.push(["Bulletin officiel EVAR (utilisateur)", boPdf]);
   }
 
   for (const [label, filePath] of pdfCases) {
@@ -322,8 +335,8 @@ async function main() {
       ok: true,
       stage: "policy",
       fileSizeBytes: 0,
-      analyzeSupported: false,
-      detail: "Aucune fixture DOCX — comportement attendu : upload accepté, analyse bibliothèque non implémentée.",
+      analyzeSupported: true,
+      detail: "Aucune fixture DOCX — extraction mammoth prête, déposez tests/validation/documents_divers/exemple.docx pour test auto.",
     });
   }
 

@@ -1,17 +1,18 @@
 # Campagne de validation — import Flora
 
-- Date : 2026-07-20T20:24:48.635Z
-- Résultat global : **6/6** tests OK
+- Date : 2026-07-21T04:30:09.761Z
+- Résultat global : **7/7** tests OK
 
 ## Synthèse par format
 
 | Format | Document | Statut | Détail | Durée |
 |--------|----------|--------|--------|-------|
-| PDF | Guide du maître MHM CE1/CE2 | ✓ OK | 50 pages, 107727 caractères, type=text, OCR=non | 2371 ms |
-| XLSX | Programmation HDA | ✓ OK | 60 lignes grille → 35 lignes structurées (Programmation HDA) | 26 ms |
-| XLSX | Progression EMC | ✓ OK | 60 lignes grille → 34 lignes structurées (Progression EMC) | 11 ms |
-| XLSX | Emploi du temps rentrée | ✓ OK | 56 créneaux EDT structurés | 15 ms |
-| DOCX | Document Word | ✓ OK | Aucune fixture DOCX — comportement attendu : upload accepté, analyse bibliothèque non implémentée. | — |
+| PDF | Guide du maître MHM CE1/CE2 | ✓ OK | 50 pages, 107727 caractères, type=text, OCR=non | 2591 ms |
+| PDF | Bulletin officiel EVAR (utilisateur) | ✓ OK | 18 pages, 52423 caractères, type=text, OCR=non | 116 ms |
+| XLSX | Programmation HDA | ✓ OK | 60 lignes grille → 35 lignes structurées (Programmation HDA) | 29 ms |
+| XLSX | Progression EMC | ✓ OK | 60 lignes grille → 34 lignes structurées (Progression EMC) | 13 ms |
+| XLSX | Emploi du temps rentrée | ✓ OK | 56 créneaux EDT structurés | 16 ms |
+| DOCX | Document Word | ✓ OK | Aucune fixture DOCX — extraction mammoth prête, déposez tests/validation/documents_divers/exemple.docx pour test auto. | — |
 | PNG/JPG | Image scan | ✓ OK | Aucune fixture PNG — pipeline image/OCR prêt côté code, test manuel recommandé. | — |
 
 ## Détails par fichier
@@ -24,6 +25,20 @@
 - Analyse bibliothèque supportée : oui
 - Pages : 50
 - Caractères extraits : 107727
+- Type PDF détecté : text
+- Couche texte : oui
+- OCR utilisé : non
+- Méthode : pdf-text
+- Résultat : SUCCÈS
+
+### PDF — Bulletin officiel EVAR (utilisateur)
+
+- Fichier : `/Users/camille/Downloads/Programme d’éducation à la vie affective et relationnelle à l’école élémentaire-405261.pdf`
+- Taille : 228.1 Ko
+- Étape testée : extraction
+- Analyse bibliothèque supportée : oui
+- Pages : 18
+- Caractères extraits : 52423
 - Type PDF détecté : text
 - Couche texte : oui
 - OCR utilisé : non
@@ -62,7 +77,7 @@
 - Fichier : `/Users/camille/flora/tests/validation/documents_divers/exemple.docx`
 - Taille : 0 o
 - Étape testée : policy
-- Analyse bibliothèque supportée : non
+- Analyse bibliothèque supportée : oui
 - Résultat : SUCCÈS
 
 ### PNG/JPG — Image scan

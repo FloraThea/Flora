@@ -1,5 +1,6 @@
 export type ExtractionMethod =
   | "plain-text"
+  | "docx-text"
   | "pdf-text"
   | "pdf-ocr"
   | "ocr-image"
