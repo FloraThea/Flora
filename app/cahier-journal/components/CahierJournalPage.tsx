@@ -1,7 +1,9 @@
 "use client";
 
 import { deferEffect } from "@/lib/hooks/defer-effect";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
@@ -29,6 +31,7 @@ import { JournalTimetableRefreshDialog } from "./JournalTimetableRefreshDialog";
 import { JournalWeekView } from "./JournalWeekView";
 import { JournalSubstituteView } from "./JournalSubstituteView";
 import { JournalPrintView } from "./JournalPrintView";
+import type { CalendarSnapshot } from "@/lib/programming/types";
 
 const VIEW_OPTIONS: Array<{ id: JournalViewMode; label: string }> = [
   { id: "day", label: "Jour" },
@@ -39,9 +42,63 @@ const VIEW_OPTIONS: Array<{ id: JournalViewMode; label: string }> = [
   { id: "print", label: "Impression" },
 ];
 
+function resolveJournalDateFromParams(
+  params: URLSearchParams,
+  calendar: CalendarSnapshot | null | undefined,
+  fallback: string,
+): string {
+  const explicit = params.get("date");
+  if (explicit) return explicit;
+
+  if (!calendar) return fallback;
+
+  const periodNum = Number(params.get("period"));
+  const weekRaw = params.get("week");
+  const weekNum = weekRaw ? Number(weekRaw) : NaN;
+
+  if (periodNum && Number.isFinite(weekNum)) {
+    const period = calendar.periods.find((item) => item.periodNumber === periodNum);
+    if (period) {
+      const weeksInPeriod = calendar.schoolWeeks.filter(
+        (week) => week.startDate >= period.startDate && week.startDate <= period.endDate,
+      );
+      const match =
+        weeksInPeriod.find((week) => week.weekNumberInPeriod === weekNum) ??
+        weeksInPeriod.find((week) => week.weekNumberInYear === weekNum);
+      if (match) return match.startDate;
+      return period.startDate;
+    }
+  }
+
+  if (weekRaw && Number.isFinite(weekNum) && !params.get("period")) {
+    const match = calendar.schoolWeeks.find((week) => week.weekNumberInYear === weekNum);
+    if (match) return match.startDate;
+  }
+
+  if (periodNum) {
+    const period = calendar.periods.find((item) => item.periodNumber === periodNum);
+    if (period) return period.startDate;
+  }
+
+  return fallback;
+}
+
 export function CahierJournalPage() {
-  const [selectedDate, setSelectedDate] = useState(todayIso());
-  const [viewMode, setViewMode] = useState<JournalViewMode>("day");
+  return (
+    <Suspense fallback={<p className="text-sm font-light text-flora-text-subtle">Chargement…</p>}>
+      <CahierJournalPageContent />
+    </Suspense>
+  );
+}
+
+function CahierJournalPageContent() {
+  const searchParams = useSearchParams();
+  const initialDate = searchParams.get("date") ?? todayIso();
+  const linkedProgrammationId = searchParams.get("programmationId");
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [viewMode, setViewMode] = useState<JournalViewMode>(() =>
+    searchParams.get("period") ? "period" : "day",
+  );
   const [payload, setPayload] = useState<JournalPayload | null>(null);
   const [rangeData, setRangeData] = useState<JournalDaySummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,6 +159,19 @@ export function CahierJournalPage() {
   useEffect(() => {
     deferEffect(() => loadJournal(selectedDate));
   }, [selectedDate, loadJournal]);
+
+  useEffect(() => {
+    if (!payload?.calendar) return;
+    deferEffect(() => {
+      const resolved = resolveJournalDateFromParams(searchParams, payload.calendar, selectedDate);
+      if (resolved !== selectedDate && !searchParams.get("date")) {
+        setSelectedDate(resolved);
+      }
+      if (searchParams.get("period")) {
+        setViewMode("period");
+      }
+    });
+  }, [payload?.calendar, searchParams, selectedDate]);
 
   useEffect(() => {
     if (!payload) return;
@@ -307,9 +377,19 @@ export function CahierJournalPage() {
         subtitle="Assemblage automatique à partir de l'emploi du temps, des programmations, séances, rituels et projets."
         meta={payload ? formatDateLabel(payload.journal.journalDate) : undefined}
         action={
-          <FloraButton accent="sage" onClick={handleRegenerate} disabled={isGenerating}>
-            {isGenerating ? "Assemblage…" : "Régénérer la journée"}
-          </FloraButton>
+          <div className="flex flex-wrap items-center gap-2">
+            {linkedProgrammationId ? (
+              <Link
+                href={`/programmation?id=${encodeURIComponent(linkedProgrammationId)}`}
+                className="rounded-2xl border border-white/70 bg-white/50 px-3 py-1.5 text-xs font-light text-flora-text-muted hover:bg-white/80"
+              >
+                Programmation liée
+              </Link>
+            ) : null}
+            <FloraButton accent="sage" onClick={handleRegenerate} disabled={isGenerating}>
+              {isGenerating ? "Assemblage…" : "Régénérer la journée"}
+            </FloraButton>
+          </div>
         }
       />
 

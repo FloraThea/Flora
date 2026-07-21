@@ -1,7 +1,10 @@
 import "server-only";
 
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
-import { resolveJournalScheduleSlots } from "./journal-timetable";
+import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
+import { resolveJournalScheduleSlots, type JournalScheduleSlot } from "./journal-timetable";
+import { reconcileJournalEntriesWithTimetable } from "./journal-entry-reconcile";
+import { scheduleEngine } from "./ScheduleEngine";
 import { applyJournalViewRules, type EnrichedJournalPayload } from "./journal-view-rules";
 import type { JournalPayload } from "./types";
 
@@ -17,5 +20,33 @@ export async function enrichJournalPayload(payload: JournalPayload): Promise<Enr
     ? await resolveJournalScheduleSlots(profileBundle)
     : { hasActiveSchedule: false, slots: [], scheduleId: null };
 
-  return applyJournalViewRules(payload, { hasTimetable: timetable.hasActiveSchedule });
+  let entries = payload.entries;
+  if (
+    profileBundle &&
+    timetable.hasActiveSchedule &&
+    payload.journal.journalDate &&
+    payload.journal.metadata?.manualDay !== true
+  ) {
+    const calendar = schoolWeeksCalculator.calculate(
+      profileBundle.profile.schoolYear,
+      profileBundle.profile.zoneScolaire,
+      { includeBridgeDays: true },
+    );
+    const resolvedDay = scheduleEngine.resolveDay(
+      calendar,
+      { slots: timetable.slots, weeklyHoursBySubject: {} },
+      payload.journal.journalDate,
+      profileBundle.profile.workingDays,
+    );
+    entries = reconcileJournalEntriesWithTimetable({
+      entries: payload.entries,
+      daySlots: resolvedDay.slots as JournalScheduleSlot[],
+      manualDay: false,
+    });
+  }
+
+  return applyJournalViewRules(
+    { ...payload, entries },
+    { hasTimetable: timetable.hasActiveSchedule },
+  );
 }

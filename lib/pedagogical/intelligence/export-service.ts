@@ -112,7 +112,7 @@ export async function exportPedagogicalYear(
   }
 
   return {
-    fileName: `${baseName}.html`,
+    fileName: `${baseName}-impression.html`,
     mimeType: "text/html; charset=utf-8",
     buffer,
   };

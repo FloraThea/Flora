@@ -24,6 +24,29 @@ import {
 const BASE_URL = process.env.FLORA_VALIDATION_BASE_URL ?? "http://localhost:3000";
 const REPORT_OUT = path.resolve(process.cwd(), "docs/validation-reelle-browser-persistence.md");
 
+const PROGRAMMATION_DISPLAY_HINTS = [
+  "Programmation_HDA_Editable_2026-2027",
+  "Programmation HDA",
+];
+const PROGRESSION_DISPLAY_HINTS = [
+  "Progression_EMC_Editable_2026-2027",
+  "Progression EMC",
+];
+
+async function waitForDocumentCard(page: import("playwright").Page, labels: string[]) {
+  for (const label of labels) {
+    const locator = page.getByRole("article").filter({ hasText: label });
+    if ((await locator.count()) > 0) return label;
+  }
+
+  for (const label of labels) {
+    const locator = page.getByText(label, { exact: false });
+    if ((await locator.count()) > 0) return label;
+  }
+
+  return null;
+}
+
 type BrowserStep = {
   name: string;
   ok: boolean;
@@ -92,28 +115,30 @@ async function main() {
 
   try {
     await page.goto(`${BASE_URL}/programmation`, { waitUntil: "networkidle" });
-    const progOption = page.locator("select option", { hasText: hda.title });
-    const progVisible = (await progOption.count()) > 0;
+    await page.getByText(/Programmations enregistr/i).waitFor({ timeout: 15000 }).catch(() => undefined);
+    const progLabel = await waitForDocumentCard(page, [hda.title, ...PROGRAMMATION_DISPLAY_HINTS]);
+    const progVisible = progLabel !== null;
     steps.push({
       name: "Programmation visible après import API",
       ok: progVisible,
-      detail: progVisible ? hda.title : "Titre absent du sélecteur",
+      detail: progVisible ? progLabel : "Titre absent de la liste documentaire",
     });
     if (!progVisible) throw new Error("Programmation absente de l'UI");
 
     await page.goto(`${BASE_URL}/progression`, { waitUntil: "networkidle" });
+    await page.getByText(/Progressions enregistr/i).waitFor({ timeout: 15000 }).catch(() => undefined);
     steps.push({
       name: "Changement d'onglet → Progression",
       ok: true,
       detail: "Navigation OK",
     });
 
-    const progSelect = page.locator("select option", { hasText: emc.title });
-    const emcVisible = (await progSelect.count()) > 0;
+    const emcLabel = await waitForDocumentCard(page, [emc.title, ...PROGRESSION_DISPLAY_HINTS]);
+    const emcVisible = emcLabel !== null;
     steps.push({
       name: "Progression visible",
       ok: emcVisible,
-      detail: emcVisible ? emc.title : "Titre absent du sélecteur",
+      detail: emcVisible ? emcLabel : "Titre absent de la liste documentaire",
     });
     if (!emcVisible) throw new Error("Progression absente de l'UI");
 
@@ -136,12 +161,13 @@ async function main() {
     await page.goto(`${BASE_URL}/programmation`, { waitUntil: "networkidle" });
     steps.push({
       name: "Retour onglet Programmation",
-      ok: (await page.locator("select option", { hasText: hda.title }).count()) > 0,
+      ok: (await waitForDocumentCard(page, [hda.title, ...PROGRAMMATION_DISPLAY_HINTS])) !== null,
       detail: hda.title,
     });
 
     await page.reload({ waitUntil: "networkidle" });
-    const afterRefresh = (await page.locator("select option", { hasText: hda.title }).count()) > 0;
+    const afterRefresh =
+      (await waitForDocumentCard(page, [hda.title, ...PROGRAMMATION_DISPLAY_HINTS])) !== null;
     steps.push({
       name: "Actualisation navigateur",
       ok: afterRefresh,
@@ -177,10 +203,12 @@ async function main() {
     ]);
 
     await page.goto(`${BASE_URL}/programmation`, { waitUntil: "networkidle" });
-    const progAfterLogin = (await page.locator("select option", { hasText: hda.title }).count()) > 0;
+    const progAfterLogin =
+      (await waitForDocumentCard(page, [hda.title, ...PROGRAMMATION_DISPLAY_HINTS])) !== null;
 
     await page.goto(`${BASE_URL}/progression`, { waitUntil: "networkidle" });
-    const emcAfterLogin = (await page.locator("select option", { hasText: emc.title }).count()) > 0;
+    const emcAfterLogin =
+      (await waitForDocumentCard(page, [emc.title, ...PROGRESSION_DISPLAY_HINTS])) !== null;
 
     const afterLogin = progAfterLogin && emcAfterLogin;
 

@@ -171,18 +171,29 @@ export async function POST(request: Request) {
         slotCount: result.slots.length,
       });
 
-      void pedagogicalEngine
-        .emit({ type: "emploi_du_temps.modifie", scope: "generate" })
-        .catch((syncError) => {
-          console.warn("[EDT] Sync cahier journal ignorée après import :", syncError);
-        });
+      let journalSynced = false;
+      try {
+        const { handleTimetableModified } = await import("@/lib/pedagogical/sync-handlers");
+        await handleTimetableModified({ journal: true, agenda: true });
+        journalSynced = true;
+      } catch (syncError) {
+        console.warn("[EDT] Sync cahier journal échouée après import :", syncError);
+        try {
+          await pedagogicalEngine.emit({ type: "emploi_du_temps.modifie", scope: "generate" });
+          journalSynced = true;
+        } catch {
+          journalSynced = false;
+        }
+      }
 
       return NextResponse.json({
         route: ROUTE_PATH,
         importStatus: "completed",
         ...result,
-        journalSynced: true,
-        message: "Emploi du temps validé et synchronisé avec le cahier journal.",
+        journalSynced,
+        message: journalSynced
+          ? "Emploi du temps validé et synchronisé avec le cahier journal."
+          : "Emploi du temps validé. La synchronisation du cahier journal n'a pas pu être confirmée — actualisez depuis le cahier journal.",
       });
     }
 

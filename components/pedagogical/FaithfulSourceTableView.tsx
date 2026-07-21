@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import {
@@ -82,8 +83,10 @@ export function FaithfulSourceTableView({
   const [undoStack, setUndoStack] = useState<EditHistoryEntry[]>([]);
 
   useEffect(() => {
-    setDocument(sourceDocument);
-    setActiveSheetIndex(sourceDocument.activeSheetIndex ?? 0);
+    deferEffect(() => {
+      setDocument(sourceDocument);
+      setActiveSheetIndex(sourceDocument.activeSheetIndex ?? 0);
+    });
   }, [sourceDocument]);
 
   const activeSheet = document.sheets[activeSheetIndex];

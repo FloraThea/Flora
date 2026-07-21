@@ -1,7 +1,7 @@
 # Validation réelle — Guide MHM CE1 CE2
 
 - Fichier : `/Users/camille/flora/tests/validation/guides_maitre/MHM_CE1_CE2_GUIDE.pdf`
-- Date du test : 2026-07-19T08:20:51.953Z
+- Date du test : 2026-07-20T20:25:50.716Z
 - Extraction brute : `/Users/camille/flora/tests/validation/resultats_attendus/MHM_CE1_CE2_GUIDE-extraction-brute.json`
 
 ## Document analysé
@@ -23,7 +23,7 @@
 - Pages attendues : **50**
 - Pages extraites : **50**
 - Texte extrait : **108663** caractères
-- Champs comparés identiques : **6/6**
+- Champs comparés identiques : **5/6**
 
 ## Corrections appliquées
 
@@ -37,14 +37,14 @@
 - Actualisation (reload) : ✓
 - Reconnexion : ✓
 - Vérification Supabase : ✓
-- Résultat global : ✓ OK — visible=true, reload=true, text=108663/108663
+- Résultat global : ✓ OK — visible=true, reload=true, text=107727/107727
 
 ## Comparaison source / interprété / Supabase
 
 | Champ | Source | Interprété | Enregistré | Relu | Statut |
 |-------|--------|------------|------------|------|--------|
 | pageCount | 50 | 50 | 50 | 50 | identique |
-| textLength | 108663 | 108663 | 108663 | 108663 | identique |
+| textLength | 108663 | 107727 | 107727 | 107727 | incorrecte |
 | methode | MHM | MHM | MHM | MHM | identique |
 | documentType | programmation | programmation | programmation | programmation | identique |
 | competenceMatches | 6 | 6 | 6 | 6 | identique |
@@ -61,20 +61,15 @@ Inspecteur de l’Éducation Nationale
 Guide des séances
 Troisième édition
 CE2	CE1
-
--- 1 of 50 --
-
 ISBN : 978-2-09124352-8
 © Éditions Nathan 2019 – 25 avenue Pierre de Coubertin, 75013 PARIS.
-
--- 2 of 50 --
-
 3
 Avant-propos
 Ce guide contient les présentations détaillées des séances, à l’identique de ce que vous trouve-
 rez sur le site MHM. Toutefois, il vous permet d’accéder à une version couleur, reliée et de qualité, que
 vous pourrez consulter avec plaisir et qui vous évitera des impressions fastidieuses. De plus, l’inté-
-gralité des fiches à photocopier nécessaires aux modules ont été regroupées dans ce
+gralité des fiches à photocopier nécessaires aux modules ont été regroupées dans cette pochette,
+afin de faciliter 
 ```
 
 ## Limites restantes

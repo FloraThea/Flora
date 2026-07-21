@@ -11,6 +11,8 @@ export type ExtractionFailureReason =
   | "password_protected"
   | "scanned_pdf"
   | "empty_document"
+  | "ocr_failed"
+  | "render_failed"
   | "parser_error";
 
 export type DocumentExtractionResult = {
@@ -21,6 +23,9 @@ export type DocumentExtractionResult = {
   extractionMethod: ExtractionMethod;
   usedOcr: boolean;
   charsPerPage: number | null;
+  pdfKind?: import("./pdf-diagnostics").PdfDocumentKind;
+  hasTextLayer?: boolean;
+  diagnostics?: import("./pdf-diagnostics").PdfExtractionDiagnostics;
 };
 
 export type DocumentExtractionErrorOptions = {

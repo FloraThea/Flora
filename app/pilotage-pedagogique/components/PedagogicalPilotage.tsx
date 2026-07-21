@@ -183,12 +183,19 @@ export function PedagogicalPilotage({ initialPayload }: PedagogicalPilotageProps
         const blob = await response.blob();
         const disposition = response.headers.get("Content-Disposition") ?? "";
         const match = disposition.match(/filename="([^"]+)"/);
-        const fileName = match?.[1] ?? `flora-pilotage.${format === "excel" ? "xlsx" : format === "word" ? "doc" : "html"}`;
+        const fileName =
+          match?.[1] ??
+          `flora-pilotage.${format === "excel" ? "xlsx" : format === "word" ? "doc" : "html"}`;
         const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = fileName;
-        anchor.click();
+        if (format === "pdf") {
+          const printWindow = window.open(url, "_blank");
+          printWindow?.addEventListener("load", () => printWindow.print());
+        } else {
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = fileName;
+          anchor.click();
+        }
         URL.revokeObjectURL(url);
       } catch (exportError) {
         setError(exportError instanceof Error ? exportError.message : "Export impossible.");
@@ -230,7 +237,7 @@ export function PedagogicalPilotage({ initialPayload }: PedagogicalPilotageProps
               Word
             </FloraButton>
             <FloraButton variant="outline" size="sm" onClick={() => void exportPilotage("pdf")} disabled={loading}>
-              PDF
+              Imprimer
             </FloraButton>
           </div>
         }

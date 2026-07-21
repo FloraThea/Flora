@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { documentClassifier } from "@/lib/documents/import/DocumentClassifier";
 import { MetadataExtractor } from "@/lib/documents/import/MetadataExtractor";
+import { extractPdfBuffer } from "@/lib/documents/extraction/pdf-extractor";
 import type { GuideValidationSnapshot } from "./snapshot-types";
 
 const KEYWORD_PATTERNS = [
@@ -14,16 +15,21 @@ const KEYWORD_PATTERNS = [
   { label: "MHM", pattern: /\bmhm\b|mains libres/i },
 ];
 
-async function extractPdfText(buffer: Buffer): Promise<{ text: string; pageCount: number | null }> {
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const result = await parser.getText();
-    const text = (result.text ?? "").replace(/\u0000/g, "").trim();
-    return { text, pageCount: result.total ?? null };
-  } finally {
-    await parser.destroy();
-  }
+async function extractPdfText(buffer: Buffer): Promise<{
+  text: string;
+  pageCount: number | null;
+  extractionMethod: string;
+  usedOcr: boolean;
+  pdfKind?: string;
+}> {
+  const result = await extractPdfBuffer(buffer);
+  return {
+    text: result.text,
+    pageCount: result.pageCount,
+    extractionMethod: result.extractionMethod,
+    usedOcr: result.usedOcr,
+    pdfKind: result.pdfKind,
+  };
 }
 
 export async function extractGuideSnapshot(
@@ -38,6 +44,9 @@ export async function extractGuideSnapshot(
     const extracted = await extractPdfText(buffer);
     text = extracted.text;
     pageCount = extracted.pageCount;
+    if (extracted.usedOcr) {
+      warnings.push("OCR utilisé — inattendu pour un guide textuel.");
+    }
   } catch (error) {
     warnings.push(error instanceof Error ? error.message : "Extraction PDF impossible.");
   }

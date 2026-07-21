@@ -6,6 +6,7 @@ import {
   logInspectedError,
 } from "@/lib/supabase/error-inspection";
 import { StorageServiceError, storageErrorToPayload } from "@/lib/storage/storage-errors";
+import { DocumentExtractionError } from "@/lib/documents/extraction/errors";
 
 export type ImportPipelineStep =
   | "storage_upload"
@@ -57,13 +58,16 @@ export class ImportPipelineError extends Error {
   context: ImportFailureContext;
 
   constructor(error: unknown, context: ImportFailureContext) {
-    const supabase = inspectError(error);
+    const message =
+      error instanceof DocumentExtractionError
+        ? error.message
+        : inspectError(error).message;
     const stepLabel = IMPORT_STEP_LABELS[context.step];
-    super(`[${stepLabel}] ${supabase.message}`);
+    super(`[${stepLabel}] ${message}`);
     this.name = "ImportPipelineError";
     this.step = context.step;
     this.stepLabel = stepLabel;
-    this.supabase = supabase;
+    this.supabase = inspectError(error);
     this.context = context;
   }
 }

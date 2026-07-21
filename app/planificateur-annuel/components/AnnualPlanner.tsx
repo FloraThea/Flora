@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
 import { FloraCard } from "@/components/ui/FloraCard";
 import type { PlannerFilters, PlannerPayload, PlannerWeek } from "@/lib/annual-planner/types";
@@ -22,8 +23,21 @@ function monthKey(date: string): string {
 }
 
 export function AnnualPlanner({ initialPayload }: AnnualPlannerProps) {
+  return (
+    <Suspense fallback={<p className="text-sm font-light text-flora-text-subtle">Chargement…</p>}>
+      <AnnualPlannerContent initialPayload={initialPayload} />
+    </Suspense>
+  );
+}
+
+function AnnualPlannerContent({ initialPayload }: AnnualPlannerProps) {
+  const searchParams = useSearchParams();
   const [payload, setPayload] = useState(initialPayload);
-  const [filters, setFilters] = useState<PlannerFilters>({ view: "annual" });
+  const [filters, setFilters] = useState<PlannerFilters>(() => {
+    const period = Number(searchParams.get("period"));
+    if (period) return { view: "period", periodNumber: period };
+    return { view: "annual" };
+  });
   const [selectedWeek, setSelectedWeek] = useState<PlannerWeek | null>(null);
   const [draggedWeek, setDraggedWeek] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);

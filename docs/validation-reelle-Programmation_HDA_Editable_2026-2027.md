@@ -1,7 +1,7 @@
 # Validation réelle — Programmation HDA
 
 - Fichier : `/Users/camille/flora/tests/validation/programmation/Programmation_HDA_Editable_2026-2027.xlsx`
-- Date du test : 2026-07-19T08:20:41.433Z
+- Date du test : 2026-07-20T19:49:24.840Z
 - Extraction brute : `/Users/camille/flora/tests/validation/resultats_attendus/Programmation_HDA_Editable_2026-2027-extraction-brute.json`
 
 ## Feuilles analysées

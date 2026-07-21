@@ -1,9 +1,7 @@
-import "server-only";
-
+import { IMPORT_CONFIG } from "@/lib/documents/import/config";
 import { createWorker, type Worker } from "tesseract.js";
 
 const OCR_LANGUAGE = "fra";
-const MAX_OCR_PAGES = 60;
 const OCR_TIMEOUT_MS = 90_000;
 
 let workerPromise: Promise<Worker> | null = null;
@@ -47,20 +45,36 @@ export async function recognizeImageBuffer(image: Uint8Array): Promise<string> {
 export async function extractPdfTextWithOcr(
   screenshots: Array<{ pageNumber: number; data: Uint8Array }>,
   options?: { maxPages?: number },
-): Promise<{ text: string; pagesProcessed: number }> {
-  const maxPages = options?.maxPages ?? MAX_OCR_PAGES;
+): Promise<{ text: string; pagesProcessed: number; emptyPages: number }> {
+  const maxPages = options?.maxPages ?? IMPORT_CONFIG.ocr.maxPages;
   const pages = screenshots.slice(0, maxPages);
   const chunks: string[] = [];
+  let emptyPages = 0;
+
+  console.info("[ocr-extractor] Démarrage OCR PDF", {
+    pagesRequested: pages.length,
+    maxPages,
+  });
 
   for (const page of pages) {
     const pageText = (await recognizeImageBuffer(page.data)).trim();
     if (pageText) {
       chunks.push(pageText);
+    } else {
+      emptyPages += 1;
     }
   }
 
-  return {
-    text: chunks.join("\n\n"),
+  const text = chunks.join("\n\n");
+  console.info("[ocr-extractor] OCR PDF terminé", {
     pagesProcessed: pages.length,
+    emptyPages,
+    textLength: text.length,
+  });
+
+  return {
+    text,
+    pagesProcessed: pages.length,
+    emptyPages,
   };
 }

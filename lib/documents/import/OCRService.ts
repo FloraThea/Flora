@@ -1,33 +1,24 @@
 import { IMPORT_CONFIG } from "./config";
-import { extractTextFromBuffer } from "../extract-text";
 
+/**
+ * Complément OCR conservé pour compatibilité.
+ * L'extraction PDF principale gère déjà le basculement OCR dans `extractPdfBuffer`.
+ */
 export class OCRService {
-  shouldRunOcr(extractedText: string, extension: string): boolean {
-    if (!IMPORT_CONFIG.ocr.enabled) return false;
-    if (extension !== ".pdf") return false;
-    const trimmed = extractedText.trim();
-    if (trimmed.length >= 500) return false;
-    const alphaRatio =
-      (trimmed.match(/[a-zA-ZÀ-ÿ]/g)?.length ?? 0) / Math.max(trimmed.length, 1);
-    return alphaRatio < 0.25;
+  shouldRunOcr(_extractedText: string, _extension: string): boolean {
+    return false;
   }
 
-  async extractFromPdfBuffer(buffer: Buffer): Promise<{
+  async extractFromPdfBuffer(_buffer: Buffer): Promise<{
     text: string;
     usedOcr: boolean;
     pageCount: number | null;
   }> {
-    try {
-      const { extractPdfBuffer } = await import("../extraction/pdf-extractor");
-      const result = await extractPdfBuffer(buffer);
-      return {
-        text: result.text,
-        usedOcr: Boolean(result.usedOcr),
-        pageCount: result.pageCount,
-      };
-    } catch {
+    if (!IMPORT_CONFIG.ocr.enabled) {
       return { text: "", usedOcr: false, pageCount: null };
     }
+
+    return { text: "", usedOcr: false, pageCount: null };
   }
 
   mergeWithNativeText(nativeText: string, ocrText: string): string {

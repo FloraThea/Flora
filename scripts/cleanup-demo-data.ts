@@ -88,7 +88,36 @@ async function scanJournals(): Promise<DemoCandidate[]> {
   return candidates;
 }
 
+async function scanDemoJournalEntries(): Promise<DemoCandidate[]> {
+  const { data, error } = await supabase.from("journal_entries").select("id, metadata, journal_id");
+  if (error) {
+    console.warn(`[scan] journal_entries: ${error.message}`);
+    return [];
+  }
+
+  const candidates: DemoCandidate[] = [];
+  for (const row of data ?? []) {
+    if (isDemoMetadata(row.metadata)) {
+      candidates.push({
+        table: "journal_entries",
+        id: String(row.id),
+        reason: "entrée journal demo/seed",
+      });
+    }
+  }
+  return candidates;
+}
+
 async function deleteCandidates(candidates: DemoCandidate[]): Promise<void> {
+  const journalEntryIds = candidates
+    .filter((item) => item.table === "journal_entries")
+    .map((item) => item.id);
+
+  if (journalEntryIds.length > 0) {
+    await supabase.from("journal_observations").delete().in("journal_entry_id", journalEntryIds);
+    await supabase.from("journal_entries").delete().in("id", journalEntryIds);
+  }
+
   const journalIds = candidates.filter((item) => item.table === "journals").map((item) => item.id);
 
   if (journalIds.length > 0) {
@@ -110,7 +139,7 @@ async function deleteCandidates(candidates: DemoCandidate[]): Promise<void> {
 
   const grouped = new Map<string, string[]>();
   for (const candidate of candidates) {
-    if (candidate.table === "journals") continue;
+    if (candidate.table === "journals" || candidate.table === "journal_entries") continue;
     const ids = grouped.get(candidate.table) ?? [];
     ids.push(candidate.id);
     grouped.set(candidate.table, ids);
@@ -139,6 +168,7 @@ async function main() {
     candidates.push(...(await scanTable(table)));
   }
   candidates.push(...(await scanJournals()));
+  candidates.push(...(await scanDemoJournalEntries()));
 
   if (candidates.length === 0) {
     console.log("Aucune donnée demo identifiable automatiquement.");

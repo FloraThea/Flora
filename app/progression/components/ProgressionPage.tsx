@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -166,13 +167,29 @@ function ProgressionPageContent() {
 
   useEffect(() => {
     if (!payload) return;
-    setViewMode(
-      resolveDefaultDocumentViewMode({
-        sourceDocument: payload.sourceDocument,
-        sourceType: payload.sourceType,
-      }),
-    );
+    deferEffect(() => {
+      setViewMode(
+        resolveDefaultDocumentViewMode({
+          sourceDocument: payload.sourceDocument,
+          sourceType: payload.sourceType,
+        }),
+      );
+    });
   }, [payload?.progression.id, payload?.sourceDocument, payload?.sourceType]);
+
+  const highlightRowId = searchParams.get("row");
+
+  useEffect(() => {
+    if (!payload || !highlightRowId) return;
+    deferEffect(() => {
+      for (const tab of payload.tabs) {
+        if (tab.rows.some((row) => row.id === highlightRowId)) {
+          setActiveTabKey(tab.subjectKey);
+          break;
+        }
+      }
+    });
+  }, [highlightRowId, payload]);
 
   const hasFaithfulSource = Boolean(
     payload?.sourceDocument && !isSourceDocumentEmpty(payload.sourceDocument),
@@ -242,7 +259,7 @@ function ProgressionPageContent() {
     } finally {
       setIsDeletingProgression(false);
     }
-  }, [closeDeleteDialog, deleteTarget, loadSavedProgression, payload?.progression.id, refreshSavedProgressions]);
+  }, [closeDeleteDialog, deleteTarget, loadSavedProgression, payload, refreshSavedProgressions]);
 
   const progressionListItems = useMemo<PedagogicalDocumentListItem[]>(
     () =>
@@ -620,6 +637,7 @@ function ProgressionPageContent() {
           {activeTab && (
             <ProgressionTableView
               tab={activeTab}
+              highlightRowId={highlightRowId}
               onRowChange={(rowId, row) => void handleRowChange(activeTab.subjectKey, rowId, row)}
               onRowsReorder={(rows) =>
                 updateTab(activeTab.subjectKey, (tab) => ({ ...tab, rows }))

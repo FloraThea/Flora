@@ -19,6 +19,17 @@ export async function POST(request: Request) {
     let extraction;
     try {
       extraction = await extractTextFromFile(file);
+      logRouteInfo(ROUTE_PATH, "Extraction PDF terminée", {
+        fileName: file.name,
+        fileSizeBytes: file.size,
+        pageCount: extraction.pageCount,
+        textLength: extraction.textLength,
+        extractionMethod: extraction.extractionMethod,
+        usedOcr: extraction.usedOcr,
+        pdfKind: extraction.pdfKind ?? null,
+        hasTextLayer: extraction.hasTextLayer ?? null,
+        durationMs: extraction.diagnostics?.durationMs ?? null,
+      });
     } catch (error) {
       if (error instanceof DocumentExtractionError) {
         return jsonRouteError(ROUTE_PATH, 400, error.message);

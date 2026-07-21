@@ -8,7 +8,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Charge le module compilé via ts après build, ou teste directement pdf-parse en node.
 async function main() {
-  const pdfPath = process.argv[2] ?? join(root, "test-fixtures/annexe-3-francais-cycle-2.pdf");
+  const pdfPath = process.argv[2] ?? join(root, "tests/validation/guides_maitre/MHM_CE1_CE2_GUIDE.pdf");
   const buffer = readFileSync(pdfPath);
 
   const { PDFParse } = await import("pdf-parse");

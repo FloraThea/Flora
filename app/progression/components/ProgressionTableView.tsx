@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { deferEffect } from "@/lib/hooks/defer-effect";
+import { useEffect, useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { accentClasses } from "@/lib/theme";
@@ -9,6 +10,7 @@ import { ProgressionRowModal } from "./ProgressionRowModal";
 
 type ProgressionTableViewProps = {
   tab: ProgressionTab;
+  highlightRowId?: string | null;
   onRowChange: (rowId: string, row: ProgressionRow) => void;
   onRowsReorder: (rows: ProgressionRow[]) => void;
 };
@@ -28,6 +30,7 @@ const COLUMNS = [
 
 export function ProgressionTableView({
   tab,
+  highlightRowId,
   onRowChange,
   onRowsReorder,
 }: ProgressionTableViewProps) {
@@ -35,6 +38,17 @@ export function ProgressionTableView({
   const [dragRowId, setDragRowId] = useState<string | null>(null);
   const accent = accentClasses[tab.accent] ?? accentClasses.lavender;
   const title = tab.subSubjectLabel || tab.subjectLabel;
+
+  useEffect(() => {
+    if (!highlightRowId) return;
+    deferEffect(() => {
+      const row = tab.rows.find((item) => item.id === highlightRowId);
+      if (!row) return;
+      setSelectedRow(row);
+      const element = document.getElementById(`progression-row-${row.id}`);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [highlightRowId, tab.rows]);
 
   const filledCount = tab.rows.filter(
     (row) => row.competenceBo || row.deroulement.trim(),
@@ -91,12 +105,15 @@ export function ProgressionTableView({
               {tab.rows.map((row) => (
                 <tr
                   key={row.id}
+                  id={`progression-row-${row.id}`}
                   draggable
                   onDragStart={() => setDragRowId(row.id)}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => handleDrop(row.id)}
                   onClick={() => setSelectedRow(row)}
-                  className="cursor-pointer rounded-2xl bg-white/65 transition hover:bg-white/85"
+                  className={`cursor-pointer rounded-2xl bg-white/65 transition hover:bg-white/85 ${
+                    highlightRowId === row.id ? "ring-2 ring-sauge/60" : ""
+                  }`}
                 >
                   <td className="rounded-l-2xl px-3 py-3 text-sm">P{row.periodNumber}</td>
                   <td className="px-3 py-3 text-sm">S{row.weekNumber}</td>

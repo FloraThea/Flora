@@ -1,6 +1,6 @@
 import type { TeacherProfileBundle } from "@/lib/profile/types";
 import type { TimetableSlot } from "@/lib/programming/types";
-import { loadActiveScheduleForProfile } from "@/lib/timetable/timetable-service";
+import { loadJournalTimetableSchedule } from "./journal-schedule-resolver";
 
 export type JournalScheduleSlot = TimetableSlot & {
   slotType: string;
@@ -23,7 +23,7 @@ export function isNonPedagogicalSlot(slotType: string): boolean {
 export async function resolveJournalScheduleSlots(
   profileBundle: TeacherProfileBundle,
 ): Promise<ResolvedJournalTimetable> {
-  const schedule = await loadActiveScheduleForProfile(profileBundle.profile.id);
+  const schedule = await loadJournalTimetableSchedule(profileBundle.profile.id);
   if (!schedule || schedule.slots.length === 0) {
     return { slots: [], scheduleId: null, hasActiveSchedule: false };
   }

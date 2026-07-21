@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   buildDynamicSubSubjectTabs,
@@ -36,24 +37,30 @@ export function useSubjectNavigation<T extends SubjectNavItem>(module: Pedagogic
   const [tabOrder, setTabOrder] = useState<string[]>(customOrder);
 
   useEffect(() => {
-    if (!tabs.includes(activeSubjectTab)) {
-      setActiveSubjectTabState(SUBJECT_ALL);
-      persistSubjectTab(module, SUBJECT_ALL);
-    }
+    deferEffect(() => {
+      if (!tabs.includes(activeSubjectTab)) {
+        setActiveSubjectTabState(SUBJECT_ALL);
+        persistSubjectTab(module, SUBJECT_ALL);
+      }
+    });
   }, [activeSubjectTab, module, tabs]);
 
   useEffect(() => {
-    setActiveSubjectTabState(resolveInitialSubjectTab(module, tabs));
+    deferEffect(() => {
+      setActiveSubjectTabState(resolveInitialSubjectTab(module, tabs));
+    });
   }, [module, tabs.join("|")]);
 
   useEffect(() => {
-    const storedSub = readStoredSubSubjectTab(module);
-    const subTabs = buildDynamicSubSubjectTabs(items, activeSubjectTab);
-    if (storedSub && subTabs.includes(storedSub)) {
-      setActiveSubSubjectTabState(storedSub);
-    } else {
-      setActiveSubSubjectTabState(SUB_SUBJECT_ALL);
-    }
+    deferEffect(() => {
+      const storedSub = readStoredSubSubjectTab(module);
+      const subTabs = buildDynamicSubSubjectTabs(items, activeSubjectTab);
+      if (storedSub && subTabs.includes(storedSub)) {
+        setActiveSubSubjectTabState(storedSub);
+      } else {
+        setActiveSubSubjectTabState(SUB_SUBJECT_ALL);
+      }
+    });
   }, [module, activeSubjectTab, items]);
 
   const subSubjectTabs = useMemo(

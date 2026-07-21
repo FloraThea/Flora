@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
@@ -50,7 +51,9 @@ export function CorbeillePage() {
   }, [matiereFilter, typeFilter]);
 
   useEffect(() => {
-    void loadItems();
+    deferEffect(() => {
+      void loadItems();
+    });
   }, [loadItems]);
 
   const matieres = useMemo(

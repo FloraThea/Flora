@@ -1,8 +1,8 @@
 # Validation réelle — enchaînement API HTTP
 
 - Base URL : `http://localhost:3001`
-- Compte test : `flora-api-real-1784462989616@test.flora.local`
-- Date : 2026-07-19T12:11:39.552Z
+- Compte test : `flora-api-real-1784576986255@test.flora.local`
+- Date : 2026-07-20T19:51:39.823Z
 
 ## Parcours testé
 
@@ -16,9 +16,9 @@
 
 | Module | Titre | Attendu | Enregistré | Liste | Détails | Reconnexion |
 |--------|-------|---------|------------|-------|---------|-------------|
-| programmation | API — Programmation HDA 1784462990826 | 35 | 35 | ✓ | ✓ | ✓ |
-| progression | API — Progression EMC 1784462994730 | 34 | 34 | ✓ | ✓ | ✓ |
-| emploi_du_temps | API — EDT rentrée 1784462997046 | 56 | 56 | ✓ | ✓ | ✓ |
+| programmation | API — Programmation HDA 1784576988506 | 35 | 35 | ✓ | ✓ | ✓ |
+| progression | API — Progression EMC 1784576994157 | 34 | 34 | ✓ | ✓ | ✓ |
+| emploi_du_temps | API — EDT rentrée 1784576997217 | 56 | 56 | ✓ | ✓ | ✓ |
 
 ## Statut
 

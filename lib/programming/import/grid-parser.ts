@@ -320,7 +320,21 @@ function isSkippedImportRow(row: string[]): boolean {
 function isDataRow(row: string[], headerIndex: Partial<Record<ProgrammationColumnField, number>>): boolean {
   const weekRaw =
     headerIndex.week !== undefined ? String(row[headerIndex.week] ?? "").trim() : "";
-  return /^s\d+$/i.test(weekRaw) || /semaine\s*\d+/i.test(weekRaw);
+  if (/^s\d+$/i.test(weekRaw) || /semaine\s*\d+/i.test(weekRaw)) return true;
+
+  const seanceRaw =
+    headerIndex.seance !== undefined ? String(row[headerIndex.seance] ?? "").trim() : "";
+  if (seanceRaw && !/^s[ée]ance$/i.test(seanceRaw)) return true;
+
+  const dateRaw =
+    headerIndex.date !== undefined ? String(row[headerIndex.date] ?? "").trim() : "";
+  if (dateRaw && /\d/.test(dateRaw)) return true;
+
+  const joined = row.map((cell) => String(cell ?? "").trim()).filter(Boolean).join(" ");
+  if (/^s\d+$/i.test(joined) || /semaine\s*\d+/i.test(joined)) return true;
+
+  const nonEmptyCount = row.filter((cell) => String(cell ?? "").trim()).length;
+  return nonEmptyCount >= 3 && Boolean(weekRaw || dateRaw || seanceRaw);
 }
 
 function inferDisciplineFromGrid(grid: string[][]): string {

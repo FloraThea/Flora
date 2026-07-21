@@ -264,9 +264,11 @@ function SeancesPageContent() {
   }, []);
 
   useEffect(() => {
-    const seanceId = searchParams.get("id");
-    if (!seanceId) return;
-    void openSeance(seanceId);
+    deferEffect(() => {
+      const seanceId = searchParams.get("id");
+      if (!seanceId) return;
+      void openSeance(seanceId);
+    });
   }, [openSeance, searchParams]);
 
   const sortedSeances = useMemo(() => {

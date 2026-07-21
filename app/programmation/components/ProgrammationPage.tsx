@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -167,13 +168,41 @@ function ProgrammationPageContent() {
 
   useEffect(() => {
     if (!payload) return;
-    setViewMode(
-      resolveDefaultDocumentViewMode({
-        sourceDocument: payload.sourceDocument,
-        sourceType: payload.sourceType,
-      }),
-    );
+    deferEffect(() => {
+      setViewMode(
+        resolveDefaultDocumentViewMode({
+          sourceDocument: payload.sourceDocument,
+          sourceType: payload.sourceType,
+        }),
+      );
+    });
   }, [payload?.programmation.id, payload?.sourceDocument, payload?.sourceType]);
+
+  const highlightPeriod = Number(searchParams.get("period")) || null;
+  const highlightSubject = searchParams.get("subject")?.trim() ?? "";
+
+  useEffect(() => {
+    if (!payload) return;
+    deferEffect(() => {
+      if (highlightSubject) {
+        const table = payload.tables.find(
+          (item) =>
+            item.subjectLabel.toLowerCase() === highlightSubject.toLowerCase() ||
+            item.subjectKey.toLowerCase() === highlightSubject.toLowerCase(),
+        );
+        if (table) {
+          document
+            .getElementById(`prog-table-${table.subjectKey}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+      if (highlightPeriod) {
+        document
+          .getElementById(`prog-period-${highlightPeriod}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  }, [highlightPeriod, highlightSubject, payload]);
 
   const hasFaithfulSource = Boolean(
     payload?.sourceDocument && !isSourceDocumentEmpty(payload.sourceDocument),
@@ -521,6 +550,15 @@ function ProgrammationPageContent() {
               <ProgrammingTableView
                 key={table.subjectKey}
                 table={table}
+                highlightPeriodNumber={
+                  highlightSubject &&
+                  (table.subjectLabel.toLowerCase() === highlightSubject.toLowerCase() ||
+                    table.subjectKey.toLowerCase() === highlightSubject.toLowerCase())
+                    ? highlightPeriod
+                    : highlightSubject
+                      ? null
+                      : highlightPeriod
+                }
                 onCellChange={(tableKey, periodNumber, cell) =>
                   void handleCellChange(tableKey, periodNumber, cell)
                 }

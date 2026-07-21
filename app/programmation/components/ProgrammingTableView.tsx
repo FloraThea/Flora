@@ -13,6 +13,7 @@ import { CellDetailModal } from "./CellDetailModal";
 
 type ProgrammingTableViewProps = {
   table: ProgrammingTable;
+  highlightPeriodNumber?: number | null;
   onCellChange: (
     tableKey: string,
     periodNumber: number,
@@ -22,6 +23,7 @@ type ProgrammingTableViewProps = {
 
 export function ProgrammingTableView({
   table,
+  highlightPeriodNumber,
   onCellChange,
 }: ProgrammingTableViewProps) {
   const [selectedCell, setSelectedCell] = useState<{
@@ -52,7 +54,7 @@ export function ProgrammingTableView({
 
   return (
     <>
-      <FloraCard padding="lg" className={accent.border}>
+      <FloraCard padding="lg" className={accent.border} id={`prog-table-${table.subjectKey}`}>
         <div className="mb-5 flex flex-wrap items-center gap-3">
           <h3 className="font-serif text-2xl text-flora-text">{title}</h3>
           <FloraBadge accent={table.accent}>{table.subjectLabel}</FloraBadge>
@@ -62,7 +64,12 @@ export function ProgrammingTableView({
           <div className="grid min-w-[920px] grid-cols-5 gap-3">
             {table.periods.map((period) => (
               <div key={period.periodNumber} className="flex flex-col gap-2">
-                <div className={`rounded-2xl px-4 py-3 text-center ${accent.bgMuted}`}>
+                <div
+                  id={`prog-period-${period.periodNumber}`}
+                  className={`rounded-2xl px-4 py-3 text-center ${accent.bgMuted} ${
+                    highlightPeriodNumber === period.periodNumber ? "ring-2 ring-sauge/60" : ""
+                  }`}
+                >
                   <p className="font-serif text-lg text-flora-text">{period.label}</p>
                   <p className="text-sm font-light text-flora-text-subtle">
                     {period.weekCount} semaine{period.weekCount > 1 ? "s" : ""}

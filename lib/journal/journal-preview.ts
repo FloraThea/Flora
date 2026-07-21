@@ -3,7 +3,8 @@ import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import { formatDateLabel } from "./date-utils";
 import { dailyPlanner } from "./DailyPlanner";
 import { findJournalByDate, loadJournalPayload, saveJournalPayload } from "./journal-service";
-import { resolveJournalScheduleSlots } from "./journal-timetable";
+import { reconcileJournalEntriesWithTimetable } from "./journal-entry-reconcile";
+import { resolveJournalScheduleSlots, type JournalScheduleSlot } from "./journal-timetable";
 import { scheduleEngine } from "./ScheduleEngine";
 import { computeDashboard } from "./JournalValidator";
 import { enrichJournalPayload } from "./journal-view-flags";
@@ -56,25 +57,37 @@ export async function buildJournalPreviewForDate(date: string): Promise<JournalP
   }
 
   const profileId = profileBundle.profile.id;
-  const existing = await findJournalByDate(date, profileId);
-  if (existing) {
-    const persisted = await loadJournalPayload(existing.id);
-    if (persisted) {
-      return {
-        ...persisted,
-        preview: false,
-        hasTimetable: true,
-        noClassDay: persisted.journal.status === "inactive",
-      };
-    }
-  }
-
   const timetable = await resolveJournalScheduleSlots(profileBundle);
   const calendar = schoolWeeksCalculator.calculate(
     profileBundle.profile.schoolYear,
     profileBundle.profile.zoneScolaire,
     { includeBridgeDays: true },
   );
+
+  const existing = await findJournalByDate(date, profileId);
+  if (existing) {
+    const persisted = await loadJournalPayload(existing.id);
+    if (persisted) {
+      const resolvedDay = scheduleEngine.resolveDay(
+        calendar,
+        { slots: timetable.slots, weeklyHoursBySubject: {} },
+        date,
+        profileBundle.profile.workingDays,
+      );
+      const entries = reconcileJournalEntriesWithTimetable({
+        entries: persisted.entries,
+        daySlots: resolvedDay.slots as JournalScheduleSlot[],
+        manualDay: persisted.journal.metadata?.manualDay === true,
+      });
+      return {
+        ...persisted,
+        entries,
+        preview: false,
+        hasTimetable: timetable.hasActiveSchedule,
+        noClassDay: persisted.journal.status === "inactive",
+      };
+    }
+  }
 
   const resolvedDay = scheduleEngine.resolveDay(
     calendar,

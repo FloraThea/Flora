@@ -1,5 +1,6 @@
 "use client";
 
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { useCallback, useEffect, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
@@ -118,11 +119,13 @@ export function ProgressionImportWizard({
 
   useEffect(() => {
     if (!defaultMatiere && !defaultSousMatiere) return;
-    setImportMetadata((current) => ({
-      ...current,
-      matiere: defaultMatiere || current.matiere,
-      sousMatiere: defaultSousMatiere || current.sousMatiere,
-    }));
+    deferEffect(() => {
+      setImportMetadata((current) => ({
+        ...current,
+        matiere: defaultMatiere || current.matiere,
+        sousMatiere: defaultSousMatiere || current.sousMatiere,
+      }));
+    });
   }, [defaultMatiere, defaultSousMatiere]);
 
   const handleBatchAnalyze = useCallback(

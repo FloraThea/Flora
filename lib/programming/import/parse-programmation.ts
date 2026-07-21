@@ -24,6 +24,7 @@ import {
   resolveFileExtension,
   resolveImportFileName,
 } from "@/lib/import/accepted-formats";
+import { logExcelReadDiagnostics } from "@/lib/import/read-excel-workbook";
 import { buildSourceDocumentForImport } from "@/lib/import/extract-source-document";
 
 function isImageFormat(fileName: string, mimeType?: string): boolean {
@@ -129,6 +130,14 @@ export async function parseProgrammationFile(input: {
     activeSheetName = workbook.sheetName;
     sourceGrid = workbook.grid;
 
+    logExcelReadDiagnostics(input.fileName, {
+      ...workbook.diagnostics,
+      rejectReason:
+        workbook.diagnostics.nonEmptyCells === 0
+          ? "no_non_empty_cells"
+          : undefined,
+    });
+
     const parsedGrid = rowsFromGrid(workbook.grid, input.columnMapping, {
       sourceSheet: workbook.sheetName,
     });
@@ -139,8 +148,12 @@ export async function parseProgrammationFile(input: {
     headerIndex = parsedGrid.headerIndex;
     extractedTextPreview = buildPreviewText(columns, parsedGrid.dataRows);
 
-    if (workbook.grid.length === 0) {
-      warnings.push("La feuille Excel sélectionnée est vide.");
+    if (workbook.diagnostics.nonEmptyCells === 0) {
+      warnings.push("La feuille Excel sélectionnée ne contient aucune cellule non vide.");
+    } else if (workbook.grid.length === 0) {
+      warnings.push(
+        `Données détectées (${workbook.diagnostics.nonEmptyCells} cellules) mais grille illisible après normalisation. Vérifiez les cellules fusionnées ou réexportez le fichier.`,
+      );
     }
   } else if (format === "csv") {
     const text = readCsvText(input.buffer);
@@ -246,7 +259,26 @@ export async function parseProgrammationFile(input: {
     (format === "excel" || format === "csv" || format === "text" || format === "image");
 
   if (rows.length === 0 && format !== "word") {
-    warnings.push("Aucune ligne structurée détectée. Vérifiez le format (colonnes période, semaine, séance…).");
+    if (format === "excel" && sourceGrid.length > 0) {
+      const cellCount = sourceGrid.reduce(
+        (total, row) => total + row.filter((cell) => String(cell ?? "").trim()).length,
+        0,
+      );
+      logExcelReadDiagnostics(input.fileName, {
+        sheetCount: sheetNames?.length ?? 1,
+        activeSheet: activeSheetName ?? "",
+        rowCount: sourceGrid.length,
+        colCount: sourceGrid[0]?.length ?? 0,
+        nonEmptyCells: cellCount,
+        mergeCount: 0,
+        rejectReason: "no_structured_rows",
+      });
+      warnings.push(
+        `Données détectées (${cellCount} cellules non vides) mais aucune ligne structurée reconnue. Associez les colonnes ou vérifiez les en-têtes (période, semaine, séance…).`,
+      );
+    } else {
+      warnings.push("Aucune ligne structurée détectée. Vérifiez le format (colonnes période, semaine, séance…).");
+    }
   }
 
   if (needsColumnMapping) {

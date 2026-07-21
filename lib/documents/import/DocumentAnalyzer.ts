@@ -14,7 +14,6 @@ import { IMPORT_CONFIG } from "./config";
 import { failImportPipeline } from "./import-error-diagnostics";
 import { metadataExtractor } from "./MetadataExtractor";
 import { notificationManager } from "./NotificationManager";
-import { ocrService } from "./OCRService";
 import { segmentBuilder, vectorIndexer } from "./SegmentBuilder";
 import type { DocumentMetadataDraft, ImportJob } from "./types";
 
@@ -102,6 +101,20 @@ export class DocumentAnalyzer {
         extractedText = extraction.text;
         pageCount = extraction.pageCount;
         usedOcr = Boolean(extraction.usedOcr);
+
+        console.info("[import-pipeline] Extraction terminée", {
+          documentId,
+          jobId: job.id,
+          fileName: document.original_filename,
+          fileSizeBytes: document.file_size,
+          pageCount: extraction.pageCount,
+          textLength: extraction.textLength,
+          extractionMethod: extraction.extractionMethod,
+          usedOcr: extraction.usedOcr,
+          pdfKind: extraction.pdfKind ?? null,
+          hasTextLayer: extraction.hasTextLayer ?? null,
+          durationMs: extraction.diagnostics?.durationMs ?? null,
+        });
       } catch (error) {
         failImportPipeline(
           {
@@ -110,36 +123,18 @@ export class DocumentAnalyzer {
             jobId: job.id,
             fileName: document.original_filename,
             fileSizeBytes: document.file_size,
+            extra:
+              error instanceof DocumentExtractionError
+                ? {
+                    extractionReason: error.reason,
+                    pageCount: error.pageCount,
+                    textLength: error.textLength,
+                  }
+                : undefined,
           },
           error instanceof DocumentExtractionError ? error : error,
         );
       }
-    }
-
-    if (ocrService.shouldRunOcr(extractedText, extension)) {
-      await this.updateJob(job.id, { status: "ocr", progress: 35, stageLabel: "OCR en cours…" });
-      try {
-        const ocrResult = await ocrService.extractFromPdfBuffer(buffer);
-        extractedText = ocrService.mergeWithNativeText(extractedText, ocrResult.text);
-        usedOcr = usedOcr || ocrResult.usedOcr;
-        pageCount = ocrResult.pageCount ?? pageCount;
-      } catch (error) {
-        failImportPipeline(
-          {
-            step: "ocr",
-            documentId,
-            jobId: job.id,
-            fileName: document.original_filename,
-          },
-          error,
-        );
-      }
-      await notificationManager.notify({
-        documentId,
-        jobId: job.id,
-        type: "ocr_complete",
-        message: "OCR terminé.",
-      });
     }
 
     if (!extractedText.trim()) {
@@ -151,7 +146,7 @@ export class DocumentAnalyzer {
           fileName: document.original_filename,
           fileSizeBytes: document.file_size,
         },
-        new Error("Aucun texte exploitable après extraction et OCR."),
+        new Error("Aucun texte exploitable après extraction."),
       );
     }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FloraBadge } from "@/components/ui/FloraBadge";
@@ -55,7 +56,7 @@ function SequencesPageContent() {
   }, []);
 
   useEffect(() => {
-    void loadAllSequences().catch(() => undefined);
+    deferEffect(() => loadAllSequences().catch(() => undefined));
   }, [loadAllSequences]);
 
   const loadSequences = useCallback(async (progressionId: string) => {
@@ -211,9 +212,11 @@ function SequencesPageContent() {
   }, []);
 
   useEffect(() => {
-    const sequenceId = searchParams.get("id");
-    if (!sequenceId) return;
-    void openSequence(sequenceId);
+    deferEffect(() => {
+      const sequenceId = searchParams.get("id");
+      if (!sequenceId) return;
+      void openSequence(sequenceId);
+    });
   }, [openSequence, searchParams]);
 
   const selectedProgression = progressions.find((item) => item.id === formValues.progressionId);

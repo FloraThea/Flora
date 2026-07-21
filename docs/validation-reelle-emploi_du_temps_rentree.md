@@ -1,7 +1,7 @@
 # Validation réelle — Emploi du temps rentrée
 
 - Fichier : `/Users/camille/flora/tests/validation/emploi_du_temps/emploi_du_temps_rentree.xlsx`
-- Date du test : 2026-07-19T12:07:30.734Z
+- Date du test : 2026-07-20T19:49:29.736Z
 - Extraction brute : `/Users/camille/flora/tests/validation/resultats_attendus/emploi_du_temps_rentree-extraction-brute.json`
 
 ## Feuilles analysées

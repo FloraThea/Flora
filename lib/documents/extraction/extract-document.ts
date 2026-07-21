@@ -1,5 +1,3 @@
-import "server-only";
-
 import {
   COMING_SOON_EXTENSIONS,
   FULLY_SUPPORTED_EXTENSIONS,
@@ -112,5 +110,11 @@ export async function extractTextFromFile(
 }
 
 export function canAnalyzeExtension(extension: string): boolean {
-  return extension === ".txt" || extension === ".pdf";
+  return (
+    extension === ".txt" ||
+    extension === ".pdf" ||
+    extension === ".png" ||
+    extension === ".jpg" ||
+    extension === ".jpeg"
+  );
 }

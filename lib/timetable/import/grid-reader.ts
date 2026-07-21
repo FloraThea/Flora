@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { readExcelWorkbook } from "@/lib/import/read-excel-workbook";
 
 export type MergeRegion = {
   startRow: number;
@@ -16,40 +17,30 @@ export type GridWorkbook = {
 
 export function readWorkbookGrid(buffer: Buffer, fileName: string): GridWorkbook {
   const lower = fileName.toLowerCase();
-  const workbook = XLSX.read(buffer, {
-    type: "buffer",
-    cellDates: false,
-    raw: false,
-  });
-
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) {
-    throw new Error("Le fichier ne contient aucune feuille.");
+  if (lower.endsWith(".csv")) {
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0] ?? "csv";
+    const sheet = workbook.Sheets[sheetName];
+    const ref = sheet?.["!ref"];
+    if (!ref) {
+      return { sheetName, grid: [], merges: [], rangeOffset: { row: 0, col: 0 } };
+    }
+    const range = XLSX.utils.decode_range(ref);
+    const grid = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" }).map((row) =>
+      row.map((cell) => String(cell ?? "").trim()),
+    );
+    return { sheetName, grid, merges: [], rangeOffset: { row: range.s.r, col: range.s.c } };
   }
 
-  const sheet = workbook.Sheets[sheetName];
-  const ref = sheet["!ref"];
+  const result = readExcelWorkbook(buffer, fileName);
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, raw: false, cellText: true });
+  const sheet = workbook.Sheets[result.activeSheetName];
+  const ref = sheet?.["!ref"];
   if (!ref) {
-    return { sheetName, grid: [], merges: [], rangeOffset: { row: 0, col: 0 } };
+    return { sheetName: result.activeSheetName, grid: result.grid, merges: [], rangeOffset: { row: 0, col: 0 } };
   }
 
   const range = XLSX.utils.decode_range(ref);
-  const rowCount = range.e.r - range.s.r + 1;
-  const colCount = range.e.c - range.s.c + 1;
-  const grid: string[][] = Array.from({ length: rowCount }, () =>
-    Array.from({ length: colCount }, () => ""),
-  );
-
-  for (let r = range.s.r; r <= range.e.r; r++) {
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const addr = XLSX.utils.encode_cell({ r, c });
-      const cell = sheet[addr];
-      const value = cell?.w ?? cell?.v;
-      grid[r - range.s.r][c - range.s.c] =
-        value === undefined || value === null ? "" : String(value).trim();
-    }
-  }
-
   const merges: MergeRegion[] = (sheet["!merges"] ?? []).map((merge) => ({
     startRow: merge.s.r - range.s.r,
     startCol: merge.s.c - range.s.c,
@@ -57,52 +48,12 @@ export function readWorkbookGrid(buffer: Buffer, fileName: string): GridWorkbook
     endCol: merge.e.c - range.s.c,
   }));
 
-  for (const merge of merges) {
-    const topLeft = sheet[XLSX.utils.encode_cell({ r: merge.startRow + range.s.r, c: merge.startCol + range.s.c })];
-    const value = topLeft?.w ?? topLeft?.v ?? "";
-    const text = value === undefined || value === null ? "" : String(value).trim();
-
-    for (let r = merge.startRow; r <= merge.endRow; r++) {
-      for (let c = merge.startCol; c <= merge.endCol; c++) {
-        if (r >= 0 && r < rowCount && c >= 0 && c < colCount) {
-          grid[r][c] = text;
-        }
-      }
-    }
-  }
-
   return {
-    sheetName,
-    grid: trimEmptyMargins(grid),
+    sheetName: result.activeSheetName,
+    grid: result.grid,
     merges,
     rangeOffset: { row: range.s.r, col: range.s.c },
   };
-}
-
-function trimEmptyMargins(grid: string[][]): string[][] {
-  if (grid.length === 0) return grid;
-
-  let firstRow = 0;
-  let lastRow = grid.length - 1;
-  let firstCol = 0;
-  let lastCol = (grid[0]?.length ?? 1) - 1;
-
-  while (firstRow < grid.length && isEmptyRow(grid[firstRow])) firstRow++;
-  while (lastRow > firstRow && isEmptyRow(grid[lastRow])) lastRow--;
-  while (firstCol <= lastCol && isEmptyColumn(grid, firstCol)) firstCol++;
-  while (lastCol >= firstCol && isEmptyColumn(grid, lastCol)) lastCol--;
-
-  if (firstRow > lastRow) return grid;
-
-  return grid.slice(firstRow, lastRow + 1).map((row) => row.slice(firstCol, lastCol + 1));
-}
-
-function isEmptyRow(row: string[] | undefined): boolean {
-  return !row?.some((cell) => String(cell ?? "").trim());
-}
-
-function isEmptyColumn(grid: string[][], col: number): boolean {
-  return !grid.some((row) => String(row[col] ?? "").trim());
 }
 
 export function getMergeAt(merges: MergeRegion[], row: number, col: number): {
