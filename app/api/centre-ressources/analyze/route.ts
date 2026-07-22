@@ -1,5 +1,4 @@
 import { jsonRouteError, logRouteInfo, toErrorMessage } from "@/lib/api/route-diagnostics";
-import { VERCEL_MAX_DURATION_SECONDS } from "@/lib/api/vercel-serverless-config";
 import {
   readBoAnalyzeProgress,
   runBoAnalyzeTick,
@@ -11,7 +10,7 @@ import { AI_QUEUE_USER_MESSAGE } from "@/lib/thea/messages";
 
 const ROUTE_PATH = "/api/centre-ressources/analyze";
 
-export const maxDuration = VERCEL_MAX_DURATION_SECONDS;
+export const maxDuration = 300;
 
 function isTransientTheaError(message: string): boolean {
   const upper = message.toUpperCase();

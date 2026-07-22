@@ -121,6 +121,7 @@ export type BoDocumentRow = {
   id: string;
   created_at: string;
   updated_at: string;
+  teacher_profile_id?: string | null;
   original_filename: string;
   storage_path: string;
   file_extension: string;

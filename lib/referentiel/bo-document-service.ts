@@ -2,6 +2,7 @@ import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 import { buildBoStoragePath, getStorageBucketName } from "@/lib/supabase/storage-config";
 import { checkStorageBucketExists } from "@/lib/supabase/storage-health";
+import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type { BoCompetenceDraft, BoDocumentRow, BoDocumentStatus, BoValidationReport } from "./bo-types";
 import { normalizeBoDocumentStatus } from "./bo-status";
 
@@ -91,12 +92,20 @@ export async function createBoDocument(input: {
   extractionMethod: string;
   status?: BoDocumentStatus;
   metadata?: Record<string, unknown>;
+  teacherProfileId?: string;
 }): Promise<BoDocumentRow> {
   const extension = input.file.name.slice(input.file.name.lastIndexOf(".")).replace(".", "");
+  const bundle = input.teacherProfileId ? null : await loadTeacherProfileBundle();
+  const teacherProfileId = input.teacherProfileId ?? bundle?.profile.id;
+
+  if (!teacherProfileId) {
+    throw new Error("Profil enseignant requis pour importer un référentiel BO.");
+  }
 
   const { data, error } = await (await floraDb())
     .from("bo_documents")
     .insert({
+      teacher_profile_id: teacherProfileId,
       original_filename: input.file.name,
       storage_path: input.storagePath ?? "",
       file_extension: extension,
@@ -346,10 +355,15 @@ export async function activateBoDocument(documentId: string): Promise<BoDocument
     throw new Error("Seul un référentiel validé peut être activé pour les programmations.");
   }
 
+  if (!document.teacher_profile_id) {
+    throw new Error("Document BO sans profil enseignant.");
+  }
+
   const { error: resetError } = await (await floraDb())
     .from("bo_documents")
     .update({ active_for_programmation: false, updated_at: new Date().toISOString() })
-    .eq("matiere", document.matiere);
+    .eq("matiere", document.matiere)
+    .eq("teacher_profile_id", document.teacher_profile_id);
 
   if (resetError) {
     throw new Error(getSupabaseErrorMessage(resetError, "Impossible de réinitialiser l'activation."));
