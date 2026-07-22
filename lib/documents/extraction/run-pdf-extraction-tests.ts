@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { createNodePdfParser } from "./pdf-node-runtime";
 import { extractPdfBuffer } from "./pdf-extractor";
 import { isLikelyScannedPdfHeuristic } from "./pdf-heuristics";
 
@@ -8,6 +9,31 @@ function testScannedHeuristic() {
   assert.equal(isLikelyScannedPdfHeuristic("", 10, 0), true);
   assert.equal(isLikelyScannedPdfHeuristic("x".repeat(200), 5, 5), false);
   assert.equal(isLikelyScannedPdfHeuristic("court", 10, 1), true);
+}
+
+async function testNodeRuntimeWithoutDomMatrix() {
+  delete (globalThis as { DOMMatrix?: unknown }).DOMMatrix;
+  delete (globalThis as { ImageData?: unknown }).ImageData;
+  delete (globalThis as { Path2D?: unknown }).Path2D;
+
+  const filePath = path.resolve(
+    process.cwd(),
+    "tests/validation/guides_maitre/MHM_CE1_CE2_GUIDE.pdf",
+  );
+  if (!fs.existsSync(filePath)) {
+    console.log("PDF runtime test: skipped (fixture absent)");
+    return;
+  }
+
+  const parser = await createNodePdfParser(fs.readFileSync(filePath));
+  try {
+    const info = await parser.getInfo();
+    const textResult = await parser.getText();
+    assert.ok((textResult.text ?? "").length > 1000);
+    assert.ok((info.total ?? 0) > 1);
+  } finally {
+    await parser.destroy();
+  }
 }
 
 async function testGuidePdfExtraction() {
@@ -60,6 +86,7 @@ async function testOptionalBoPdf() {
 
 async function main() {
   testScannedHeuristic();
+  await testNodeRuntimeWithoutDomMatrix();
   await testGuidePdfExtraction();
   await testOptionalBoPdf();
   console.log("PDF extraction tests: OK");

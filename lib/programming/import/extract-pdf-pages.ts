@@ -1,14 +1,14 @@
 import "server-only";
 
 import { recognizeImageBuffer } from "@/lib/documents/extraction/ocr-extractor";
+import { createNodePdfParser } from "@/lib/documents/extraction/pdf-node-runtime";
 
 function normalizeText(text: string): string {
   return text.replace(/\u0000/g, "").replace(/\s+\n/g, "\n").trim();
 }
 
 async function loadPdfParser(buffer: Buffer) {
-  const { PDFParse } = await import("pdf-parse");
-  return new PDFParse({ data: buffer });
+  return createNodePdfParser(buffer);
 }
 
 export async function extractPdfPageTexts(buffer: Buffer): Promise<string[]> {

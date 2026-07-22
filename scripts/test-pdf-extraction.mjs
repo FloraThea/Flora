@@ -6,12 +6,26 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Charge le module compilé via ts après build, ou teste directement pdf-parse en node.
+/** Runtime Node Flora : CJS pdf-parse (legacy pdf.js inliné). */
+function loadPdfParse() {
+  if (typeof globalThis.DOMMatrix === "undefined") {
+    try {
+      const canvas = require("@napi-rs/canvas");
+      if (canvas.DOMMatrix) globalThis.DOMMatrix = canvas.DOMMatrix;
+      if (canvas.ImageData) globalThis.ImageData = canvas.ImageData;
+      if (canvas.Path2D) globalThis.Path2D = canvas.Path2D;
+    } catch {
+      // Texte natif OK sans polyfill.
+    }
+  }
+  return require("pdf-parse");
+}
+
 async function main() {
   const pdfPath = process.argv[2] ?? join(root, "tests/validation/guides_maitre/MHM_CE1_CE2_GUIDE.pdf");
   const buffer = readFileSync(pdfPath);
 
-  const { PDFParse } = await import("pdf-parse");
+  const { PDFParse } = loadPdfParse();
   const parser = new PDFParse({ data: buffer });
 
   try {

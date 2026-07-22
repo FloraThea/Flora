@@ -13,7 +13,7 @@ import {
   type PdfPageTextStats,
 } from "./pdf-diagnostics";
 import type { DocumentExtractionResult } from "./types";
-
+import { createNodePdfParser, type FloraPdfParser } from "./pdf-node-runtime";
 import {
   isLikelyScannedPdfHeuristic,
   MIN_TOTAL_CHARS,
@@ -27,26 +27,7 @@ type PdfScreenshot = {
   data: Uint8Array;
 };
 
-type PdfParser = {
-  getInfo: () => Promise<{
-    total?: number;
-    info?: Record<string, unknown>;
-    permission?: unknown;
-  }>;
-  getText: (params?: Record<string, unknown>) => Promise<{
-    text?: string;
-    total?: number;
-    pages?: Array<{ num?: number; text?: string }>;
-  }>;
-  getScreenshot: (params?: {
-    scale?: number;
-    imageBuffer?: boolean;
-    imageDataUrl?: boolean;
-  }) => Promise<{
-    pages: Array<{ pageNumber: number; data: Uint8Array }>;
-  }>;
-  destroy: () => Promise<void>;
-};
+type PdfParser = FloraPdfParser;
 
 function buildPreview(text: string): string {
   return text.slice(0, PREVIEW_LENGTH);
@@ -78,8 +59,7 @@ function isProtectedPdfInfo(info: Awaited<ReturnType<PdfParser["getInfo"]>>): bo
 }
 
 async function loadPdfParser(buffer: Buffer): Promise<PdfParser> {
-  const { PDFParse } = await import("pdf-parse");
-  return new PDFParse({ data: buffer }) as unknown as PdfParser;
+  return createNodePdfParser(buffer);
 }
 
 function collectNativePageTexts(
@@ -184,6 +164,9 @@ async function capturePageScreenshots(
 
 function buildParserErrorMessage(error: unknown): string {
   const cause = rootCauseMessage(error);
+  if (/dommatrix|imagedata|path2d/i.test(cause)) {
+    return `Le moteur PDF serveur n'a pas pu s'initialiser (${cause}). Vérifiez que @napi-rs/canvas est installé sur l'environnement d'exécution.`;
+  }
   if (/canvas|@napi-rs\/canvas|native binding/i.test(cause)) {
     return `Le rendu des pages PDF a échoué (${cause}). Le document nécessite peut-être un OCR, mais le moteur graphique serveur est indisponible.`;
   }

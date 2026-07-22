@@ -26,8 +26,8 @@ function detectPatterns(text: string) {
 }
 
 export async function buildPdfRawExtraction(buffer: Buffer, fileName: string): Promise<PdfRawExtraction> {
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: buffer });
+  const { createNodePdfParser } = await import("@/lib/documents/extraction/pdf-node-runtime");
+  const parser = await createNodePdfParser(buffer);
 
   try {
     const textResult = await parser.getText({ parseHyperlinks: false, lineEnforce: true });
