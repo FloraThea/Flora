@@ -164,6 +164,9 @@ async function capturePageScreenshots(
 
 function buildParserErrorMessage(error: unknown): string {
   const cause = rootCauseMessage(error);
+  if (/cannot find module ['"]pdf-parse/i.test(cause)) {
+    return "Le moteur PDF serveur est indisponible (pdf-parse absent du déploiement). Contactez l'administrateur ou relancez le déploiement.";
+  }
   if (/dommatrix|imagedata|path2d/i.test(cause)) {
     return `Le moteur PDF serveur n'a pas pu s'initialiser (${cause}). Vérifiez que @napi-rs/canvas est installé sur l'environnement d'exécution.`;
   }

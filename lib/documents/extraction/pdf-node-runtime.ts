@@ -1,11 +1,13 @@
 import { createRequire } from "node:module";
 import path from "node:path";
+import { installPdfDomPolyfills } from "./pdf-dom-polyfills";
 
 /**
  * Runtime PDF Node pour Flora (Vercel / Serverless).
  *
- * - `import("pdf-parse")` : bundlé par Next.js dans les chunks serveur (pas de node_modules runtime).
- * - Polyfills canvas via require ancré sur process.cwd() pour @napi-rs/canvas (module natif externalisé).
+ * Charge pdf-parse via le build CJS (legacy pdf.js inliné) avec require().
+ * Ne pas utiliser import("pdf-parse") : Turbopack résout parfois pdfjs-dist/build
+ * (navigateur) → DOMMatrix is not defined sur Vercel.
  */
 export type FloraPdfParser = {
   getInfo: () => Promise<{
@@ -32,73 +34,24 @@ type PdfParseModule = {
   PDFParse: new (options: { data: Buffer | Uint8Array }) => FloraPdfParser;
 };
 
-let polyfillsInstalled = false;
-let pdfParseModulePromise: Promise<PdfParseModule> | null = null;
+let pdfParseModule: PdfParseModule | null = null;
 
 function getRootRequire() {
   return createRequire(path.join(process.cwd(), "package.json"));
 }
 
-function installNodePdfPolyfills(): void {
-  if (polyfillsInstalled) return;
-
-  if (
-    typeof globalThis.DOMMatrix === "undefined" ||
-    typeof globalThis.ImageData === "undefined" ||
-    typeof globalThis.Path2D === "undefined"
-  ) {
-    try {
-      const canvas = getRootRequire()("@napi-rs/canvas") as {
-        DOMMatrix?: typeof DOMMatrix;
-        ImageData?: typeof ImageData;
-        Path2D?: typeof Path2D;
-      };
-
-      if (typeof globalThis.DOMMatrix === "undefined" && canvas.DOMMatrix) {
-        globalThis.DOMMatrix = canvas.DOMMatrix;
-      }
-      if (typeof globalThis.ImageData === "undefined" && canvas.ImageData) {
-        globalThis.ImageData = canvas.ImageData;
-      }
-      if (typeof globalThis.Path2D === "undefined" && canvas.Path2D) {
-        globalThis.Path2D = canvas.Path2D;
-      }
-    } catch {
-      // Extraction texte native OK sans canvas ; rendu OCR nécessite @napi-rs/canvas.
-    }
+function loadPdfParseModule(): PdfParseModule {
+  if (!pdfParseModule) {
+    installPdfDomPolyfills();
+    pdfParseModule = getRootRequire()("pdf-parse") as PdfParseModule;
   }
-
-  polyfillsInstalled = true;
-}
-
-async function loadPdfParseModule(): Promise<PdfParseModule> {
-  if (!pdfParseModulePromise) {
-    pdfParseModulePromise = (async () => {
-      installNodePdfPolyfills();
-
-      // Import dynamique : inclus dans le bundle serveur Next (évite « Cannot find module » sur Vercel).
-      try {
-        return (await import("pdf-parse")) as PdfParseModule;
-      } catch (importError) {
-        try {
-          return getRootRequire()("pdf-parse") as PdfParseModule;
-        } catch (requireError) {
-          const importMessage =
-            importError instanceof Error ? importError.message : String(importError);
-          const requireMessage =
-            requireError instanceof Error ? requireError.message : String(requireError);
-          throw new Error(
-            `Impossible de charger pdf-parse (import: ${importMessage}; require: ${requireMessage})`,
-          );
-        }
-      }
-    })();
-  }
-
-  return pdfParseModulePromise;
+  return pdfParseModule;
 }
 
 export async function createNodePdfParser(buffer: Buffer): Promise<FloraPdfParser> {
-  const { PDFParse } = await loadPdfParseModule();
+  const { PDFParse } = loadPdfParseModule();
   return new PDFParse({ data: buffer });
 }
+
+/** Référence statique pour le file-tracer Vercel (inclusion node_modules). */
+export const PDF_PARSE_PACKAGE_NAME = "pdf-parse";

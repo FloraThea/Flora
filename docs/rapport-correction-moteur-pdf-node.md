@@ -57,10 +57,10 @@ Nouveau module : `lib/documents/extraction/pdf-node-runtime.ts`
 
 ### 3. Dépendances & Next.js
 
-- `@napi-rs/canvas@0.1.80` ajouté en **dépendance directe** (binaire natif disponible sur Vercel).
-- `pdf-parse` épinglé à **2.4.5**, **retiré de `serverExternalPackages`** → bundlé dans les chunks serveur Next.js (évite `Cannot find module 'pdf-parse'` sur Vercel).
-- **`import("pdf-parse")`** remplace `createRequire(import.meta.url)` pour le chargement runtime.
-- `outputFileTracingIncludes` pour `@napi-rs/canvas` (binaires natifs OCR).
+- `@napi-rs/canvas@0.1.80` en dépendance directe.
+- `pdf-parse@2.4.5` dans **`serverExternalPackages`** + **`outputFileTracingIncludes`** (présent dans `node_modules` sur Vercel).
+- Chargement **uniquement via `require("pdf-parse")`** (build CJS legacy inliné) — **pas de `import("pdf-parse")`** (Turbopack bundlait pdfjs-dist navigateur → DOMMatrix).
+- Polyfills dans `pdf-dom-polyfills.ts` (`@napi-rs/canvas` ou repli minimal).
 
 ### 4. Tests
 

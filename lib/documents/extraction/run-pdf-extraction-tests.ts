@@ -16,6 +16,9 @@ async function testNodeRuntimeWithoutDomMatrix() {
   delete (globalThis as { ImageData?: unknown }).ImageData;
   delete (globalThis as { Path2D?: unknown }).Path2D;
 
+  const { installPdfDomPolyfills } = await import("./pdf-dom-polyfills");
+  installPdfDomPolyfills();
+
   const filePath = path.resolve(
     process.cwd(),
     "tests/validation/guides_maitre/MHM_CE1_CE2_GUIDE.pdf",
