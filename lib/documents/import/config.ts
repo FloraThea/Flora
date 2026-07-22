@@ -67,6 +67,9 @@ export const IMPORT_CONFIG = {
     deferredRetryMinutes: readInt("FLORA_GEMINI_DEFERRED_RETRY_MINUTES", 3),
     maxDeferredRetries: readInt("FLORA_GEMINI_MAX_DEFERRED_RETRIES", 5),
   },
+
+  /** Jobs bloqués en extracting/analyzing/indexing au-delà de ce délai sont relancés */
+  staleJobTimeoutMinutes: readInt("FLORA_IMPORT_STALE_JOB_TIMEOUT_MINUTES", 8),
 } as const;
 
 export type ImportFileKind = "pdf" | "docx" | "xlsx" | "pptx" | "txt" | "default";

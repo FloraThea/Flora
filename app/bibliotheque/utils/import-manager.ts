@@ -7,6 +7,7 @@ import {
   formatUploadEta,
   formatUploadProgressLine,
   IMPORT_POLL_INTERVAL_MS,
+  kickoffDocumentAnalysis,
   pollImportStatus,
   resolveDuplicateImport,
   uploadDocumentWithChunks,
@@ -123,7 +124,19 @@ async function pollAnalysisUntilDone(
     detailLine: "Extraction, OCR, titres, chapitres et métadonnées.",
   });
 
+  void kickoffDocumentAnalysis(item.documentId, item.jobId).catch((error) => {
+    const message = error instanceof Error ? error.message : "Analyse impossible.";
+    patchItem(setUploadState, item.id, {
+      phase: "error",
+      stage: "analysis",
+      error: message,
+      statusLabel: "Échec de l'analyse",
+    });
+  });
+
   let keepPolling = true;
+  let unchangedPolls = 0;
+  let lastProgress = -1;
 
   while (keepPolling) {
     await new Promise((resolve) => setTimeout(resolve, IMPORT_POLL_INTERVAL_MS));
@@ -175,14 +188,31 @@ async function pollAnalysisUntilDone(
       }
 
       const stage = mapJobStatusToStage(job.status);
+      const progress = Math.max(stage === "indexing" ? 85 : 60, Math.min(99, job.progress));
+
+      if (progress === lastProgress) {
+        unchangedPolls += 1;
+      } else {
+        unchangedPolls = 0;
+        lastProgress = progress;
+      }
+
+      if (
+        unchangedPolls >= 30 &&
+        ["extracting", "analyzing", "indexing"].includes(job.status)
+      ) {
+        void kickoffDocumentAnalysis(item.documentId, item.jobId).catch(() => undefined);
+        unchangedPolls = 0;
+      }
+
       patchItem(setUploadState, item.id, {
         phase: "analyzing",
         stage,
-        progress: Math.max(stage === "indexing" ? 85 : 60, Math.min(99, job.progress)),
+        progress,
         statusLabel: job.stageLabel || "Analyse en cours…",
         detailLine:
           stage === "indexing"
-            ? "Création des embeddings pgvector…"
+            ? "Découpage, segments et indexation pédagogique…"
             : "Analyse IA : pages, OCR, matières, niveau, cycle…",
       });
     } catch {

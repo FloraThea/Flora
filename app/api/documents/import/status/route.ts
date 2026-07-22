@@ -17,7 +17,9 @@ export async function GET(request: Request) {
 
     const payload = await buildImportStatusPayload({ sessionId, documentId, jobId });
 
-    void importQueue.processNext();
+    // Ne pas lancer l'analyse ici : Vercel coupe la fonction à la réponse HTTP.
+    // La reprise des jobs bloqués est déclenchée par POST /analyze.
+    await importQueue.recoverStaleJobs();
 
     return importJsonSuccess({
       route: `${ROUTE_IMPORT}${SUBPATH}`,

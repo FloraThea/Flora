@@ -18,44 +18,25 @@ export async function POST(request: Request) {
       return importRouteError(SUBPATH, 400, "documentId requis.");
     }
 
-    const job =
-      (body.jobId ? await importQueue.getJob(body.jobId) : null) ??
-      (await importQueue.getJobForDocument(body.documentId));
+    const job = await importQueue.processDocument(body.documentId, body.jobId);
 
     if (!job) {
-      const enqueued = await importQueue.enqueue(body.documentId);
-      void importQueue.processNext();
-      return importJsonSuccess({
-        route: `${ROUTE_IMPORT}${SUBPATH}`,
-        jobId: enqueued.id,
-        message: "Analyse ajoutée à la file.",
-      });
-    }
-
-    if (job.status === "queued" || job.status === "paused") {
-      void importQueue.processNext();
-      return importJsonSuccess({
-        route: `${ROUTE_IMPORT}${SUBPATH}`,
-        jobId: job.id,
-        message: "Analyse en cours de démarrage.",
-      });
-    }
-
-    if (job.status === "failed") {
-      await importQueue.enqueue(body.documentId);
-      void importQueue.processNext();
-      return importJsonSuccess({
-        route: `${ROUTE_IMPORT}${SUBPATH}`,
-        jobId: job.id,
-        message: "Analyse relancée.",
-      });
+      return importRouteError(SUBPATH, 404, "Job d'import introuvable.");
     }
 
     return importJsonSuccess({
       route: `${ROUTE_IMPORT}${SUBPATH}`,
       jobId: job.id,
       status: job.status,
-      message: "Analyse déjà en cours ou terminée.",
+      progress: job.progress,
+      message:
+        job.status === "completed"
+          ? "Analyse terminée."
+          : job.status === "waiting_ai"
+            ? job.stageLabel || "Analyse en attente de quota IA."
+            : job.status === "failed"
+              ? job.errorMessage || "Analyse impossible."
+              : "Analyse en cours…",
     });
   } catch (error) {
     return handleImportRouteError(SUBPATH, error);

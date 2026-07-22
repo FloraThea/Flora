@@ -410,6 +410,24 @@ export async function resolveDuplicateImport(input: {
   return postJson<ChunkUploadResultPayload>("/api/documents/import/duplicate-resolve", input);
 }
 
+/** Lance l'analyse serveur (route longue durée max 300s). */
+export async function kickoffDocumentAnalysis(documentId: string, jobId?: string): Promise<void> {
+  const response = await fetch("/api/documents/import/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ documentId, jobId }),
+  });
+
+  const parsed = await parseImportApiResponse<{ status?: string; message?: string }>(
+    response,
+    "/api/documents/import/analyze",
+  );
+
+  if (!parsed.ok) {
+    throwImportApiError(parsed);
+  }
+}
+
 export async function pollImportStatus(documentId: string, jobId?: string): Promise<ImportStatusPayload> {
   const params = new URLSearchParams({ documentId });
   if (jobId) params.set("jobId", jobId);

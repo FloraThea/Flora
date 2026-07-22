@@ -75,6 +75,7 @@ export class VectorIndexer {
     filename: string;
     analysis: Awaited<ReturnType<typeof analyseResourceWithThea>>;
     metadata: Record<string, unknown>;
+    skipAiExtraction?: boolean;
   }): Promise<void> {
     await runKnowledgePipeline({
       documentId: input.documentId,
@@ -82,6 +83,7 @@ export class VectorIndexer {
       filename: input.filename,
       analysis: input.analysis,
       existingMetadata: input.metadata,
+      skipAiExtraction: input.skipAiExtraction,
     });
   }
 }

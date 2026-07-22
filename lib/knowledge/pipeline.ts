@@ -187,7 +187,7 @@ async function persistKnowledge(
  * Pipeline complet du moteur de connaissances pédagogiques.
  */
 export async function runKnowledgePipeline(
-  input: KnowledgePipelineInput,
+  input: KnowledgePipelineInput & { skipAiExtraction?: boolean },
 ): Promise<KnowledgePipelineResult> {
   const parsedResource = resourceParser.parse(
     input.text,
@@ -203,10 +203,12 @@ export async function runKnowledgePipeline(
     tags: [] as string[],
   };
 
-  try {
-    extraction = await pedagogicalExtractor.extract(input.text, parsedResource);
-  } catch (error) {
-    console.error("Extraction pédagogique Théa :", error);
+  if (!input.skipAiExtraction) {
+    try {
+      extraction = await pedagogicalExtractor.extract(input.text, parsedResource);
+    } catch (error) {
+      console.error("Extraction pédagogique Théa :", error);
+    }
   }
 
   const tags = tagGenerator.generate(parsedResource, extraction, input.analysis);

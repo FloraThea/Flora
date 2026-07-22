@@ -16,6 +16,7 @@ import { metadataExtractor } from "./MetadataExtractor";
 import { notificationManager } from "./NotificationManager";
 import { segmentBuilder, vectorIndexer } from "./SegmentBuilder";
 import type { DocumentMetadataDraft, ImportJob } from "./types";
+import type { analyseResourceWithThea, TheaResourceAnalysis } from "@/lib/thea/analyseResource";
 
 export type AnalysisCheckpoint = {
   extractedText: string;
@@ -262,6 +263,106 @@ export class DocumentAnalyzer {
       );
     }
 
+    await this.runIndexingPhase({
+      document,
+      job,
+      documentId,
+      extractedText: checkpoint.extractedText,
+      classifiedType: checkpoint.classifiedType,
+      metadata: checkpoint.metadata,
+      analysisResult,
+    });
+  }
+
+  /** Reprend l'indexation lorsqu'un job était bloqué après l'analyse Théa. */
+  async resumeIndexingPhase(documentId: string, job: ImportJob): Promise<void> {
+    const { data: documentRow, error } = await (await floraDb())
+      .from("documents")
+      .select("*")
+      .eq("id", documentId)
+      .single();
+
+    if (error || !documentRow) {
+      failImportPipeline(
+        { step: "database_query", table: "documents", documentId, jobId: job.id },
+        error ?? new Error("Document introuvable."),
+      );
+    }
+
+    const document = documentRow as FloraDocument;
+    const metadata = (document.metadata ?? {}) as Record<string, unknown>;
+    const checkpoint = metadata.analysisCheckpoint as AnalysisCheckpoint | undefined;
+
+    let extractedText = checkpoint?.extractedText ?? "";
+    if (!extractedText.trim()) {
+      const { buffer, extension } = await loadDocumentFile(document);
+      if (canAnalyzeExtension(extension)) {
+        const extraction = await extractTextFromBuffer(buffer, document.original_filename);
+        extractedText = extraction.text;
+      }
+    }
+
+    if (!extractedText.trim()) {
+      failImportPipeline(
+        { step: "vectorization", documentId, jobId: job.id, fileName: document.original_filename },
+        new Error("Texte introuvable pour reprendre l'indexation."),
+      );
+    }
+
+    const analysisResult: TheaResourceAnalysis = {
+      title: document.title,
+      document_type: document.document_type,
+      cycle: document.cycle,
+      niveau: document.niveau,
+      matiere: document.matiere,
+      sous_matiere: document.sous_matiere,
+      methode: document.methode,
+      auteur: document.auteur,
+      editeur: document.editeur,
+      annee: document.annee,
+      resume: document.resume,
+      tags: [],
+      competences: [],
+      sections: [],
+    };
+
+    await this.runIndexingPhase({
+      document,
+      job,
+      documentId,
+      extractedText,
+      classifiedType: checkpoint?.classifiedType ?? document.document_type,
+      metadata: checkpoint?.metadata ?? {
+        title: document.title,
+        documentType: document.document_type,
+        discipline: document.matiere,
+        niveau: document.niveau,
+        methode: document.methode,
+        cycle: document.cycle,
+        langue: String(metadata.langue ?? ""),
+        pageCount: Number(metadata.page_count ?? null) || null,
+        imageCount: Number(metadata.image_count ?? 0),
+        tableCount: Number(metadata.table_count ?? 0),
+        auteur: document.auteur,
+        editeur: document.editeur,
+        annee: document.annee,
+      },
+      analysisResult,
+    });
+  }
+
+  private async runIndexingPhase(input: {
+    document: FloraDocument;
+    job: ImportJob;
+    documentId: string;
+    extractedText: string;
+    classifiedType: string;
+    metadata: AnalysisCheckpoint["metadata"];
+    analysisResult: TheaResourceAnalysis;
+  }): Promise<void> {
+    const { document, job, documentId, extractedText, classifiedType, metadata, analysisResult } =
+      input;
+
     await this.updateJob(job.id, {
       status: "indexing",
       progress: 80,
@@ -269,30 +370,44 @@ export class DocumentAnalyzer {
       metadata: {},
     });
 
-    const segments = segmentBuilder.buildSegments(checkpoint.extractedText, {
+    const segments = segmentBuilder.buildSegments(extractedText, {
       filename: document.original_filename,
-      documentType: checkpoint.classifiedType,
-      discipline: analysisResult.matiere || checkpoint.metadata.discipline,
-      niveau: analysisResult.niveau || checkpoint.metadata.niveau,
-      methode: analysisResult.methode || checkpoint.metadata.methode,
+      documentType: classifiedType,
+      discipline: analysisResult.matiere || metadata.discipline,
+      niveau: analysisResult.niveau || metadata.niveau,
+      methode: analysisResult.methode || metadata.methode,
       analysis: analysisResult,
     });
 
+    await this.updateJob(job.id, {
+      status: "indexing",
+      progress: 86,
+      stageLabel: "Enregistrement des segments…",
+    });
+
     await segmentBuilder.persistSegments(documentId, segments);
-    await vectorIndexer
-      .indexDocument({
+
+    await this.updateJob(job.id, {
+      status: "indexing",
+      progress: 92,
+      stageLabel: "Indexation pédagogique…",
+    });
+
+    try {
+      await vectorIndexer.indexDocument({
         documentId,
-        text: checkpoint.extractedText,
+        text: extractedText,
         filename: document.original_filename,
         analysis: analysisResult,
         metadata: document.metadata ?? {},
-      })
-      .catch((error) => {
-        failImportPipeline(
-          { step: "vectorization", documentId, jobId: job.id, fileName: document.original_filename },
-          error,
-        );
+        skipAiExtraction: true,
       });
+    } catch (error) {
+      failImportPipeline(
+        { step: "vectorization", documentId, jobId: job.id, fileName: document.original_filename },
+        error,
+      );
+    }
 
     await this.updateJob(job.id, {
       status: "completed",

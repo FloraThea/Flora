@@ -28,6 +28,13 @@ const COLUMNS = [
   "Remarques",
 ] as const;
 
+function joinCellParts(values: string[]): string {
+  return values.filter(Boolean).join(", ");
+}
+
+const cellTextClass =
+  "whitespace-pre-wrap break-words align-top text-sm leading-snug text-flora-text";
+
 export function ProgressionTableView({
   tab,
   highlightRowId,
@@ -88,7 +95,7 @@ export function ProgressionTableView({
         </div>
 
         <div className="flora-table-scroll">
-          <table className="min-w-[1200px] w-full border-separate border-spacing-y-2">
+          <table className="min-w-[1400px] w-full border-separate border-spacing-y-2">
             <thead>
               <tr>
                 {COLUMNS.map((column) => (
@@ -115,16 +122,34 @@ export function ProgressionTableView({
                     highlightRowId === row.id ? "ring-2 ring-sauge/60" : ""
                   }`}
                 >
-                  <td className="rounded-l-2xl px-3 py-3 text-sm">P{row.periodNumber}</td>
-                  <td className="px-3 py-3 text-sm">S{row.weekNumber}</td>
-                  <td className="px-3 py-3 text-sm">{row.sequenceModule}</td>
-                  <td className="px-3 py-3 text-sm">{row.seanceLabel}</td>
-                  <td className="px-3 py-3 text-sm">{row.competenceBo}</td>
-                  <td className="px-3 py-3 text-sm">{row.objectifs.slice(0, 2).join(", ")}</td>
-                  <td className="max-w-xs px-3 py-3 text-sm">{row.deroulement.slice(0, 80)}</td>
-                  <td className="px-3 py-3 text-sm">{row.materiel.slice(0, 2).join(", ")}</td>
-                  <td className="px-3 py-3 text-sm">{row.resources.slice(0, 2).join(", ")}</td>
-                  <td className="rounded-r-2xl px-3 py-3 text-sm">{row.remarques || row.commentaires}</td>
+                  <td className={`rounded-l-2xl px-3 py-3 ${cellTextClass}`}>
+                    P{row.periodNumber}
+                  </td>
+                  <td className={`px-3 py-3 ${cellTextClass}`}>S{row.weekNumber}</td>
+                  <td className={`min-w-[10rem] px-3 py-3 ${cellTextClass}`}>
+                    {row.sequenceModule}
+                  </td>
+                  <td className={`min-w-[10rem] px-3 py-3 ${cellTextClass}`}>
+                    {row.seanceLabel}
+                  </td>
+                  <td className={`min-w-[10rem] px-3 py-3 ${cellTextClass}`}>
+                    {row.competenceBo}
+                  </td>
+                  <td className={`min-w-[12rem] px-3 py-3 ${cellTextClass}`}>
+                    {joinCellParts(row.objectifs)}
+                  </td>
+                  <td className={`min-w-[16rem] px-3 py-3 ${cellTextClass}`}>
+                    {row.deroulement}
+                  </td>
+                  <td className={`min-w-[10rem] px-3 py-3 ${cellTextClass}`}>
+                    {joinCellParts(row.materiel)}
+                  </td>
+                  <td className={`min-w-[10rem] px-3 py-3 ${cellTextClass}`}>
+                    {joinCellParts(row.resources)}
+                  </td>
+                  <td className={`rounded-r-2xl min-w-[10rem] px-3 py-3 ${cellTextClass}`}>
+                    {row.remarques || row.commentaires}
+                  </td>
                 </tr>
               ))}
             </tbody>

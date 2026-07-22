@@ -2,6 +2,7 @@ import { floraDb } from "@/lib/supabase/get-db";
 import { IMPORT_CONFIG } from "./config";
 import { documentAnalyzer } from "./DocumentAnalyzer";
 import { failImportPipeline, importErrorToApiPayload } from "./import-error-diagnostics";
+import { isImportJobActivelyRunning, isImportJobStale } from "./import-queue-runner";
 import type { ImportJob } from "./types";
 import { notificationManager } from "./NotificationManager";
 
@@ -190,20 +191,166 @@ export class ImportQueue {
     }
   }
 
+  async recoverStaleJobs(): Promise<number> {
+    const { data: activeJobs } = await (await floraDb())
+      .from("document_import_jobs")
+      .select("*")
+      .in("status", ["extracting", "ocr", "analyzing", "indexing"]);
+
+    let recovered = 0;
+
+    for (const row of activeJobs ?? []) {
+      const job = mapJob(row);
+      if (!isImportJobStale(job)) continue;
+
+      const { data: documentRow } = await (await floraDb())
+        .from("documents")
+        .select("status, metadata")
+        .eq("id", job.documentId)
+        .maybeSingle();
+
+      if (documentRow?.status === "analysed" && job.status === "indexing") {
+        console.info("[import-queue] Reprise indexation job bloqué", {
+          jobId: job.id,
+          documentId: job.documentId,
+        });
+        try {
+          await documentAnalyzer.resumeIndexingPhase(job.documentId, job);
+          recovered += 1;
+          continue;
+        } catch (error) {
+          console.error("[import-queue] Reprise indexation échouée", error);
+        }
+      }
+
+      const checkpoint = (documentRow?.metadata as Record<string, unknown> | null)?.analysisCheckpoint;
+      await (await floraDb())
+        .from("document_import_jobs")
+        .update({
+          status: checkpoint ? "queued" : "failed",
+          stage_label: checkpoint
+            ? "Analyse interrompue — reprise automatique…"
+            : "Analyse interrompue (délai dépassé).",
+          error_message: checkpoint
+            ? ""
+            : "L'analyse a été interrompue par le serveur. Relancez l'import.",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+
+      recovered += 1;
+    }
+
+    return recovered;
+  }
+
+  /**
+   * Exécute l'analyse d'un document jusqu'à complétion, attente IA ou échec.
+   * À appeler depuis /api/documents/import/analyze (maxDuration 300s).
+   */
+  async processDocument(documentId: string, jobId?: string): Promise<ImportJob | null> {
+    await this.recoverStaleJobs();
+
+    let job =
+      (jobId ? await this.getJob(jobId) : null) ??
+      (await this.getJobForDocument(documentId));
+
+    if (!job) {
+      job = await this.enqueue(documentId);
+    }
+
+    if (job.status === "completed" || job.status === "cancelled") {
+      return job;
+    }
+
+    if (job.status === "waiting_ai") {
+      if (isDeferredJobReady(job)) {
+        await this.runJob(job);
+      }
+      return (await this.getJob(job.id)) ?? job;
+    }
+
+    if (isImportJobActivelyRunning(job)) {
+      return job;
+    }
+
+    if (job.status === "failed") {
+      job = await this.enqueue(documentId);
+    }
+
+    if (job.status === "queued" || job.status === "paused" || isImportJobStale(job)) {
+      if (job.status !== "queued") {
+        await (await floraDb())
+          .from("document_import_jobs")
+          .update({ status: "queued", paused: false, updated_at: new Date().toISOString() })
+          .eq("id", job.id);
+        job = { ...job, status: "queued", paused: false };
+      }
+      await this.runJob(job);
+    }
+
+    return (await this.getJob(job.id)) ?? job;
+  }
+
+  private async runJob(job: ImportJob): Promise<void> {
+    await (await floraDb())
+      .from("document_import_jobs")
+      .update({
+        status: "extracting",
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", job.id);
+
+    await notificationManager.notify({
+      documentId: job.documentId,
+      jobId: job.id,
+      type: "analysis_started",
+      message: "Analyse du document démarrée.",
+    });
+
+    try {
+      await documentAnalyzer.analyzeDocument(job.documentId, job);
+    } catch (error) {
+      const payload = importErrorToApiPayload(error);
+      await (await floraDb())
+        .from("document_import_jobs")
+        .update({
+          status: "failed",
+          error_message: payload.error,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+
+      await (await floraDb()).from("documents").update({ status: "error" }).eq("id", job.documentId);
+
+      await notificationManager.notify({
+        documentId: job.documentId,
+        jobId: job.id,
+        type: "analysis_failed",
+        message: payload.error,
+      });
+    }
+  }
+
   async processNext(): Promise<void> {
     if (processing) return;
     processing = true;
 
     try {
+      await this.recoverStaleJobs();
       await this.processDeferredReady();
 
       const { data: running } = await (await floraDb())
         .from("document_import_jobs")
-        .select("id")
-        .in("status", ["extracting", "ocr", "analyzing", "indexing"])
-        .limit(IMPORT_CONFIG.maxParallelJobs);
+        .select("id, status, updated_at")
+        .in("status", ["extracting", "ocr", "analyzing", "indexing"]);
 
-      if ((running?.length ?? 0) >= IMPORT_CONFIG.maxParallelJobs) return;
+      const activeCount = (running ?? []).filter((row) =>
+        isImportJobActivelyRunning(mapJob(row as Record<string, unknown>)),
+      ).length;
+
+      if (activeCount >= IMPORT_CONFIG.maxParallelJobs) return;
 
       const { data: nextJob } = await (await floraDb())
         .from("document_import_jobs")
@@ -216,47 +363,7 @@ export class ImportQueue {
 
       if (!nextJob) return;
 
-      const job = mapJob(nextJob);
-
-      await (await floraDb())
-        .from("document_import_jobs")
-        .update({
-          status: "extracting",
-          started_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", job.id);
-
-      await notificationManager.notify({
-        documentId: job.documentId,
-        jobId: job.id,
-        type: "analysis_started",
-        message: "Analyse du document démarrée.",
-      });
-
-      try {
-        await documentAnalyzer.analyzeDocument(job.documentId, job);
-      } catch (error) {
-        const payload = importErrorToApiPayload(error);
-        const message = payload.error;
-        await (await floraDb())
-          .from("document_import_jobs")
-          .update({
-            status: "failed",
-            error_message: message,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", job.id);
-
-        await (await floraDb()).from("documents").update({ status: "error" }).eq("id", job.documentId);
-
-        await notificationManager.notify({
-          documentId: job.documentId,
-          jobId: job.id,
-          type: "analysis_failed",
-          message,
-        });
-      }
+      await this.runJob(mapJob(nextJob));
     } finally {
       processing = false;
       void this.processNext();
