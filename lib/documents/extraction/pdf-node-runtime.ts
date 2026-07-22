@@ -1,9 +1,11 @@
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 /**
- * Charge pdf-parse via le build CJS Node (legacy pdf.js inliné).
- * Évite la résolution ESM/browser de pdfjs-dist/build/pdf.mjs qui exige DOMMatrix.
+ * Runtime PDF Node pour Flora (Vercel / Serverless).
+ *
+ * - `import("pdf-parse")` : bundlé par Next.js dans les chunks serveur (pas de node_modules runtime).
+ * - Polyfills canvas via require ancré sur process.cwd() pour @napi-rs/canvas (module natif externalisé).
  */
 export type FloraPdfParser = {
   getInfo: () => Promise<{
@@ -31,7 +33,11 @@ type PdfParseModule = {
 };
 
 let polyfillsInstalled = false;
-let pdfParseModule: PdfParseModule | null = null;
+let pdfParseModulePromise: Promise<PdfParseModule> | null = null;
+
+function getRootRequire() {
+  return createRequire(path.join(process.cwd(), "package.json"));
+}
 
 function installNodePdfPolyfills(): void {
   if (polyfillsInstalled) return;
@@ -42,8 +48,7 @@ function installNodePdfPolyfills(): void {
     typeof globalThis.Path2D === "undefined"
   ) {
     try {
-      const require = createRequire(fileURLToPath(import.meta.url));
-      const canvas = require("@napi-rs/canvas") as {
+      const canvas = getRootRequire()("@napi-rs/canvas") as {
         DOMMatrix?: typeof DOMMatrix;
         ImageData?: typeof ImageData;
         Path2D?: typeof Path2D;
@@ -66,16 +71,34 @@ function installNodePdfPolyfills(): void {
   polyfillsInstalled = true;
 }
 
-function loadPdfParseModule(): PdfParseModule {
-  if (!pdfParseModule) {
-    installNodePdfPolyfills();
-    const require = createRequire(fileURLToPath(import.meta.url));
-    pdfParseModule = require("pdf-parse") as PdfParseModule;
+async function loadPdfParseModule(): Promise<PdfParseModule> {
+  if (!pdfParseModulePromise) {
+    pdfParseModulePromise = (async () => {
+      installNodePdfPolyfills();
+
+      // Import dynamique : inclus dans le bundle serveur Next (évite « Cannot find module » sur Vercel).
+      try {
+        return (await import("pdf-parse")) as PdfParseModule;
+      } catch (importError) {
+        try {
+          return getRootRequire()("pdf-parse") as PdfParseModule;
+        } catch (requireError) {
+          const importMessage =
+            importError instanceof Error ? importError.message : String(importError);
+          const requireMessage =
+            requireError instanceof Error ? requireError.message : String(requireError);
+          throw new Error(
+            `Impossible de charger pdf-parse (import: ${importMessage}; require: ${requireMessage})`,
+          );
+        }
+      }
+    })();
   }
-  return pdfParseModule;
+
+  return pdfParseModulePromise;
 }
 
 export async function createNodePdfParser(buffer: Buffer): Promise<FloraPdfParser> {
-  const { PDFParse } = loadPdfParseModule();
+  const { PDFParse } = await loadPdfParseModule();
   return new PDFParse({ data: buffer });
 }
