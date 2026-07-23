@@ -3,6 +3,7 @@ import type {
   ParsedProgrammationImport,
   ProgrammationColumnField,
 } from "./types";
+import type { GridParseCandidate, GridParseDiagnostics } from "./grid-parse-diagnostics";
 import {
   dayOfWeekFromIsoDate,
   detectDateContradiction,
@@ -115,13 +116,53 @@ export function detectDelimiter(headerLine: string): string {
   return ",";
 }
 
-function normalizeHeader(header: string): string {
+export function normalizeHeader(header: string): string {
   return header
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/œ/g, "oe")
-    .replace(/æ/g, "ae");
+    .replace(/æ/g, "ae")
+    .replace(/['’]/g, "")
+    .trim();
+}
+
+const STRUCTURAL_HEADER_FIELDS: ProgrammationColumnField[] = [
+  "period",
+  "week",
+  "date",
+  "day",
+  "sequence",
+  "seance",
+  "objectif",
+  "competence",
+  "domaine",
+  "discipline",
+];
+
+function isWeekHeader(normalized: string): boolean {
+  if (normalized.includes("semaine") || normalized.includes("week")) return true;
+  if (/^sem\.?$/.test(normalized)) return true;
+  if (normalized === "s" || normalized === "sem") return true;
+  if (/^semaine\s*n/.test(normalized)) return true;
+  return false;
+}
+
+function isSeanceHeader(normalized: string): boolean {
+  if (normalized.includes("seance") || normalized.includes("lecon")) return true;
+  if (/^s\.?$/.test(normalized) && !isWeekHeader(normalized)) return true;
+  return false;
+}
+
+function isObjectifHeader(normalized: string): boolean {
+  return (
+    normalized.includes("objectif") ||
+    normalized.includes("oeuvre") ||
+    normalized.includes("theme") ||
+    normalized.includes("contenu") ||
+    normalized.includes("structure") ||
+    /^ce[12]\b/.test(normalized)
+  );
 }
 
 export function mapHeaderIndex(headers: string[]): Partial<Record<ProgrammationColumnField, number>> {
@@ -129,32 +170,115 @@ export function mapHeaderIndex(headers: string[]): Partial<Record<ProgrammationC
 
   headers.forEach((header, position) => {
     const normalized = normalizeHeader(header);
+    if (!normalized) return;
 
-    if (normalized.includes("periode") || normalized === "p") index.period = position;
-    if (normalized.includes("semaine") || normalized.includes("week")) index.week = position;
-    if (normalized.includes("date")) index.date = position;
-    if (normalized.includes("jour") || normalized.includes("day")) index.day = position;
-    if (normalized.includes("discipline") || normalized.includes("matiere")) index.discipline = position;
-    if (normalized.includes("niveau") || normalized.includes("classe")) index.niveau = position;
-    if (normalized.includes("sequence") || normalized.includes("module")) index.sequence = position;
-    if (normalized.includes("seance") || normalized.includes("lecon")) index.seance = position;
-    if (normalized.includes("objectif") || normalized.includes("oeuvre") || normalized.includes("theme")) {
-      index.objectif = position;
+    if (
+      (normalized.includes("periode") || normalized === "p" || normalized === "p.") &&
+      index.period === undefined
+    ) {
+      index.period = position;
     }
-    if (normalized.includes("artiste") || normalized.includes("auteur")) index.remarques = position;
-    if (normalized.includes("epoque") || normalized.includes("mouvement")) index.domaine = position;
-    if (normalized.includes("competence")) index.competence = position;
-    if (normalized.includes("notion")) index.notion = position;
-    if (normalized.includes("materiel")) index.materiel = position;
-    if (normalized.includes("ressource")) index.ressource = position;
-    if (normalized.includes("remarque")) index.remarques = position;
-    if (normalized.includes("deroulement")) index.deroulement = position;
-    if (normalized.includes("evaluation")) index.evaluation = position;
-    if (normalized.includes("differenciation")) index.differenciation = position;
-    if (normalized.includes("domaine")) index.domaine = position;
+    if (isWeekHeader(normalized) && index.week === undefined) index.week = position;
+    if (normalized.includes("date") && index.date === undefined) index.date = position;
+    if ((normalized.includes("jour") || normalized.includes("day")) && index.day === undefined) {
+      index.day = position;
+    }
+    if (
+      (normalized.includes("discipline") || normalized.includes("matiere")) &&
+      index.discipline === undefined
+    ) {
+      index.discipline = position;
+    }
+    if ((normalized.includes("niveau") || normalized.includes("classe")) && index.niveau === undefined) {
+      index.niveau = position;
+    }
+    if (
+      (normalized.includes("sequence") || normalized.includes("module")) &&
+      index.sequence === undefined
+    ) {
+      index.sequence = position;
+    }
+    if (isSeanceHeader(normalized) && index.seance === undefined) index.seance = position;
+    if (isObjectifHeader(normalized) && index.objectif === undefined) index.objectif = position;
+    if ((normalized.includes("artiste") || normalized.includes("auteur")) && index.remarques === undefined) {
+      index.remarques = position;
+    }
+    if (
+      (normalized.includes("epoque") || normalized.includes("mouvement")) &&
+      index.domaine === undefined
+    ) {
+      index.domaine = position;
+    }
+    if (normalized.includes("competence") && index.competence === undefined) index.competence = position;
+    if (normalized.includes("notion") && index.notion === undefined) index.notion = position;
+    if (normalized.includes("materiel") && index.materiel === undefined) index.materiel = position;
+    if (normalized.includes("ressource") && index.ressource === undefined) index.ressource = position;
+    if (normalized.includes("remarque") && index.remarques === undefined) index.remarques = position;
+    if (normalized.includes("deroulement") && index.deroulement === undefined) index.deroulement = position;
+    if (normalized.includes("evaluation") && index.evaluation === undefined) index.evaluation = position;
+    if (normalized.includes("differenciation") && index.differenciation === undefined) {
+      index.differenciation = position;
+    }
+    if (normalized.includes("domaine") && index.domaine === undefined) index.domaine = position;
   });
 
   return index;
+}
+
+function countNonEmptyCells(grid: string[][]): number {
+  return grid.reduce(
+    (total, row) => total + row.filter((cell) => String(cell ?? "").trim()).length,
+    0,
+  );
+}
+
+function isLegendOrFooterRow(row: string[]): boolean {
+  const text = row.join(" ").trim();
+  if (!text) return false;
+  return (
+    /fichier enti[eè]rement modifiable/i.test(text) ||
+    /jaune\s*=\s*semaine bonus/i.test(text) ||
+    /rouge\s*=\s*incoh[eé]rence/i.test(text) ||
+    /zone\s+[abc]\s+20\d{2}-20\d{2}/i.test(text) && text.length > 120
+  );
+}
+
+function looksLikeDataRow(row: string[]): boolean {
+  for (const cell of row) {
+    const text = String(cell ?? "").trim();
+    if (!text) continue;
+    if (/^m\d+$/i.test(text)) return true;
+    if (/^s\d+$/i.test(text)) return true;
+    if (/^\d+\s*s[ée]ances?$/i.test(text)) return true;
+    if (/^\d{1,2}\/\d{1,2}(?:\/\d{2,4})?$/.test(text)) return true;
+    if (/^\d+[.)]\s+\S/.test(text)) return true;
+  }
+  return false;
+}
+
+export function scoreHeaderRow(row: string[]): number {
+  const text = row.join(" ").trim();
+  if (!text) return 0;
+  if (/^[⛔⚠]/u.test(text)) return 0;
+  if (isLegendOrFooterRow(row)) return 0;
+  if (looksLikeDataRow(row)) return 0;
+
+  const compactCells = row.map((cell) => String(cell ?? "").trim()).filter(Boolean);
+  if (compactCells.length >= 3 && new Set(compactCells).size === 1 && compactCells[0].length > 60) {
+    return 0;
+  }
+
+  const headerIndex = mapHeaderIndex(row);
+  const fields = Object.keys(headerIndex) as ProgrammationColumnField[];
+  if (fields.length < 2) return 0;
+
+  const structuralCount = fields.filter((field) => STRUCTURAL_HEADER_FIELDS.includes(field)).length;
+  if (structuralCount < 2) return 0;
+
+  const filledCellCount = row.filter((cell) => String(cell ?? "").trim()).length;
+  if (filledCellCount > 8 && structuralCount < 3) return 0;
+
+  return fields.length + structuralCount * 3;
 }
 
 function rowFromCells(
@@ -168,6 +292,7 @@ function rowFromCells(
     periodTitle?: string;
     schoolYear?: string | null;
     discipline?: string;
+    headers?: string[];
   },
 ): ImportedProgrammationRow {
   const get = (key: ProgrammationColumnField) => {
@@ -219,11 +344,24 @@ function rowFromCells(
 
   const sequence = seqParsed.sequence || get("sequence");
   const seance = seanceParsed.seance || get("seance");
-  const objectif = get("objectif");
+  let objectif = get("objectif");
+  if (context?.headers) {
+    const objectifParts = context.headers
+      .map((header, index) => {
+        const normalized = normalizeHeader(header);
+        if (!isObjectifHeader(normalized)) return "";
+        return String(cells[index] ?? "").trim();
+      })
+      .filter(Boolean);
+    if (objectifParts.length > 0) {
+      objectif = [...new Set(objectifParts)].join("\n\n");
+    }
+  }
+  const periodFromColumn = periodRaw.match(/p[ée]riode\s*(\d+)/i);
   const periodNumber =
     context?.periodNumber ??
     parsed.period ??
-    (periodRaw ? Number(periodRaw.replace(/\D/g, "")) || null : null);
+    (periodFromColumn ? Number(periodFromColumn[1]) : null);
   const confidence = Math.max(
     weekParsed.confidence,
     seqParsed.confidence,
@@ -267,42 +405,52 @@ function rowFromCells(
 function findHeaderRow(grid: string[][]): {
   headerRowIndex: number;
   headerIndex: Partial<Record<ProgrammationColumnField, number>>;
+  score: number;
 } {
   let bestIndex = 0;
   let bestScore = 0;
   let bestHeaderIndex: Partial<Record<ProgrammationColumnField, number>> = {};
 
   for (let rowIndex = 0; rowIndex < grid.length; rowIndex += 1) {
-    const headerIndex = mapHeaderIndex(grid[rowIndex]);
-    const score = Object.keys(headerIndex).length;
+    const score = scoreHeaderRow(grid[rowIndex] ?? []);
     if (score > bestScore) {
       bestScore = score;
       bestIndex = rowIndex;
-      bestHeaderIndex = headerIndex;
+      bestHeaderIndex = mapHeaderIndex(grid[rowIndex] ?? []);
     }
   }
 
-  return { headerRowIndex: bestIndex, headerIndex: bestHeaderIndex };
+  return { headerRowIndex: bestIndex, headerIndex: bestHeaderIndex, score: bestScore };
 }
 
-function gridHasPeriodSections(grid: string[][]): boolean {
-  return grid.some((row) => /p[ée]riode\s*\d+/i.test(row.join(" ")));
+function isPeriodBannerRow(row: string[]): boolean {
+  const cells = row.map((cell) => String(cell ?? "").trim()).filter(Boolean);
+  if (cells.length === 0) return false;
+  const first = cells[0] ?? "";
+  if (!/^p[ée]riode\s*\d+/i.test(first)) return false;
+  if (cells.length === 1) return true;
+  if (cells.every((cell) => cell === first || /^p[ée]riode\s*\d+/i.test(cell))) return true;
+  return false;
+}
+
+function gridHasPeriodBanners(grid: string[][]): boolean {
+  return grid.some((row) => isPeriodBannerRow(row));
 }
 
 function parsePeriodBanner(row: string[]): { periodNumber: number; title: string } | null {
+  if (!isPeriodBannerRow(row)) return null;
   const text = String(row.find((cell) => String(cell ?? "").trim()) ?? "").trim();
-  const match = text.match(/p[ée]riode\s*(\d+)(?:\s*[—–-]\s*(.+))?$/i);
+  const match = text.match(/p[ée]riode\s*(\d+)/i);
   if (!match) return null;
-  return { periodNumber: Number(match[1]), title: (match[2] ?? "").trim() };
+  const titleMatch = text.match(/p[ée]riode\s*\d+\s*[—–-]\s*(.+)/i);
+  return {
+    periodNumber: Number(match[1]),
+    title: titleMatch?.[1]?.split(/\r?\n/)[0]?.trim() ?? "",
+  };
 }
 
 function isTableHeaderRow(row: string[]): boolean {
-  const headerIndex = mapHeaderIndex(row);
-  return (
-    Object.keys(headerIndex).length >= 2 &&
-    headerIndex.week !== undefined &&
-    headerIndex.date !== undefined
-  );
+  return scoreHeaderRow(row) >= 6;
 }
 
 function isSkippedImportRow(row: string[]): boolean {
@@ -312,7 +460,10 @@ function isSkippedImportRow(row: string[]): boolean {
   if (/vacances|armistice|fête du travail|fin de l'année scolaire|fichier entièrement modifiable/i.test(text)) {
     return true;
   }
-  if (/^p[ée]riode\s*\d+/i.test(text)) return true;
+  if (isLegendOrFooterRow(row)) return true;
+  if (/régulation\s*\/\s*différenciation|séances de régulation/i.test(text)) return true;
+  if (/^[🔁⏸🟡🔴]/u.test(text)) return true;
+  if (isPeriodBannerRow(row)) return true;
   if (isTableHeaderRow(row)) return true;
   return false;
 }
@@ -324,26 +475,39 @@ function isDataRow(row: string[], headerIndex: Partial<Record<ProgrammationColum
 
   const seanceRaw =
     headerIndex.seance !== undefined ? String(row[headerIndex.seance] ?? "").trim() : "";
-  if (seanceRaw && !/^s[ée]ance$/i.test(seanceRaw)) return true;
+  if (seanceRaw && !/^s[ée]ances?$/i.test(seanceRaw)) {
+    if (/\d+\s*s[ée]ances?/i.test(seanceRaw) || /s[ée]ance/i.test(seanceRaw)) return true;
+    if (!/^s[ée]ance$/i.test(seanceRaw)) return true;
+  }
+
+  const sequenceRaw =
+    headerIndex.sequence !== undefined ? String(row[headerIndex.sequence] ?? "").trim() : "";
+  if (/^m\d+$/i.test(sequenceRaw) || /module/i.test(sequenceRaw)) return true;
 
   const dateRaw =
     headerIndex.date !== undefined ? String(row[headerIndex.date] ?? "").trim() : "";
   if (dateRaw && /\d/.test(dateRaw)) return true;
 
+  const periodRaw =
+    headerIndex.period !== undefined ? String(row[headerIndex.period] ?? "").trim() : "";
+  if (/^p[ée]riode\s*\d+/i.test(periodRaw) && (sequenceRaw || seanceRaw)) return true;
+
   const joined = row.map((cell) => String(cell ?? "").trim()).filter(Boolean).join(" ");
   if (/^s\d+$/i.test(joined) || /semaine\s*\d+/i.test(joined)) return true;
 
   const nonEmptyCount = row.filter((cell) => String(cell ?? "").trim()).length;
-  return nonEmptyCount >= 3 && Boolean(weekRaw || dateRaw || seanceRaw);
+  return nonEmptyCount >= 3 && Boolean(weekRaw || dateRaw || seanceRaw || sequenceRaw || periodRaw);
 }
 
 function inferDisciplineFromGrid(grid: string[][]): string {
   const haystack = grid
-    .slice(0, 5)
+    .slice(0, 8)
     .map((row) => row.join(" "))
     .join("\n");
   if (/histoire\s+des\s+arts|\bhda\b/i.test(haystack)) return "Histoire des arts";
   if (/emc|enseignement moral/i.test(haystack)) return "EMC";
+  if (/anglais|english|let'?s learn english/i.test(haystack)) return "Anglais";
+  if (/mhm|math[eé]matiques|\bmhm\b/i.test(haystack)) return "Mathématiques";
   if (/fran[çc]ais/i.test(haystack)) return "Français";
   if (/math/i.test(haystack)) return "Mathématiques";
   return "";
@@ -413,6 +577,7 @@ function rowsFromGridWithSections(
         periodTitle: currentPeriodTitle,
         schoolYear,
         discipline,
+        headers,
       }),
     );
   }
@@ -420,7 +585,40 @@ function rowsFromGridWithSections(
   return { headers, headerRowIndex, headerIndex: currentHeaderIndex, rows, dataRows };
 }
 
-export function rowsFromGrid(
+function computeParseConfidence(
+  headerIndex: Partial<Record<ProgrammationColumnField, number>>,
+  headerScore: number,
+  rowCount: number,
+): number {
+  const mappedFields = Object.keys(headerIndex).length;
+  if (mappedFields < 2) return 0;
+  const structuralCount = Object.keys(headerIndex).filter((field) =>
+    STRUCTURAL_HEADER_FIELDS.includes(field as ProgrammationColumnField),
+  ).length;
+  const rowScore = Math.min(0.45, rowCount * 0.01);
+  const headerPart = Math.min(0.35, headerScore * 0.03 + mappedFields * 0.04);
+  const structurePart = Math.min(0.2, structuralCount * 0.05);
+  return Math.min(1, rowScore + headerPart + structurePart);
+}
+
+function detectTableZone(
+  grid: string[][],
+  headerRowIndex: number,
+  dataRowCount: number,
+): GridParseCandidate["zone"] {
+  let endRow = grid.length - 1;
+  while (endRow > headerRowIndex && isLegendOrFooterRow(grid[endRow] ?? [])) {
+    endRow -= 1;
+  }
+
+  return {
+    startRow: headerRowIndex,
+    endRow: Math.max(headerRowIndex, headerRowIndex + dataRowCount),
+    colCount: grid[0]?.length ?? 0,
+  };
+}
+
+function parseGridInternal(
   grid: string[][],
   columnMapping?: Partial<Record<ProgrammationColumnField, number>>,
   context?: { sourceSheet?: string },
@@ -430,6 +628,9 @@ export function rowsFromGrid(
   headerIndex: Partial<Record<ProgrammationColumnField, number>>;
   rows: ImportedProgrammationRow[];
   dataRows: string[][];
+  mode: GridParseCandidate["mode"];
+  confidence: number;
+  rejectReason?: string;
 } {
   if (grid.length === 0) {
     return {
@@ -438,32 +639,57 @@ export function rowsFromGrid(
       headerIndex: {},
       rows: [],
       dataRows: [],
+      mode: "none",
+      confidence: 0,
+      rejectReason: "empty_grid",
     };
   }
 
-  const filledGrid = gridHasPeriodSections(grid) ? grid : forwardFillGridRows(grid);
+  const filledGrid = gridHasPeriodBanners(grid) ? grid : forwardFillGridRows(grid);
 
-  if (gridHasPeriodSections(filledGrid)) {
-    return rowsFromGridWithSections(filledGrid, columnMapping, context);
+  if (gridHasPeriodBanners(filledGrid)) {
+    const parsed = rowsFromGridWithSections(filledGrid, columnMapping, context);
+    const headerScore = scoreHeaderRow(parsed.headers);
+    const confidence = computeParseConfidence(parsed.headerIndex, headerScore, parsed.rows.length);
+    return {
+      ...parsed,
+      mode: parsed.rows.length > 0 ? "sections" : "sections",
+      confidence,
+      rejectReason:
+        parsed.rows.length === 0
+          ? Object.keys(parsed.headerIndex).length < 2
+            ? "sections_headers_not_mapped"
+            : "sections_no_data_rows"
+          : undefined,
+    };
   }
 
-  const { headerRowIndex, headerIndex: detectedIndex } = findHeaderRow(filledGrid);
+  const { headerRowIndex, headerIndex: detectedIndex, score: headerScore } = findHeaderRow(filledGrid);
   const headers = filledGrid[headerRowIndex] ?? [];
   const headerIndex =
     columnMapping && Object.keys(columnMapping).length > 0 ? columnMapping : detectedIndex;
-  const hasHeader = Object.keys(headerIndex).length >= 2;
+  const hasHeader = Object.keys(headerIndex).length >= 2 && headerScore >= 6;
   const dataRows = hasHeader ? filledGrid.slice(headerRowIndex + 1) : filledGrid;
   const rows: ImportedProgrammationRow[] = [];
+  const schoolYear = inferSchoolYearFromGrid(filledGrid);
+  const discipline = inferDisciplineFromGrid(filledGrid);
 
   for (let rowOffset = 0; rowOffset < dataRows.length; rowOffset += 1) {
     const cells = dataRows[rowOffset];
-    if (cells.every((cell) => !String(cell ?? "").trim())) continue;
+    if (!cells?.some((cell) => String(cell ?? "").trim())) continue;
+    if (isLegendOrFooterRow(cells)) continue;
+    if (isSkippedImportRow(cells)) continue;
+    if (hasHeader && isTableHeaderRow(cells)) continue;
+    if (hasHeader && !isDataRow(cells, headerIndex)) continue;
 
     if (hasHeader) {
       rows.push(
         rowFromCells(cells, headerIndex, cells.join(" | "), {
           sourceSheet: context?.sourceSheet,
           sourceRowIndex: headerRowIndex + 1 + rowOffset,
+          schoolYear,
+          discipline,
+          headers,
         }),
       );
       continue;
@@ -499,7 +725,191 @@ export function rowsFromGrid(
     });
   }
 
-  return { headers, headerRowIndex, headerIndex, rows, dataRows };
+  const confidence = computeParseConfidence(headerIndex, headerScore, rows.length);
+  return {
+    headers,
+    headerRowIndex,
+    headerIndex,
+    rows,
+    dataRows,
+    mode: rows.length > 0 ? "flat" : hasHeader ? "flat" : "none",
+    confidence,
+    rejectReason:
+      rows.length === 0
+        ? !hasHeader
+          ? "headers_not_found"
+          : "no_data_rows_after_headers"
+        : undefined,
+  };
+}
+
+export function parseBestSheetGrid(
+  sheets: Array<{ sheetName: string; grid: string[][] }>,
+  columnMapping?: Partial<Record<ProgrammationColumnField, number>>,
+): {
+  sheetName: string;
+  headers: string[];
+  headerRowIndex: number;
+  headerIndex: Partial<Record<ProgrammationColumnField, number>>;
+  rows: ImportedProgrammationRow[];
+  dataRows: string[][];
+  diagnostics: GridParseDiagnostics;
+} {
+  let best:
+    | {
+        sheetName: string;
+        headers: string[];
+        headerRowIndex: number;
+        headerIndex: Partial<Record<ProgrammationColumnField, number>>;
+        rows: ImportedProgrammationRow[];
+        dataRows: string[][];
+        diagnostics: GridParseDiagnostics;
+      }
+    | undefined;
+
+  const candidates: GridParseCandidate[] = [];
+
+  for (const sheet of sheets) {
+    const parsed = parseGridInternal(sheet.grid, columnMapping, { sourceSheet: sheet.sheetName });
+    const zone = detectTableZone(sheet.grid, parsed.headerRowIndex, parsed.rows.length);
+    const confidence = computeParseConfidence(
+      parsed.headerIndex,
+      scoreHeaderRow(parsed.headers),
+      parsed.rows.length,
+    );
+    const candidate: GridParseCandidate = {
+      sheetName: sheet.sheetName,
+      mode: parsed.mode,
+      headerRowIndex: parsed.headerRowIndex,
+      headerIndex: parsed.headerIndex,
+      headers: parsed.headers,
+      rowCount: parsed.rows.length,
+      confidence,
+      rejectReason: parsed.rejectReason,
+      zone,
+    };
+    candidates.push(candidate);
+
+    const score = confidence + parsed.rows.length * 0.01;
+    const bestScore = best
+      ? best.diagnostics.confidence + best.rows.length * 0.01
+      : -1;
+
+    if (score > bestScore) {
+      best = {
+        sheetName: sheet.sheetName,
+        headers: parsed.headers,
+        headerRowIndex: parsed.headerRowIndex,
+        headerIndex: parsed.headerIndex,
+        rows: parsed.rows,
+        dataRows: parsed.dataRows,
+        diagnostics: {
+          sheetName: sheet.sheetName,
+          dimensions: {
+            rows: sheet.grid.length,
+            cols: sheet.grid[0]?.length ?? 0,
+            nonEmptyCells: countNonEmptyCells(sheet.grid),
+          },
+          zone,
+          mode: parsed.mode,
+          headerRowIndex: parsed.headerRowIndex,
+          headers: parsed.headers,
+          headerIndex: parsed.headerIndex,
+          confidence,
+          rowCount: parsed.rows.length,
+          rejectReason: parsed.rejectReason,
+          candidates: [],
+        },
+      };
+    }
+  }
+
+  if (!best) {
+    return {
+      sheetName: sheets[0]?.sheetName ?? "",
+      headers: [],
+      headerRowIndex: 0,
+      headerIndex: {},
+      rows: [],
+      dataRows: [],
+      diagnostics: {
+        dimensions: { rows: 0, cols: 0, nonEmptyCells: 0 },
+        zone: { startRow: 0, endRow: 0, colCount: 0 },
+        mode: "none",
+        headerRowIndex: 0,
+        headers: [],
+        headerIndex: {},
+        confidence: 0,
+        rowCount: 0,
+        rejectReason: "no_sheets",
+        candidates,
+      },
+    };
+  }
+
+  best.diagnostics.candidates = candidates.sort(
+    (left, right) => right.confidence + right.rowCount * 0.01 - (left.confidence + left.rowCount * 0.01),
+  );
+
+  return best;
+}
+
+export function analyzeGridParse(
+  grid: string[][],
+  context?: { sourceSheet?: string },
+): GridParseDiagnostics {
+  const parsed = parseGridInternal(grid, undefined, context);
+  const zone = detectTableZone(grid, parsed.headerRowIndex, parsed.rows.length);
+  const candidate: GridParseCandidate = {
+    sheetName: context?.sourceSheet,
+    mode: parsed.mode,
+    headerRowIndex: parsed.headerRowIndex,
+    headerIndex: parsed.headerIndex,
+    headers: parsed.headers,
+    rowCount: parsed.rows.length,
+    confidence: parsed.confidence,
+    rejectReason: parsed.rejectReason,
+    zone,
+  };
+
+  return {
+    sheetName: context?.sourceSheet,
+    dimensions: {
+      rows: grid.length,
+      cols: grid[0]?.length ?? 0,
+      nonEmptyCells: countNonEmptyCells(grid),
+    },
+    zone,
+    mode: parsed.mode,
+    headerRowIndex: parsed.headerRowIndex,
+    headers: parsed.headers,
+    headerIndex: parsed.headerIndex,
+    confidence: parsed.confidence,
+    rowCount: parsed.rows.length,
+    rejectReason: parsed.rejectReason,
+    candidates: [candidate],
+  };
+}
+
+export function rowsFromGrid(
+  grid: string[][],
+  columnMapping?: Partial<Record<ProgrammationColumnField, number>>,
+  context?: { sourceSheet?: string },
+): {
+  headers: string[];
+  headerRowIndex: number;
+  headerIndex: Partial<Record<ProgrammationColumnField, number>>;
+  rows: ImportedProgrammationRow[];
+  dataRows: string[][];
+} {
+  const parsed = parseGridInternal(grid, columnMapping, context);
+  return {
+    headers: parsed.headers,
+    headerRowIndex: parsed.headerRowIndex,
+    headerIndex: parsed.headerIndex,
+    rows: parsed.rows,
+    dataRows: parsed.dataRows,
+  };
 }
 
 export function parseStructuredText(text: string): ImportedProgrammationRow[] {

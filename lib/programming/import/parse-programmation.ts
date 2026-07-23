@@ -25,6 +25,7 @@ import {
   resolveImportFileName,
 } from "@/lib/import/accepted-formats";
 import { logExcelReadDiagnostics } from "@/lib/import/read-excel-workbook";
+import { logGridParseDiagnostics } from "./grid-parse-diagnostics";
 import { buildSourceDocumentForImport } from "@/lib/import/extract-source-document";
 
 function isImageFormat(fileName: string, mimeType?: string): boolean {
@@ -148,6 +149,16 @@ export async function parseProgrammationFile(input: {
     headerIndex = parsedGrid.headerIndex;
     extractedTextPreview = buildPreviewText(columns, parsedGrid.dataRows);
 
+    logGridParseDiagnostics(input.fileName, {
+      ...workbook.gridParseDiagnostics,
+      headerRowIndex: parsedGrid.headerRowIndex,
+      headers: parsedGrid.headers,
+      headerIndex: parsedGrid.headerIndex,
+      rowCount: parsedGrid.rows.length,
+      rejectReason:
+        parsedGrid.rows.length === 0 ? workbook.gridParseDiagnostics.rejectReason : undefined,
+    });
+
     if (workbook.diagnostics.nonEmptyCells === 0) {
       warnings.push("La feuille Excel sélectionnée ne contient aucune cellule non vide.");
     } else if (workbook.grid.length === 0) {
@@ -264,14 +275,26 @@ export async function parseProgrammationFile(input: {
         (total, row) => total + row.filter((cell) => String(cell ?? "").trim()).length,
         0,
       );
-      logExcelReadDiagnostics(input.fileName, {
-        sheetCount: sheetNames?.length ?? 1,
-        activeSheet: activeSheetName ?? "",
-        rowCount: sourceGrid.length,
-        colCount: sourceGrid[0]?.length ?? 0,
-        nonEmptyCells: cellCount,
-        mergeCount: 0,
+      logGridParseDiagnostics(input.fileName, {
+        sheetName: activeSheetName,
+        dimensions: {
+          rows: sourceGrid.length,
+          cols: sourceGrid[0]?.length ?? 0,
+          nonEmptyCells: cellCount,
+        },
+        zone: {
+          startRow: headerRowIndex,
+          endRow: sourceGrid.length - 1,
+          colCount: sourceGrid[0]?.length ?? 0,
+        },
+        mode: "none",
+        headerRowIndex,
+        headers: columns,
+        headerIndex,
+        confidence: 0,
+        rowCount: 0,
         rejectReason: "no_structured_rows",
+        candidates: [],
       });
       warnings.push(
         `Données détectées (${cellCount} cellules non vides) mais aucune ligne structurée reconnue. Associez les colonnes ou vérifiez les en-têtes (période, semaine, séance…).`,

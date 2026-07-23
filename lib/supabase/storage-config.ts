@@ -54,3 +54,13 @@ export function buildProgressionStoragePath(profileId: string, filename: string)
   const safeName = filename.replace(/[^\w.\- ]+/g, "_");
   return `progressions/${profileId}/${Date.now()}-${safeName}`;
 }
+
+export function buildSequenceStoragePath(profileId: string, filename: string): string {
+  const safeName = filename.replace(/[^\w.\- ]+/g, "_");
+  return `sequences/${profileId}/${Date.now()}-${safeName}`;
+}
+
+export function buildSeanceStoragePath(profileId: string, filename: string): string {
+  const safeName = filename.replace(/[^\w.\- ]+/g, "_");
+  return `seances/${profileId}/${Date.now()}-${safeName}`;
+}

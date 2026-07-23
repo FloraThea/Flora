@@ -6,6 +6,8 @@
 export const UNIFIED_IMPORT_MODULES = [
   "programmation",
   "progression",
+  "sequence",
+  "seance",
   "timetable",
   "document",
 ] as const;
@@ -42,7 +44,7 @@ export type UnifiedImportPage = {
 };
 
 export type UnifiedImportBatchConfig = {
-  module: "programmation" | "progression" | "timetable" | "document";
+  module: "programmation" | "progression" | "sequence" | "seance" | "timetable" | "document";
   batchId: string;
   profileId: string;
   schoolYear: string;

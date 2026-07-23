@@ -243,6 +243,20 @@ async function insertSeanceRecord(input: {
   return loadSeance(String(seance.id)) as Promise<SeancePayload>;
 }
 
+export async function insertSeanceRecordForImport(input: {
+  draft: SeanceDraft;
+  sequenceSessionId: string | null;
+  sequenceId: string | null;
+  progressionId: string | null;
+  progressionRowId: string | null;
+  programmationId: string | null;
+  teacherProfileId?: string | null;
+  linkMode: "linked" | "independent";
+  importMeta?: Record<string, unknown>;
+}): Promise<SeancePayload> {
+  return insertSeanceRecord(input);
+}
+
 export async function saveSeance(input: {
   draft: SeanceDraft;
   sequenceSessionId: string;

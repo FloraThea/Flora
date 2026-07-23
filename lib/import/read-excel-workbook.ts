@@ -216,6 +216,60 @@ function pickBestSheet(
   return { sheetName: bestName, grid: bestGrid, stats: bestStats };
 }
 
+export function readSheetGridFromWorksheet(sheet: XLSX.WorkSheet, sheetName = ""): {
+  grid: string[][];
+  stats: ExcelSheetStats;
+} {
+  const result = readSheetGrid(sheet);
+  return {
+    grid: result.grid,
+    stats: { ...result.stats, sheetName },
+  };
+}
+
+export function readAllWorkbookSheets(
+  buffer: Buffer,
+  fileName: string,
+): {
+  sheetNames: string[];
+  sheets: Array<{ sheetName: string; grid: string[][]; stats: ExcelSheetStats }>;
+} {
+  const lower = fileName.toLowerCase();
+  if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls")) {
+    throw new Error("Format Excel attendu (.xlsx ou .xls).");
+  }
+
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(buffer, {
+      type: "buffer",
+      cellDates: true,
+      raw: false,
+      cellText: true,
+    });
+  } catch (firstError) {
+    workbook = XLSX.read(buffer, {
+      type: "buffer",
+      cellDates: false,
+      raw: true,
+    });
+    if (!workbook.SheetNames.length) {
+      throw firstError instanceof Error ? firstError : new Error("Lecture Excel impossible.");
+    }
+  }
+
+  if (workbook.SheetNames.length === 0) {
+    throw new Error("Le fichier Excel ne contient aucune feuille.");
+  }
+
+  const sheets = workbook.SheetNames.map((sheetName) => {
+    const result = readSheetGridFromWorksheet(workbook.Sheets[sheetName]!, sheetName);
+    return { sheetName, grid: result.grid, stats: result.stats };
+  });
+
+  return { sheetNames: workbook.SheetNames, sheets };
+}
+
 export function readExcelWorkbook(
   buffer: Buffer,
   fileName: string,

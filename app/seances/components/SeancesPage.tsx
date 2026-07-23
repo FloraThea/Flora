@@ -15,6 +15,7 @@ import type { SeanceCardSummary, SeancePayload, SeanceViewMode } from "@/lib/sea
 import { colors } from "@/lib/theme";
 import { PedagogicalStartMenu } from "@/components/pedagogical/PedagogicalStartMenu";
 import { IndependentSeanceForm } from "./IndependentSeanceForm";
+import { SeanceImportWizard } from "./SeanceImportWizard";
 import { SeanceCard } from "./SeanceCard";
 import { SeanceDetailModal } from "./SeanceDetailModal";
 import {
@@ -44,7 +45,7 @@ function SeancesPageContent() {
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [isLoadingSequences, setIsLoadingSequences] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [flowMode, setFlowMode] = useState<null | "menu" | "linked" | "independent">("menu");
+  const [flowMode, setFlowMode] = useState<null | "menu" | "linked" | "independent" | "import">("menu");
   const [independentSeances, setIndependentSeances] = useState<SeanceCardSummary[]>([]);
   const [allSeances, setAllSeances] = useState<Array<Record<string, unknown>>>([]);
 
@@ -339,7 +340,7 @@ function SeancesPageContent() {
 
       <PedagogicalModuleToolbar
         importLabel="Importer une séance"
-        onImport={() => setFlowMode("independent")}
+        onImport={() => setFlowMode("import")}
         onCreateManual={() => setFlowMode("independent")}
       />
 
@@ -351,7 +352,7 @@ function SeancesPageContent() {
           items={seanceListItems}
           selectedId={selectedPayload?.seance.id}
           onSelect={(id) => void openSeance(id)}
-          onImport={() => setFlowMode("independent")}
+          onImport={() => setFlowMode("import")}
           onCreateManual={() => setFlowMode("independent")}
           onMoveSubject={(id, matiere, sousMatiere) =>
             void handleMoveSeanceSubject(id, matiere, sousMatiere)
@@ -374,9 +375,9 @@ function SeancesPageContent() {
             {
               id: "import",
               title: "Importer une séance",
-              description: "Excel, PDF ou JPG — bientôt disponible.",
-              disabled: true,
-              onSelect: () => undefined,
+              description: "Excel, Word, PDF ou JPG — analyse automatique et liaison aux séquences.",
+              badge: "Import",
+              onSelect: () => setFlowMode("import"),
             },
             {
               id: "from-sequence",
@@ -392,6 +393,19 @@ function SeancesPageContent() {
               onSelect: () => setFlowMode("independent"),
             },
           ]}
+        />
+      ) : null}
+
+      {flowMode === "import" ? (
+        <SeanceImportWizard
+          onComplete={(payload) => {
+            if (payload.seances[0]) setSelectedPayload(payload.seances[0]);
+            setFlowMode("menu");
+            void loadAllSeances();
+            void loadIndependentSeances();
+            setError(null);
+          }}
+          onClose={() => setFlowMode("menu")}
         />
       ) : null}
 

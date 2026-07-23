@@ -2,11 +2,15 @@ import type { UnifiedImportBatchConfig, UnifiedImportEngine } from "./unified-im
 import { documentImportEngine } from "./engines/document-engine";
 import { programmationImportEngine } from "./engines/programmation-engine";
 import { progressionImportEngine } from "./engines/progression-engine";
+import { sequenceImportEngine } from "./engines/sequence-engine";
+import { seanceImportEngine } from "./engines/seance-engine";
 import { timetableImportEngine } from "./engines/timetable-engine";
 
 export { documentImportEngine } from "./engines/document-engine";
 export { programmationImportEngine } from "./engines/programmation-engine";
 export { progressionImportEngine } from "./engines/progression-engine";
+export { sequenceImportEngine } from "./engines/sequence-engine";
+export { seanceImportEngine } from "./engines/seance-engine";
 export { timetableImportEngine } from "./engines/timetable-engine";
 
 export function getUnifiedImportEngine(
@@ -17,6 +21,10 @@ export function getUnifiedImportEngine(
       return programmationImportEngine as UnifiedImportEngine<unknown, unknown, unknown>;
     case "progression":
       return progressionImportEngine as UnifiedImportEngine<unknown, unknown, unknown>;
+    case "sequence":
+      return sequenceImportEngine as UnifiedImportEngine<unknown, unknown, unknown>;
+    case "seance":
+      return seanceImportEngine as UnifiedImportEngine<unknown, unknown, unknown>;
     case "timetable":
       return timetableImportEngine as UnifiedImportEngine<unknown, unknown, unknown>;
     case "document":

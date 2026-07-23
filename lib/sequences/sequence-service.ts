@@ -136,6 +136,18 @@ async function insertSequenceRecord(input: {
   );
 }
 
+export async function insertSequenceRecordForImport(input: {
+  draft: SequenceDraft;
+  progressionId: string | null;
+  progressionRowId: string | null;
+  programmationId: string | null;
+  progressionTabId?: string | null;
+  linkMode: "linked" | "independent";
+  importMeta?: Record<string, unknown>;
+}): Promise<SequencePayload> {
+  return insertSequenceRecord(input);
+}
+
 export async function saveSequence(input: {
   draft: SequenceDraft;
   progressionId: string;

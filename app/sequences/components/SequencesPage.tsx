@@ -17,6 +17,7 @@ import { PedagogicalStartMenu } from "@/components/pedagogical/PedagogicalStartM
 import { SequenceCard } from "./SequenceCard";
 import { SequenceDetailModal } from "./SequenceDetailModal";
 import { IndependentSequenceForm } from "./IndependentSequenceForm";
+import { SequenceImportWizard } from "./SequenceImportWizard";
 import {
   initialSequencesFormValues,
   type ProgressionRowOption,
@@ -43,7 +44,7 @@ function SequencesPageContent() {
   const [generatingRowId, setGeneratingRowId] = useState<string | null>(null);
   const [isLoadingProgressions, setIsLoadingProgressions] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [flowMode, setFlowMode] = useState<null | "linked" | "independent">(null);
+  const [flowMode, setFlowMode] = useState<null | "linked" | "independent" | "import">(null);
   const [allSequences, setAllSequences] = useState<
     Array<Record<string, unknown>>
   >([]);
@@ -267,7 +268,7 @@ function SequencesPageContent() {
 
       <PedagogicalModuleToolbar
         importLabel="Importer une séquence"
-        onImport={() => setFlowMode("independent")}
+        onImport={() => setFlowMode("import")}
         onCreateManual={() => setFlowMode("independent")}
       />
 
@@ -279,7 +280,7 @@ function SequencesPageContent() {
           items={sequenceListItems}
           selectedId={selectedPayload?.sequence.id}
           onSelect={(id) => void openSequence(id)}
-          onImport={() => setFlowMode("independent")}
+          onImport={() => setFlowMode("import")}
           onCreateManual={() => setFlowMode("independent")}
           onMoveSubject={(id, matiere, sousMatiere) =>
             void handleMoveSequenceSubject(id, matiere, sousMatiere)
@@ -302,9 +303,9 @@ function SequencesPageContent() {
             {
               id: "import",
               title: "Importer une séquence",
-              description: "Excel, PDF ou JPG — bientôt disponible dans l'assistant d'import.",
-              disabled: true,
-              onSelect: () => setFlowMode("independent"),
+              description: "Excel, Word, PDF ou JPG — analyse automatique et liaison aux progressions.",
+              badge: "Import",
+              onSelect: () => setFlowMode("import"),
             },
             {
               id: "from-progression",
@@ -315,6 +316,18 @@ function SequencesPageContent() {
               disabled: progressions.length === 0 && !isLoadingProgressions,
             },
           ]}
+        />
+      ) : null}
+
+      {flowMode === "import" ? (
+        <SequenceImportWizard
+          onComplete={(payload) => {
+            if (payload.sequences[0]) setSelectedPayload(payload.sequences[0]);
+            setFlowMode(null);
+            void loadAllSequences();
+            setError(null);
+          }}
+          onClose={() => setFlowMode(null)}
         />
       ) : null}
 
