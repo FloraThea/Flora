@@ -3,8 +3,9 @@ import type { StoredSeance } from "@/lib/seances/types";
 import { lessonAssembler } from "./LessonAssembler";
 import type { JournalScheduleSlot } from "./journal-timetable";
 import { isNonPedagogicalSlot } from "./journal-slot-utils";
+import { ritualAssembler } from "./RitualAssembler";
 import type { ResolvedSchoolDay } from "./ScheduleEngine";
-import type { JournalEntry, JournalResources } from "./types";
+import type { JournalEntry, JournalResources, RitualDefinition } from "./types";
 
 function buildBreakEntry(input: {
   journalId: string;
@@ -51,6 +52,13 @@ function buildBreakEntry(input: {
   };
 }
 
+function findProfileRitualForSlot(
+  profile: TeacherProfileBundle,
+  slot: JournalScheduleSlot,
+): RitualDefinition | null {
+  return ritualAssembler.findRitualForJournalSlot({ profile, slot });
+}
+
 export class DailyPlanner {
   planDay(input: {
     journalId: string;
@@ -59,9 +67,11 @@ export class DailyPlanner {
     seances: StoredSeance[];
     resourcesByMatiere: Record<string, JournalResources>;
     linkSeances?: boolean;
+    restitutionMode?: boolean;
   }): Omit<JournalEntry, "id" | "observation">[] {
     const entries: Omit<JournalEntry, "id" | "observation">[] = [];
     let sortOrder = 1;
+    const shouldLink = input.linkSeances ?? input.restitutionMode ?? false;
 
     for (const slot of input.resolvedDay.slots as JournalScheduleSlot[]) {
       if (isNonPedagogicalSlot(slot.slotType)) {
@@ -76,8 +86,32 @@ export class DailyPlanner {
         continue;
       }
 
+      if (input.restitutionMode && slot.slotType === "rituel") {
+        const ritual = findProfileRitualForSlot(input.profile, slot);
+        if (ritual) {
+          entries.push(
+            lessonAssembler.buildRitualEntryFromProfile({
+              journalId: input.journalId,
+              sortOrder,
+              slot,
+              ritual,
+            }),
+          );
+        } else {
+          entries.push(
+            lessonAssembler.buildEmptySlotEntry({
+              journalId: input.journalId,
+              sortOrder,
+              slot: { ...slot, slotType: "rituel" },
+            }),
+          );
+        }
+        sortOrder += 1;
+        continue;
+      }
+
       const seance =
-        input.linkSeances === true
+        shouldLink
           ? lessonAssembler.findSeanceForSlot(input.seances, slot, input.resolvedDay.date)
           : null;
 
@@ -89,6 +123,14 @@ export class DailyPlanner {
             slot,
             seance,
             libraryResources: input.resourcesByMatiere[seance.matiere.toLowerCase()],
+          }),
+        );
+      } else if (input.restitutionMode) {
+        entries.push(
+          lessonAssembler.buildMissingSeanceEntry({
+            journalId: input.journalId,
+            sortOrder,
+            slot,
           }),
         );
       } else {

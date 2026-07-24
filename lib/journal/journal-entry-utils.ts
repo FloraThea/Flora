@@ -2,6 +2,7 @@ import type { JournalEntry } from "./types";
 
 export function isJournalEntryProtected(entry: JournalEntry): boolean {
   const fillState = String(entry.metadata.fillState ?? "");
+  if (fillState === "missing") return false;
   if (fillState === "manual" || fillState === "generated" || fillState === "linked") {
     return Boolean(entry.objectif?.trim() || entry.competence?.trim() || entry.organisation?.trim());
   }

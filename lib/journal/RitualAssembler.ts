@@ -86,6 +86,29 @@ export class RitualAssembler {
     );
     return match ?? null;
   }
+
+  findRitualForJournalSlot(input: {
+    profile: TeacherProfileBundle;
+    slot: TimetableSlot & { slotType?: string };
+  }): RitualDefinition | null {
+    const rituals = parseProfileRituals(input.profile);
+    if (rituals.length === 0) return null;
+
+    const subject = input.slot.subject.toLowerCase();
+    const byLabel = rituals.find((ritual) => ritual.label.toLowerCase() === subject);
+    if (byLabel) return byLabel;
+
+    if (input.slot.slotType === "rituel") {
+      const byPartialLabel = rituals.find(
+        (ritual) =>
+          ritual.label.toLowerCase().includes(subject) ||
+          subject.includes(ritual.label.toLowerCase()),
+      );
+      if (byPartialLabel) return byPartialLabel;
+    }
+
+    return this.attachRitualToSlot(rituals, input.slot);
+  }
 }
 
 export const ritualAssembler = new RitualAssembler();

@@ -1,4 +1,5 @@
 import { floraDb } from "@/lib/supabase/get-db";
+import type { StoredSeance } from "@/lib/seances/types";
 import { computeProgressPercents } from "./ProgressCalculator";
 import { teachingDashboard } from "./TeachingDashboard";
 import type {
@@ -458,6 +459,76 @@ export async function saveJournalExport(input: {
     content: input.content,
   });
   if (error) throw new Error(error.message);
+}
+
+export function mapSeanceRow(row: Record<string, unknown>): StoredSeance {
+  return {
+    id: String(row.id),
+    sequenceSessionId: String(row.sequence_session_id ?? ""),
+    sequenceId: String(row.sequence_id ?? ""),
+    progressionId: String(row.progression_id ?? ""),
+    progressionRowId: String(row.progression_row_id ?? ""),
+    programmationId: String(row.programmation_id ?? ""),
+    teacherProfileId: row.teacher_profile_id ? String(row.teacher_profile_id) : null,
+    title: String(row.title ?? ""),
+    matiere: String(row.matiere ?? ""),
+    sousMatiere: String(row.sous_matiere ?? ""),
+    niveau: String(row.niveau ?? ""),
+    cycle: String(row.cycle ?? ""),
+    periodNumber: Number(row.period_number ?? 0),
+    weekNumber: Number(row.week_number ?? 0),
+    sessionDate: row.session_date ? String(row.session_date) : null,
+    dureeMinutes: Number(row.duree_minutes ?? 0),
+    competenceBo: String(row.competence_bo ?? ""),
+    objectif: String(row.objectif ?? ""),
+    prerequis: (row.prerequis as string[]) ?? [],
+    methode: String(row.methode ?? ""),
+    resourceIds: (row.resource_ids as string[]) ?? [],
+    referentielIds: (row.referentiel_ids as string[]) ?? [],
+    resources: (row.resources as string[]) ?? [],
+    materiel: (row.materiel as StoredSeance["materiel"]) ?? {
+      guides: [],
+      albums: [],
+      affichages: [],
+      manipulation: [],
+      videoprojecteur: [],
+      photocopies: [],
+      fiches: [],
+      cartes: [],
+      jeux: [],
+      autres: [],
+    },
+    differentiation: (row.differentiation as StoredSeance["differentiation"]) ?? {
+      elevesFragiles: [],
+      elevesAvances: [],
+      groupesBesoins: [],
+      adaptations: [],
+      variantes: [],
+    },
+    evaluation: (row.evaluation as StoredSeance["evaluation"]) ?? {
+      formative: "",
+      criteresReussite: [],
+      observables: [],
+      remediations: [],
+    },
+    homework: (row.homework as StoredSeance["homework"]) ?? {
+      devoirs: [],
+      revisions: [],
+      lecture: [],
+      entrainement: [],
+    },
+    traceEcrite: (row.trace_ecrite as StoredSeance["traceEcrite"]) ?? {
+      enseignant: "",
+      eleve: "",
+      lecon: "",
+      aideMemoire: "",
+    },
+    pedagogicalChoices: (row.pedagogical_choices as string[]) ?? [],
+    status: String(row.status ?? "validated"),
+    metadata: (row.metadata as Record<string, unknown>) ?? {},
+    created_at: String(row.created_at ?? ""),
+    updated_at: String(row.updated_at ?? ""),
+  };
 }
 
 export async function listSeancesForJournal(input: {

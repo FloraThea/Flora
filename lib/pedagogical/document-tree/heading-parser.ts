@@ -61,7 +61,7 @@ export function detectMhmGuideProfile(text: string, filename: string): boolean {
   return false;
 }
 
-function parseMhmModuleSummary(line: string): ParsedHeading | null {
+export function parseMhmModuleSummary(line: string): ParsedHeading | null {
   const match = normalizeDocumentLine(line).match(MHM_MODULE_SUMMARY_PATTERN);
   if (!match) return null;
 

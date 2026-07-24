@@ -1,7 +1,7 @@
 import { loadTeacherProfileBundle } from "@/lib/profile";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
 import { formatDateLabel } from "./date-utils";
-import { dailyPlanner } from "./DailyPlanner";
+import { planJournalDayFromImports } from "./journal-restitution";
 import { findJournalByDate, loadJournalPayload, saveJournalPayload } from "./journal-service";
 import { reconcileJournalEntriesWithTimetable } from "./journal-entry-reconcile";
 import { resolveJournalScheduleSlots, type JournalScheduleSlot } from "./journal-timetable";
@@ -219,13 +219,13 @@ export async function buildJournalPreviewForDate(date: string): Promise<JournalP
     };
   }
 
-  const draftEntries = dailyPlanner.planDay({
+  const { entries: draftEntries } = await planJournalDayFromImports({
     journalId: "preview",
-    resolvedDay,
+    date,
+    periodNumber: resolvedDay.periodNumber,
+    weekNumber: resolvedDay.weekNumber,
     profile: profileBundle,
-    seances: [],
-    resourcesByMatiere: {},
-    linkSeances: false,
+    resolvedDay,
   });
 
   const entries = mapPreviewEntries(draftEntries);
@@ -249,12 +249,13 @@ export async function buildJournalPreviewForDate(date: string): Promise<JournalP
       weekNumber: resolvedDay.weekNumber,
       status: "draft",
       dashboard,
-      metadata: {
-        dateLabel: formatDateLabel(date),
-        dayName: resolvedDay.dayName,
-        isPreview: true,
-        scheduleId: timetable.scheduleId,
-      },
+        metadata: {
+          dateLabel: formatDateLabel(date),
+          dayName: resolvedDay.dayName,
+          isPreview: true,
+          scheduleId: timetable.scheduleId,
+          restitutionMode: true,
+        },
       created_at: "",
       updated_at: "",
     },

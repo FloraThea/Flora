@@ -166,13 +166,165 @@ function testProtectedEntryDetection() {
   );
 }
 
+function testRestitutionModeLinksImportedSeance() {
+  const resolvedDay: ResolvedSchoolDay = {
+    date: "2026-09-07",
+    dayName: "lundi",
+    periodNumber: 1,
+    weekNumber: 1,
+    isHoliday: false,
+    isVacation: false,
+    slots: [
+      {
+        day: "Lundi",
+        start: "08:45",
+        end: "09:30",
+        subject: "Français",
+        hours: 1,
+        slotType: "seance",
+      } as JournalScheduleSlot,
+    ],
+  };
+
+  const entries = dailyPlanner.planDay({
+    journalId: "preview",
+    resolvedDay,
+    profile: { profile: { id: "p1", metadata: {} } } as never,
+    seances: [
+      {
+        id: "s1",
+        matiere: "Français",
+        objectif: "Objectif importé",
+        competenceBo: "Compétence importée",
+        pedagogicalChoices: ["Organisation importée"],
+        title: "Séance 1",
+        dureeMinutes: 45,
+        materiel: {
+          guides: [],
+          albums: [],
+          affichages: [],
+          manipulation: [],
+          videoprojecteur: [],
+          photocopies: [],
+          fiches: [],
+          cartes: [],
+          jeux: [],
+          autres: [],
+        },
+        differentiation: {
+          elevesFragiles: [],
+          elevesAvances: [],
+          groupesBesoins: [],
+          adaptations: [],
+          variantes: [],
+        },
+        resources: [],
+        metadata: {},
+      } as never,
+    ],
+    resourcesByMatiere: {},
+    restitutionMode: true,
+  });
+
+  assert.equal(entries[0].objectif, "Objectif importé");
+  assert.equal(entries[0].competence, "Compétence importée");
+  assert.equal(entries[0].metadata.fillState, "linked");
+}
+
+function testRestitutionModeMarksMissingSeance() {
+  const resolvedDay: ResolvedSchoolDay = {
+    date: "2026-09-07",
+    dayName: "lundi",
+    periodNumber: 1,
+    weekNumber: 1,
+    isHoliday: false,
+    isVacation: false,
+    slots: [
+      {
+        day: "Lundi",
+        start: "08:45",
+        end: "09:30",
+        subject: "Mathématiques",
+        hours: 1,
+        slotType: "seance",
+      } as JournalScheduleSlot,
+    ],
+  };
+
+  const entries = dailyPlanner.planDay({
+    journalId: "preview",
+    resolvedDay,
+    profile: { profile: { id: "p1", metadata: {} } } as never,
+    seances: [],
+    resourcesByMatiere: {},
+    restitutionMode: true,
+  });
+
+  assert.equal(entries[0].metadata.fillState, "missing");
+  assert.match(entries[0].objectif ?? "", /non importée/i);
+  assert.equal(entries[0].competence, "");
+}
+
+function testRestitutionModeUsesProfileRitual() {
+  const resolvedDay: ResolvedSchoolDay = {
+    date: "2026-09-07",
+    dayName: "lundi",
+    periodNumber: 1,
+    weekNumber: 1,
+    isHoliday: false,
+    isVacation: false,
+    slots: [
+      {
+        day: "Lundi",
+        start: "08:30",
+        end: "08:45",
+        subject: "Calcul mental",
+        hours: 0.25,
+        slotType: "rituel",
+      } as JournalScheduleSlot,
+    ],
+  };
+
+  const entries = dailyPlanner.planDay({
+    journalId: "preview",
+    resolvedDay,
+    profile: {
+      profile: {
+        id: "p1",
+        metadata: {
+          rituals: [
+            {
+              id: "rituel-calcul",
+              label: "Calcul mental",
+              matiere: "Mathématiques",
+              objectif: "Automatiser les procédures.",
+              organisation: "Rituel oral rapide.",
+              dureeMinutes: 15,
+            },
+          ],
+        },
+      },
+    } as never,
+    seances: [],
+    resourcesByMatiere: {},
+    restitutionMode: true,
+  });
+
+  assert.equal(entries[0].entryType, "ritual");
+  assert.equal(entries[0].objectif, "Automatiser les procédures.");
+  assert.equal(entries[0].metadata.fillState, "linked");
+}
+
 function runJournalTests() {
   testBreakSlotsAreNonPedagogical();
   testEmptySlotHasNoPedagogicalContent();
   testBreakEntryIsSimple();
   testPlannerDoesNotInventSeanceContentWithoutLink();
+  testRestitutionModeLinksImportedSeance();
+  testRestitutionModeMarksMissingSeance();
+  testRestitutionModeUsesProfileRitual();
   testProtectedEntryDetection();
-  console.log("Journal tests: 5/5 passed");
+  console.log("Journal tests: 8/8 passed");
 }
 
 runJournalTests();

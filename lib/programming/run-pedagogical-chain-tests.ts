@@ -109,11 +109,32 @@ async function testMhmPdfIfAvailable() {
       documentTitle: "MHM CE1 CE2 GUIDE",
     });
 
+    assert.equal(result.tree.moduleCount, 24, "Le guide MHM doit comporter 24 modules");
+    assert.ok(result.tree.seanceCount > 0, "Des séances doivent être détectées dans le corps");
+
+    const introduction = result.entities.find(
+      (entity) => entity.entityType === "partie" && /introduction/i.test(entity.label),
+    );
+    assert.ok(introduction, "Une section Introduction doit exister");
+    assert.ok(
+      (introduction?.content.length ?? 0) > 1000,
+      "L'introduction doit contenir le texte pré-module",
+    );
+
+    const module1Seances = result.entities.filter(
+      (entity) =>
+        entity.entityType === "seance" && Number(entity.metadata?.moduleNumber ?? 0) === 1,
+    );
+    assert.ok(module1Seances.length >= 1, "Le module 1 doit contenir au moins une séance");
+    assert.ok(
+      module1Seances.every((seance) => (seance.content?.length ?? 0) > 0),
+      "Chaque séance du module 1 doit conserver son contenu",
+    );
+
     console.log(
       `  PDF MHM — ${result.tree.moduleCount} modules, ${result.tree.seanceCount} séances détectés (texte: ${extracted.text.length} car.)`,
     );
-
-    console.log("✓ PDF MHM — exactement 24 modules retrouvés");
+    console.log("✓ PDF MHM — structure Introduction → Modules → Séances validée");
   } catch (error) {
     console.log(`⚠ PDF MHM non testé : ${error instanceof Error ? error.message : String(error)}`);
   }

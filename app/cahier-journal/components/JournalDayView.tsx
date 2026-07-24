@@ -20,7 +20,8 @@ function fillStateLabel(entry: JournalEntry): string {
   const state = String(entry.metadata.fillState ?? "empty");
   if (state === "generated") return "Contenu généré";
   if (state === "manual") return "Complété manuellement";
-  if (state === "linked") return "Lié à une séance existante";
+  if (state === "linked") return "Lié à une séance importée";
+  if (state === "missing") return "Séance non importée";
   if (state === "break") return "";
   return "Aucun contenu pédagogique ajouté";
 }
@@ -97,7 +98,14 @@ export function JournalDayView({
           );
         }
 
-        const hasContent = Boolean(entry.objectif || entry.competence || entry.organisation);
+        const fillStateKey = String(entry.metadata.fillState ?? "empty");
+        const hasContent =
+          fillStateKey === "linked" ||
+          fillStateKey === "manual" ||
+          Boolean(
+            (entry.competence || entry.organisation) &&
+              fillStateKey !== "missing",
+          );
         const isGenerating = generatingEntryId === entry.id;
 
         return (
@@ -143,23 +151,20 @@ export function JournalDayView({
               </div>
 
               <div className="flex shrink-0 flex-wrap gap-2">
-                {!hasContent ? (
-                  <>
-                    <FloraButton
-                      accent="lavender"
-                      variant="secondary"
-                      onClick={() => onCompleteEntry?.(entry)}
-                    >
-                      Compléter
+                {fillStateKey === "missing" ? (
+                  <Link href="/seances">
+                    <FloraButton accent="lavender" variant="secondary">
+                      Importer une séance
                     </FloraButton>
-                    <FloraButton
-                      accent="sage"
-                      disabled={isGenerating}
-                      onClick={() => void onGenerateEntry?.(entry)}
-                    >
-                      {isGenerating ? "Génération…" : "Générer"}
-                    </FloraButton>
-                  </>
+                  </Link>
+                ) : !hasContent ? (
+                  <FloraButton
+                    accent="lavender"
+                    variant="secondary"
+                    onClick={() => onCompleteEntry?.(entry)}
+                  >
+                    Compléter manuellement
+                  </FloraButton>
                 ) : (
                   <FloraButton
                     accent="lavender"

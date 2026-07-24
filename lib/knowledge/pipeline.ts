@@ -4,6 +4,7 @@ import {
   extractFaithfulDocumentTree,
   hasFaithfulStructure,
 } from "@/lib/pedagogical/document-tree";
+import { buildFaithfulChunksFromTree } from "@/lib/pedagogical/document-tree/faithful-chunks";
 import { chunkManager } from "./ChunkManager";
 import { competenceMatcher } from "./CompetenceMatcher";
 import { knowledgeIndexer } from "./KnowledgeIndexer";
@@ -210,15 +211,22 @@ export async function runKnowledgePipeline(
     documentTitle: input.filename,
   });
 
+  const useFaithfulStructure = hasFaithfulStructure(faithful);
   const chunks = chunkManager.buildSmartChunks(input.text, parsedResource);
+
+  let chunksToPersist = chunks;
+  if (useFaithfulStructure && faithful.tree.root.children.length > 0) {
+    const faithfulChunks = buildFaithfulChunksFromTree(faithful.tree.root);
+    if (faithfulChunks.length > 0) {
+      chunksToPersist = faithfulChunks;
+    }
+  }
 
   let extraction = {
     entities: [] as KnowledgePipelineResult["extraction"]["entities"],
     relations: [] as KnowledgePipelineResult["extraction"]["relations"],
     tags: [] as string[],
   };
-
-  const useFaithfulStructure = hasFaithfulStructure(faithful);
 
   if (useFaithfulStructure) {
     extraction = {
@@ -254,7 +262,7 @@ export async function runKnowledgePipeline(
   const tags = tagGenerator.generate(parsedResource, extraction, input.analysis);
   const boLinks = await competenceMatcher.matchEntities(extraction.entities);
   const indexEntries = knowledgeIndexer.buildIndex({
-    chunks,
+    chunks: chunksToPersist,
     extraction,
     tags,
     analysis: input.analysis,
@@ -262,7 +270,7 @@ export async function runKnowledgePipeline(
 
   const result: KnowledgePipelineResult = {
     parsedResource,
-    chunks,
+    chunks: chunksToPersist,
     extraction,
     tags,
     boLinks,
@@ -275,7 +283,7 @@ export async function runKnowledgePipeline(
   };
 
   await clearPreviousKnowledge(input.documentId);
-  const chunkRecords = await replaceSmartChunks(input.documentId, chunks);
+  const chunkRecords = await replaceSmartChunks(input.documentId, chunksToPersist);
   await persistKnowledge(input, result, chunkRecords);
 
   return result;

@@ -1,6 +1,6 @@
 import type { StoredSeance } from "@/lib/seances/types";
 import type { TimetableSlot } from "@/lib/programming/types";
-import type { JournalEntry, JournalMateriel, JournalResources } from "./types";
+import type { JournalEntry, JournalMateriel, JournalResources, RitualDefinition } from "./types";
 import { scheduleEngine } from "./ScheduleEngine";
 
 function flattenMateriel(seance: StoredSeance): JournalMateriel {
@@ -95,7 +95,7 @@ export class LessonAssembler {
       },
       metadata: {
         source: "seances",
-        fillState: "generated",
+        fillState: "linked",
         isPersisted: true,
         seanceTitle: input.seance.title,
         elevesFragiles: input.seance.differentiation.elevesFragiles,
@@ -104,6 +104,64 @@ export class LessonAssembler {
         sourceDocumentTitle: input.seance.metadata?.sourceDocumentTitle,
         sourcePath: input.seance.metadata?.sourcePath,
         sourceEntityId: input.seance.metadata?.sourceEntityId,
+      },
+    };
+  }
+
+  buildMissingSeanceEntry(input: {
+    journalId: string;
+    sortOrder: number;
+    slot: TimetableSlot & {
+      slotType?: string;
+      subSubject?: string;
+      customText?: string;
+      color?: string;
+      sourceScheduleSlotId?: string;
+    };
+  }): Omit<JournalEntry, "id" | "observation"> {
+    const entry = this.buildEmptySlotEntry(input);
+    return {
+      ...entry,
+      objectif: "Séance non importée — aucun contenu disponible pour ce créneau.",
+      metadata: {
+        ...entry.metadata,
+        fillState: "missing",
+        restitutionMode: true,
+      },
+    };
+  }
+
+  buildRitualEntryFromProfile(input: {
+    journalId: string;
+    sortOrder: number;
+    slot: TimetableSlot & {
+      slotType?: string;
+      subSubject?: string;
+      customText?: string;
+      color?: string;
+      sourceScheduleSlotId?: string;
+    };
+    ritual: RitualDefinition;
+  }): Omit<JournalEntry, "id" | "observation"> {
+    const entry = this.buildEmptySlotEntry({
+      ...input,
+      slot: { ...input.slot, slotType: "rituel" },
+    });
+
+    return {
+      ...entry,
+      entryType: "ritual",
+      ritualId: input.ritual.id,
+      ritualLabel: input.ritual.label,
+      matiere: input.ritual.matiere ?? input.slot.subject,
+      objectif: input.ritual.objectif,
+      organisation: input.ritual.organisation,
+      dureeMinutes: input.ritual.dureeMinutes || entry.dureeMinutes,
+      metadata: {
+        ...entry.metadata,
+        fillState: "linked",
+        source: "rituels",
+        restitutionMode: true,
       },
     };
   }

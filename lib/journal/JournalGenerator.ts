@@ -1,16 +1,13 @@
 import { loadTeacherProfileBundle } from "@/lib/profile";
 import { schoolWeeksCalculator } from "@/lib/programming/SchoolWeeksCalculator";
-import type { StoredSeance } from "@/lib/seances/types";
 import { adjustmentEngine } from "./AdjustmentEngine";
 import { buildJournalPreviewForDate } from "./journal-preview";
 import { enrichJournalPayload } from "./journal-view-flags";
-import { dailyPlanner } from "./DailyPlanner";
+import { planJournalDayFromImports } from "./journal-restitution";
 import { formatDateLabel, getWeekDates, addDays } from "./date-utils";
 import {
   findJournalByDate,
-  listSeancesForJournal,
   loadJournalPayload,
-  loadLibraryResourcesByMatiere,
   saveAdjustments,
   saveJournalPayload,
 } from "./journal-service";
@@ -20,76 +17,6 @@ import { scheduleEngine } from "./ScheduleEngine";
 import { teachingDashboard } from "./TeachingDashboard";
 import { journalValidator, computeDashboard } from "./JournalValidator";
 import type { JournalDaySummary, JournalPayload, JournalRangePayload } from "./types";
-
-function mapSeanceRow(row: Record<string, unknown>): StoredSeance {
-  return {
-    id: String(row.id),
-    sequenceSessionId: String(row.sequence_session_id ?? ""),
-    sequenceId: String(row.sequence_id ?? ""),
-    progressionId: String(row.progression_id ?? ""),
-    progressionRowId: String(row.progression_row_id ?? ""),
-    programmationId: String(row.programmation_id ?? ""),
-    teacherProfileId: row.teacher_profile_id ? String(row.teacher_profile_id) : null,
-    title: String(row.title ?? ""),
-    matiere: String(row.matiere ?? ""),
-    sousMatiere: String(row.sous_matiere ?? ""),
-    niveau: String(row.niveau ?? ""),
-    cycle: String(row.cycle ?? ""),
-    periodNumber: Number(row.period_number ?? 0),
-    weekNumber: Number(row.week_number ?? 0),
-    sessionDate: row.session_date ? String(row.session_date) : null,
-    dureeMinutes: Number(row.duree_minutes ?? 0),
-    competenceBo: String(row.competence_bo ?? ""),
-    objectif: String(row.objectif ?? ""),
-    prerequis: (row.prerequis as string[]) ?? [],
-    methode: String(row.methode ?? ""),
-    resourceIds: (row.resource_ids as string[]) ?? [],
-    referentielIds: (row.referentiel_ids as string[]) ?? [],
-    resources: (row.resources as string[]) ?? [],
-    materiel: (row.materiel as StoredSeance["materiel"]) ?? {
-      guides: [],
-      albums: [],
-      affichages: [],
-      manipulation: [],
-      videoprojecteur: [],
-      photocopies: [],
-      fiches: [],
-      cartes: [],
-      jeux: [],
-      autres: [],
-    },
-    differentiation: (row.differentiation as StoredSeance["differentiation"]) ?? {
-      elevesFragiles: [],
-      elevesAvances: [],
-      groupesBesoins: [],
-      adaptations: [],
-      variantes: [],
-    },
-    evaluation: (row.evaluation as StoredSeance["evaluation"]) ?? {
-      formative: "",
-      criteresReussite: [],
-      observables: [],
-      remediations: [],
-    },
-    homework: (row.homework as StoredSeance["homework"]) ?? {
-      devoirs: [],
-      revisions: [],
-      lecture: [],
-      entrainement: [],
-    },
-    traceEcrite: (row.trace_ecrite as StoredSeance["traceEcrite"]) ?? {
-      enseignant: "",
-      eleve: "",
-      lecon: "",
-      aideMemoire: "",
-    },
-    pedagogicalChoices: (row.pedagogical_choices as string[]) ?? [],
-    status: String(row.status ?? "validated"),
-    metadata: (row.metadata as Record<string, unknown>) ?? {},
-    created_at: String(row.created_at ?? ""),
-    updated_at: String(row.updated_at ?? ""),
-  };
-}
 
 export class JournalGenerator {
   async generateForDate(input: {
@@ -133,24 +60,16 @@ export class JournalGenerator {
       profile.workingDays,
     );
     const isTeacherOff = scheduleEngine.isNonWorkingDay(calendar, input.date, profile.workingDays);
-    const seanceRows = await listSeancesForJournal({
-      date: input.date,
-      periodNumber: resolvedDay.periodNumber,
-      weekNumber: resolvedDay.weekNumber,
-      teacherProfileId: profile.id,
-    });
-    const seances = seanceRows.map(mapSeanceRow);
-    const resourcesByMatiere = await loadLibraryResourcesByMatiere();
 
     const journalId = input.regenerate && existing ? existing.id : undefined;
 
-    const entries = dailyPlanner.planDay({
+    const { entries } = await planJournalDayFromImports({
       journalId: journalId ?? "draft",
-      resolvedDay,
+      date: input.date,
+      periodNumber: resolvedDay.periodNumber,
+      weekNumber: resolvedDay.weekNumber,
       profile: profileBundle,
-      seances,
-      resourcesByMatiere,
-      linkSeances: false,
+      resolvedDay,
     });
 
     const annualProject = profileBundle.projects.find((project) => project.projectType === "annuel");
@@ -205,6 +124,7 @@ export class JournalGenerator {
           ulis: profile.ulis,
           segpa: profile.segpa,
           rep: profile.rep,
+          restitutionMode: true,
           calendarSync: {
             enabled: false,
             provider: null,

@@ -90,10 +90,23 @@ export type DocumentCompetence = {
   niveau: string;
 };
 
+export type PedagogicalEntity = {
+  id: string;
+  document_id: string;
+  chunk_id: string | null;
+  entity_type: string;
+  label: string;
+  content: string;
+  source_text: string;
+  confidence: number;
+  metadata: Record<string, unknown>;
+};
+
 export type DocumentWithRelations = FloraDocument & {
   document_chunks: DocumentChunk[];
   document_tags: DocumentTag[];
   document_competences: DocumentCompetence[];
+  pedagogical_entities: PedagogicalEntity[];
 };
 
 export type TextChunkDraft = {

@@ -6,6 +6,7 @@ import {
   parseDocumentHeading,
   type ParsedHeading,
 } from "./heading-parser";
+import { parseMhmGuideStructure } from "./mhm-guide-parser";
 import type {
   DocumentTree,
   DocumentTreeNode,
@@ -185,6 +186,9 @@ export function extractFaithfulDocumentTree(input: {
   documentId?: string;
   documentTitle?: string;
 }): FaithfulExtractionResult {
+  const mhmResult = parseMhmGuideStructure(input);
+  if (mhmResult) return mhmResult;
+
   const parsed = resourceParser.parse(
     input.text,
     input.filename,

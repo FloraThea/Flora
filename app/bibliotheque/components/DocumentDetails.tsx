@@ -10,6 +10,7 @@ import {
   type DocumentWithRelations,
 } from "@/lib/documents/types";
 import { colors } from "@/lib/theme";
+import { DocumentHierarchyView } from "./DocumentHierarchyView";
 import { getDocumentIcon } from "./document-icons";
 
 type DocumentDetailsProps = {
@@ -44,6 +45,12 @@ export function DocumentDetails({
   onArchive,
   isArchiving,
 }: DocumentDetailsProps) {
+  const pedagogicalEntities = document.pedagogical_entities ?? [];
+  const hasFaithfulHierarchy = pedagogicalEntities.some(
+    (entity) => entity.entity_type === "module" || entity.entity_type === "seance",
+  );
+  const extractionMethod = String(document.metadata?.extraction_method ?? "");
+
   return (
     <FloraCard padding="lg" accent="lavender" className="border-lavande-light/60">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -195,12 +202,19 @@ export function DocumentDetails({
         </section>
       </div>
 
+      {hasFaithfulHierarchy ? (
+        <DocumentHierarchyView
+          entities={pedagogicalEntities}
+          extractionMethod={extractionMethod}
+        />
+      ) : null}
+
       <section className="mb-8">
         <h3
           className="mb-3 font-serif text-xl font-medium"
           style={{ color: colors.charcoal.DEFAULT }}
         >
-          Sections du document
+          {hasFaithfulHierarchy ? "Sections indexées" : "Sections du document"}
         </h3>
         <div className="flex flex-col gap-3">
           {document.document_chunks.length > 0 ? (

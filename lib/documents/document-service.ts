@@ -189,7 +189,8 @@ export async function getDocumentDetails(
         *,
         document_chunks(*),
         document_tags(*),
-        document_competences(*)
+        document_competences(*),
+        pedagogical_entities(*)
       `,
     )
     .eq("id", documentId)
@@ -204,6 +205,7 @@ export async function getDocumentDetails(
       document_chunks: (document.document_chunks ?? []).sort(
         (a, b) => a.chunk_index - b.chunk_index,
       ),
+      pedagogical_entities: document.pedagogical_entities ?? [],
     };
   }
 
@@ -235,6 +237,7 @@ export async function getDocumentDetails(
     document_chunks: [],
     document_tags: [],
     document_competences: [],
+    pedagogical_entities: [],
   };
 }
 
