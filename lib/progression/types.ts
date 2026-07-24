@@ -11,12 +11,14 @@ import type {
 
 export type LearningItem = {
   id: string;
-  type: "competence" | "notion" | "module" | "objectif";
+  type: "competence" | "notion" | "module" | "objectif" | "seance";
   label: string;
   referentielId?: string;
   resourceIds?: string[];
   prerequisiteIds?: string[];
   order: number;
+  moduleLabel?: string;
+  metadata?: Record<string, unknown>;
 };
 
 export type WeeklySlot = {

@@ -1,8 +1,9 @@
 import { askThea } from "@/lib/thea/services/gemini";
 import { buildTheaInstructionBlock, loadTeacherProfileForGeneration } from "@/lib/profile";
 import { loadReferentielCompetences } from "@/lib/referentiel/referentiel-service";
-import { floraDb } from "@/lib/supabase/get-db";
+import { loadLibraryResourcesForGeneration } from "@/lib/pedagogical/library-context";
 import type { ReferentielCompetence } from "@/lib/programming/types";
+import { floraDb } from "@/lib/supabase/get-db";
 import { loadProgression } from "@/lib/progression/progression-service";
 import type { ProgressionRow, ProgressionTab } from "@/lib/progression/types";
 import { competenceAnalyzer } from "./CompetenceAnalyzer";
@@ -122,6 +123,14 @@ export class SequenceGenerator {
     const methode = payload.progression.methode || payload.programmation.methode;
 
     const programmation = payload.programmation;
+    const resources = await loadLibraryResourcesForGeneration({
+      methode,
+      matiere: located.tab.subjectLabel,
+      resourceIds: located.row.resourceIds.length > 0 ? located.row.resourceIds : undefined,
+      moduleLabel: located.row.sequenceModule,
+      seanceLabel: located.row.seanceLabel,
+      sourcePath: String(located.row.metadata?.sourcePath ?? ""),
+    });
 
     return {
       progression: payload.progression,
@@ -132,7 +141,7 @@ export class SequenceGenerator {
         located.tab.subjectLabel,
         programmation.levels,
       ),
-      resources: [],
+      resources,
       methode,
       cycle: deriveCycleFromLevels(programmation.levels),
       niveau: programmation.levels[0] ?? "CE2",
@@ -149,6 +158,20 @@ export class SequenceGenerator {
     const context = await this.buildContext(input);
     const competence = competenceAnalyzer.analyze(context);
     const resources = await resourcePlanner.plan(context);
+    const libraryContent = resources.libraryMatches
+      .map((match) => match.content || match.sourceText)
+      .filter(Boolean)
+      .join("\n\n");
+
+    context.row = {
+      ...context.row,
+      metadata: {
+        ...context.row.metadata,
+        libraryContent,
+        ...resources.provenance,
+      },
+    };
+
     const scenario = learningScenarioBuilder.buildSessions(context);
     const evaluation = evaluationPlanner.plan(context, scenario.sessionCount);
     const differentiation = differentiationEngine.build(context);

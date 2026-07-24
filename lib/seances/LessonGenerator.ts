@@ -3,6 +3,7 @@ import { buildTheaInstructionBlock, loadTeacherProfileForGeneration } from "@/li
 import { loadProgrammation } from "@/lib/programming/programmation-service";
 import { inferCycleFromLevels } from "@/lib/referentiel/bo-cycle-utils";
 import { loadReferentielCompetences } from "@/lib/referentiel/referentiel-service";
+import { loadLibraryResourcesForGeneration, findLibraryEntityMatches, buildProvenanceMetadata } from "@/lib/pedagogical/library-context";
 import { floraDb } from "@/lib/supabase/get-db";
 import { loadSequence } from "@/lib/sequences/sequence-service";
 import type { ProgressionRow } from "@/lib/progression/types";
@@ -33,29 +34,22 @@ async function loadReferentiel(
   });
 }
 
-async function loadResources(resourceIds: string[], methode: string): Promise<ResourceContext[]> {
-  if (resourceIds.length === 0) return [];
-
-  const { data: documents } = await (await floraDb())
-    .from("documents")
-    .select("id, title, matiere, methode, document_type")
-    .in("id", resourceIds);
-
-  return (documents ?? [])
-    .filter(
-      (document) =>
-        !methode || String(document.methode ?? "").toLowerCase().includes(methode.toLowerCase()),
-    )
-    .map((document) => ({
-      documentId: document.id,
-      title: document.title || "Ressource",
-      matiere: document.matiere ?? "",
-      methode: document.methode ?? "",
-      documentType: document.document_type ?? "",
-      competences: [],
-      notions: [],
-      modules: [],
-    }));
+async function loadResources(
+  resourceIds: string[],
+  methode: string,
+  matiere: string,
+  moduleLabel?: string,
+  seanceLabel?: string,
+  sourcePath?: string,
+): Promise<ResourceContext[]> {
+  return loadLibraryResourcesForGeneration({
+    resourceIds: resourceIds.length > 0 ? resourceIds : undefined,
+    methode,
+    matiere,
+    moduleLabel,
+    seanceLabel,
+    sourcePath,
+  });
 }
 
 async function loadProgressionRow(rowId: string): Promise<ProgressionRow | null> {
@@ -139,7 +133,14 @@ export class LessonGenerator {
         sequencePayload.sequence.matiere,
         [sequencePayload.sequence.niveau],
       ),
-      resources: await loadResources(sequencePayload.sequence.resourceIds, methode),
+      resources: await loadResources(
+        sequencePayload.sequence.resourceIds,
+        methode,
+        sequencePayload.sequence.matiere,
+        progressionRow.sequenceModule,
+        progressionRow.seanceLabel,
+        String(progressionRow.metadata?.sourcePath ?? ""),
+      ),
       timetable: programmation?.programmation.timetable ?? { slots: [], weeklyHoursBySubject: {} },
       methode,
     };
@@ -199,6 +200,31 @@ export class LessonGenerator {
     const context = await this.buildContext(sequenceSessionId);
     let draft = this.buildDraft(context);
 
+    const libraryMatches = await findLibraryEntityMatches({
+      methode: context.methode,
+      matiere: context.sequencePayload.sequence.matiere,
+      resourceIds: context.sequencePayload.sequence.resourceIds,
+      moduleLabel: context.progressionRow.sequenceModule,
+      seanceLabel: context.progressionRow.seanceLabel,
+      sourcePath: String(context.progressionRow.metadata?.sourcePath ?? ""),
+    });
+
+    const libraryContent = libraryMatches
+      .map((match) => match.content || match.sourceText)
+      .filter(Boolean)
+      .join("\n\n");
+
+    if (libraryContent && !draft.objectif.includes(libraryContent.slice(0, 40))) {
+      draft = {
+        ...draft,
+        objectif: draft.objectif || libraryContent.split("\n")[0] || draft.objectif,
+        pedagogicalChoices: [
+          ...draft.pedagogicalChoices,
+          `Contenu issu de la bibliothèque : ${libraryMatches[0]?.documentTitle ?? "document source"}.`,
+        ],
+      };
+    }
+
     try {
       const prompt = buildSeancePrompt(
         context,
@@ -221,6 +247,12 @@ export class LessonGenerator {
       progressionRowId: sequence.progression_row_id,
       programmationId: sequence.programmation_id,
       teacherProfileId: context.teacherProfile.profile.id,
+      metadata: buildProvenanceMetadata({
+        matches: libraryMatches,
+        moduleLabel: context.progressionRow.sequenceModule,
+        seanceLabel: context.progressionRow.seanceLabel,
+        sourcePath: String(context.progressionRow.metadata?.sourcePath ?? ""),
+      }),
     });
   }
 

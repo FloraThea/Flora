@@ -7,8 +7,8 @@ import {
 import { loadProgrammation } from "@/lib/programming/programmation-service";
 import { inferCycleFromLevels } from "@/lib/referentiel/bo-cycle-utils";
 import { loadReferentielCompetences } from "@/lib/referentiel/referentiel-service";
-import { floraDb } from "@/lib/supabase/get-db";
-import type { ReferentielCompetence, ResourceContext } from "@/lib/programming/types";
+import type { ReferentielCompetence } from "@/lib/programming/types";
+import { loadLibraryResourcesForGeneration } from "@/lib/pedagogical/library-context";
 import { competenceSequencer } from "./CompetenceSequencer";
 import { learningPathEngine } from "./LearningPathEngine";
 import { buildProgressionPrompt, parseProgressionEnrichment } from "./prompts/generateProgression";
@@ -32,46 +32,8 @@ async function loadReferentiel(
   });
 }
 
-async function loadResources(methode: string): Promise<ResourceContext[]> {
-  const { data: documents } = await (await floraDb())
-    .from("documents")
-    .select("id, title, matiere, methode, document_type")
-    .eq("status", "analysed");
-
-  const resources: ResourceContext[] = [];
-
-  for (const document of documents ?? []) {
-    const metadata = (document as { metadata?: Record<string, unknown> }).metadata;
-    if (metadata?.archived) continue;
-    if (methode && !String(document.methode ?? "").toLowerCase().includes(methode.toLowerCase())) {
-      continue;
-    }
-
-    const [{ data: competences }, { data: entities }] = await Promise.all([
-      (await floraDb()).from("document_competences").select("competence").eq("document_id", document.id),
-      (await floraDb())
-        .from("pedagogical_entities")
-        .select("label, entity_type")
-        .eq("document_id", document.id),
-    ]);
-
-    resources.push({
-      documentId: document.id,
-      title: document.title || "Ressource",
-      matiere: document.matiere ?? "",
-      methode: document.methode ?? "",
-      documentType: document.document_type ?? "",
-      competences: (competences ?? []).map((item) => item.competence).filter(Boolean),
-      notions: (entities ?? [])
-        .filter((item) => item.entity_type === "notion")
-        .map((item) => item.label),
-      modules: (entities ?? [])
-        .filter((item) => item.entity_type === "module")
-        .map((item) => item.label),
-    });
-  }
-
-  return resources;
+async function loadResources(methode: string, matiere?: string) {
+  return loadLibraryResourcesForGeneration({ methode, matiere });
 }
 
 /**
@@ -97,7 +59,10 @@ export class ProgressionGenerator {
         programmation.programmation.levels,
         programmation.programmation.matiere,
       ),
-      resources: await loadResources(methode),
+      resources: await loadResources(
+        methode,
+        programmation.programmation.matiere,
+      ),
       calendar: programmation.programmation.calendar_snapshot,
       timetable: programmation.programmation.timetable,
       methode,

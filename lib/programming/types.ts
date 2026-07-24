@@ -134,6 +134,22 @@ export type ProgrammingPeriodColumn = {
   cell: ProgrammingCellContent;
 };
 
+/** Vue synthétique d'un module / séquence dans la programmation annuelle. */
+export type ProgrammationModuleSummary = {
+  id: string;
+  label: string;
+  title?: string;
+  periodNumber: number;
+  startWeek?: number;
+  sessionCount: number;
+  seanceLabels?: string[];
+  competences: string[];
+  objectifs: string[];
+  sourceDocumentId?: string;
+  sourcePath?: string;
+  importedRowId?: string;
+};
+
 export type ProgrammingTable = {
   id?: string;
   subjectKey: string;
@@ -142,6 +158,7 @@ export type ProgrammingTable = {
   accent: FloraAccent;
   sortOrder: number;
   periods: ProgrammingPeriodColumn[];
+  metadata?: Record<string, unknown>;
 };
 
 export type ProgrammingGenerationInput = {

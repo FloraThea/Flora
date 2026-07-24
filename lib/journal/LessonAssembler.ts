@@ -100,6 +100,10 @@ export class LessonAssembler {
         seanceTitle: input.seance.title,
         elevesFragiles: input.seance.differentiation.elevesFragiles,
         elevesAvances: input.seance.differentiation.elevesAvances,
+        sourceDocumentId: input.seance.metadata?.sourceDocumentId,
+        sourceDocumentTitle: input.seance.metadata?.sourceDocumentTitle,
+        sourcePath: input.seance.metadata?.sourcePath,
+        sourceEntityId: input.seance.metadata?.sourceEntityId,
       },
     };
   }

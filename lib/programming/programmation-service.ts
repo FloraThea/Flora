@@ -37,9 +37,17 @@ export async function saveProgrammation(input: {
     formatConfig?: Record<string, unknown>;
     competencyMatches?: Record<string, unknown>;
     sourceDocument?: SourceDocument;
+    moduleSummaries?: Record<string, unknown>[];
   };
 }): Promise<ProgrammationPayload> {
   const scope = await requireTeacherScope();
+
+  const moduleSummaries =
+    input.importMeta?.moduleSummaries ??
+    input.tables.flatMap((table) => {
+      const summaries = table.metadata?.moduleSummaries;
+      return Array.isArray(summaries) ? summaries : [];
+    });
 
   const programmationRow = {
     teacher_profile_id: scope.profileId,
@@ -71,6 +79,7 @@ export async function saveProgrammation(input: {
     source_document: input.importMeta?.sourceDocument ?? {},
     metadata: {
       generated_at: new Date().toISOString(),
+      ...(moduleSummaries.length > 0 ? { moduleSummaries } : {}),
       ...(input.importMeta?.sourceType === "imported"
         ? { imported_at: new Date().toISOString() }
         : {}),
@@ -276,6 +285,10 @@ export async function loadProgrammation(id: string): Promise<ProgrammationPayloa
       accent: table.accent as FloraAccent,
       sortOrder: table.sort_order,
       periods: periodColumns,
+      metadata: {
+        moduleSummaries: (programmation.metadata as Record<string, unknown> | null)
+          ?.moduleSummaries,
+      },
     });
   }
 
@@ -344,7 +357,7 @@ export async function listValidatedProgrammations() {
       .from("programmations")
       .select("id, title, school_year, matiere, sous_matiere, methode, levels, status")
       .eq("teacher_profile_id", scope.profileId)
-      .in("status", ["validated", "draft"]),
+      .eq("status", "validated"),
   ).order("created_at", { ascending: false });
 
   if (error) throw error;

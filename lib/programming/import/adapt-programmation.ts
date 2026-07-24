@@ -4,6 +4,10 @@ import type {
   ProgrammingCellContent,
   ProgrammingTable,
 } from "../types";
+import {
+  attachModuleSummariesToTables,
+  buildModuleSummariesFromRows,
+} from "../module-summaries";
 import type {
   AdaptationPlan,
   AdaptationStrategy,
@@ -165,7 +169,13 @@ export function adaptRowsToCalendar(input: {
     }),
   };
 
-  return { tables: [table], plan };
+  const moduleSummaries = buildModuleSummariesFromRows(input.rows);
+  const tables =
+    moduleSummaries.length > 0
+      ? attachModuleSummariesToTables([table], moduleSummaries)
+      : [table];
+
+  return { tables, plan };
 }
 
 function distributeRows(

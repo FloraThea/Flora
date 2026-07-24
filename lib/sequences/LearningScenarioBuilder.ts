@@ -1,4 +1,3 @@
-import { sortModulesByMethod } from "@/lib/progression/method-orders";
 import type { SequenceContext, SequenceSession } from "./types";
 
 function estimateSessionCount(context: SequenceContext): number {
@@ -28,29 +27,29 @@ export class LearningScenarioBuilder {
     sessionCount: number;
     dureeEstimeeMinutes: number;
   } {
-    const sessionCount = estimateSessionCount(context);
+    const hasExplicitSeance = Boolean(context.row.seanceLabel?.trim());
+    const sessionCount = hasExplicitSeance ? 1 : estimateSessionCount(context);
     const dureeMinutes = sessionDuration(context);
-    const modules = sortModulesByMethod(
-      [context.row.sequenceModule, ...context.row.objectifs],
-      context.methode,
-    );
+    const libraryContent = String(context.row.metadata?.libraryContent ?? "");
 
     const sessions: SequenceSession[] = [];
 
     for (let index = 0; index < sessionCount; index += 1) {
-      const moduleLabel = modules[index] ?? context.row.sequenceModule;
       const objectif =
         context.row.objectifs[index] ??
         context.row.objectifs[0] ??
-        context.row.deroulement;
+        context.row.deroulement ??
+        libraryContent;
 
       sessions.push({
-        sessionNumber: index + 1,
-        title: `${context.row.seanceLabel || "Séance"} ${index + 1}`,
+        sessionNumber: hasExplicitSeance ? context.row.sessionNumber : index + 1,
+        title: hasExplicitSeance
+          ? context.row.seanceLabel
+          : `${context.row.seanceLabel || "Séance"} ${index + 1}`,
         objectif,
         dureeMinutes,
         ordrePedagogique: index + 1,
-        placeProgression: `Période ${context.row.periodNumber} · Semaine ${context.row.weekNumber} · ${moduleLabel}`,
+        placeProgression: `Période ${context.row.periodNumber} · Semaine ${context.row.weekNumber} · ${context.row.sequenceModule}`,
       });
     }
 

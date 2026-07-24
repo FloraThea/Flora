@@ -1,5 +1,9 @@
 import { floraDb } from "@/lib/supabase/get-db";
 import type { TextChunkDraft } from "@/lib/documents/types";
+import {
+  extractFaithfulDocumentTree,
+  hasFaithfulStructure,
+} from "@/lib/pedagogical/document-tree";
 import { chunkManager } from "./ChunkManager";
 import { competenceMatcher } from "./CompetenceMatcher";
 import { knowledgeIndexer } from "./KnowledgeIndexer";
@@ -178,6 +182,9 @@ async function persistKnowledge(
         tags_count: tagRows.length,
         index_count: indexRows.length,
         bo_links_count: boRows.length,
+        faithful_module_count: result.extractionMeta?.moduleCount ?? 0,
+        faithful_seance_count: result.extractionMeta?.seanceCount ?? 0,
+        extraction_method: result.extractionMeta?.method ?? "ai",
       },
     })
     .eq("id", documentId);
@@ -195,6 +202,14 @@ export async function runKnowledgePipeline(
     input.analysis?.document_type ?? "",
   );
 
+  const faithful = extractFaithfulDocumentTree({
+    text: input.text,
+    filename: input.filename,
+    documentType: parsedResource.documentType,
+    documentId: input.documentId,
+    documentTitle: input.filename,
+  });
+
   const chunks = chunkManager.buildSmartChunks(input.text, parsedResource);
 
   let extraction = {
@@ -203,7 +218,32 @@ export async function runKnowledgePipeline(
     tags: [] as string[],
   };
 
-  if (!input.skipAiExtraction) {
+  const useFaithfulStructure = hasFaithfulStructure(faithful);
+
+  if (useFaithfulStructure) {
+    extraction = {
+      entities: faithful.entities.map((entity) => ({
+        tempId: entity.tempId,
+        entityType: entity.entityType,
+        label: entity.label,
+        content: entity.content,
+        sourceText: entity.sourceText,
+        confidence: entity.confidence,
+        metadata: {
+          ...(entity.metadata ?? {}),
+          parentTempId: entity.parentTempId,
+          extractionMethod: "faithful",
+        },
+      })),
+      relations: faithful.relations.map((relation) => ({
+        sourceTempId: relation.sourceTempId,
+        targetTempId: relation.targetTempId,
+        relationType: relation.relationType,
+        confidence: relation.confidence,
+      })),
+      tags: [],
+    };
+  } else if (!input.skipAiExtraction) {
     try {
       extraction = await pedagogicalExtractor.extract(input.text, parsedResource);
     } catch (error) {
@@ -227,6 +267,11 @@ export async function runKnowledgePipeline(
     tags,
     boLinks,
     indexEntries,
+    extractionMeta: {
+      method: useFaithfulStructure ? "faithful" : input.skipAiExtraction ? "chunks_only" : "ai",
+      moduleCount: faithful.tree.moduleCount,
+      seanceCount: faithful.tree.seanceCount,
+    },
   };
 
   await clearPreviousKnowledge(input.documentId);

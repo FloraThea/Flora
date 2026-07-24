@@ -25,9 +25,11 @@ import {
 import { isSourceDocumentEmpty } from "@/lib/import/source-document";
 import { downloadSourceDocumentExcel, printFaithfulTable } from "@/lib/import/source-document-export";
 import { ProgrammationForm } from "./ProgrammationForm";
+import { ProgrammationSynthesisView } from "./ProgrammationSynthesisView";
 import { ProgrammingTableView } from "./ProgrammingTableView";
 import { ProgrammationImportWizard } from "./ProgrammationImportWizard";
 import { initialFormValues, EMPTY_TIMETABLE, type ProgrammationFormValues } from "../types";
+import { getModuleSummariesForTable } from "@/lib/programming/module-summaries";
 import { payloadToTimetableInput } from "@/lib/timetable/timetable-input-utils";
 
 const LAST_PROGRAMMATION_KEY = "flora:last-programmation-id";
@@ -546,24 +548,39 @@ function ProgrammationPageContent() {
             </FloraCard>
           ) : (
           <section className="flex flex-col gap-8">
-            {payload.tables.map((table) => (
-              <ProgrammingTableView
-                key={table.subjectKey}
-                table={table}
-                highlightPeriodNumber={
-                  highlightSubject &&
-                  (table.subjectLabel.toLowerCase() === highlightSubject.toLowerCase() ||
-                    table.subjectKey.toLowerCase() === highlightSubject.toLowerCase())
-                    ? highlightPeriod
-                    : highlightSubject
-                      ? null
-                      : highlightPeriod
-                }
-                onCellChange={(tableKey, periodNumber, cell) =>
-                  void handleCellChange(tableKey, periodNumber, cell)
-                }
-              />
-            ))}
+            {payload.tables.map((table) => {
+              const hasSynthesis =
+                getModuleSummariesForTable(table, payload.programmation.metadata).length > 0;
+
+              if (hasSynthesis) {
+                return (
+                  <ProgrammationSynthesisView
+                    key={table.subjectKey}
+                    table={table}
+                    programmationMetadata={payload.programmation.metadata}
+                  />
+                );
+              }
+
+              return (
+                <ProgrammingTableView
+                  key={table.subjectKey}
+                  table={table}
+                  highlightPeriodNumber={
+                    highlightSubject &&
+                    (table.subjectLabel.toLowerCase() === highlightSubject.toLowerCase() ||
+                      table.subjectKey.toLowerCase() === highlightSubject.toLowerCase())
+                      ? highlightPeriod
+                      : highlightSubject
+                        ? null
+                        : highlightPeriod
+                  }
+                  onCellChange={(tableKey, periodNumber, cell) =>
+                    void handleCellChange(tableKey, periodNumber, cell)
+                  }
+                />
+              );
+            })}
           </section>
           )}
         </>

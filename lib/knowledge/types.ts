@@ -162,6 +162,11 @@ export type KnowledgePipelineResult = {
   tags: string[];
   boLinks: BoMatchDraft[];
   indexEntries: KnowledgeIndexDraft[];
+  extractionMeta?: {
+    method: "faithful" | "ai" | "chunks_only";
+    moduleCount: number;
+    seanceCount: number;
+  };
 };
 
 export type ExplorerGraphNode = {

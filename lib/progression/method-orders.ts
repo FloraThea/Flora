@@ -3,18 +3,7 @@
  * Utilisé uniquement pour réordonner les modules issus de la programmation.
  */
 export const METHOD_MODULE_ORDERS: Record<string, string[]> = {
-  MHM: [
-    "module 1",
-    "module 2",
-    "module 3",
-    "module 4",
-    "module 5",
-    "module 6",
-    "module 7",
-    "module 8",
-    "module 9",
-    "module 10",
-  ],
+  MHM: Array.from({ length: 24 }, (_, index) => `module ${index + 1}`),
   Narramus: ["séquence 1", "séquence 2", "séquence 3", "séquence 4", "séquence 5"],
   "ACCÈS": ["période 1", "période 2", "période 3", "période 4", "période 5"],
   "Cap Maths": ["période 1", "période 2", "période 3", "période 4", "période 5"],

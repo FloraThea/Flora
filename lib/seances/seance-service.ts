@@ -265,6 +265,7 @@ export async function saveSeance(input: {
   progressionRowId: string | null;
   programmationId: string | null;
   teacherProfileId?: string;
+  metadata?: Record<string, unknown>;
 }): Promise<SeancePayload> {
   return insertSeanceRecord({
     draft: input.draft,
@@ -275,7 +276,7 @@ export async function saveSeance(input: {
     programmationId: input.programmationId,
     teacherProfileId: input.teacherProfileId ?? null,
     linkMode: "linked",
-    metadata: { source_type: "generated" },
+    metadata: { source_type: "generated", ...input.metadata },
   });
 }
 

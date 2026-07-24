@@ -6,6 +6,7 @@ import { schoolWeeksCalculator } from "../SchoolWeeksCalculator";
 import type { ProgrammingGenerationInput, ProgrammationPayload } from "../types";
 import { programmingValidator } from "../ProgrammingValidator";
 import { saveProgrammation } from "../programmation-service";
+import { buildModuleSummariesFromRows } from "../module-summaries";
 import { adaptRowsToCalendar } from "./adapt-programmation";
 import { applyCompetencyMatchesToRows, matchImportedCompetencies } from "./competency-match";
 import { parseProgrammationFile } from "./parse-programmation";
@@ -88,6 +89,8 @@ export async function saveImportedProgrammation(input: {
     teacherWorkingDays: bundle.profile.workingDays,
   };
 
+  const moduleSummaries = buildModuleSummariesFromRows(input.session.parsed.rows);
+
   return saveProgrammation({
     title: input.title,
     generationInput,
@@ -108,6 +111,7 @@ export async function saveImportedProgrammation(input: {
       importAdaptation: input.session.adaptation as unknown as Record<string, unknown>,
       formatConfig: input.session.formatConfig as unknown as Record<string, unknown>,
       competencyMatches: input.session.competencyMatches as unknown as Record<string, unknown>,
+      moduleSummaries: moduleSummaries as unknown as Record<string, unknown>[],
     },
   });
 }
