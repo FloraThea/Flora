@@ -172,6 +172,31 @@ export async function saveSequence(input: {
   });
 }
 
+export async function createIndependentSequenceFromDraft(
+  draft: SequenceDraft,
+  metadata?: Record<string, unknown>,
+): Promise<SequencePayload> {
+  if (!draft.title?.trim()) {
+    throw new Error("Le titre de la séquence est requis.");
+  }
+  if (!draft.matiere?.trim()) {
+    throw new Error("La matière est requise.");
+  }
+
+  return insertSequenceRecord({
+    draft,
+    progressionId: null,
+    progressionRowId: null,
+    programmationId: null,
+    linkMode: "independent",
+    metadata: {
+      source_type: "thea_chat",
+      created_independently: true,
+      ...metadata,
+    },
+  });
+}
+
 export async function createIndependentSequence(
   input: IndependentSequenceCreateInput,
 ): Promise<SequencePayload> {

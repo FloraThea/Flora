@@ -6,6 +6,12 @@ import {
 } from "@/lib/api/route-diagnostics";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import { buildTheaChatPrompt } from "@/lib/thea/chat/build-prompt";
+import {
+  formatSeancePreview,
+  formatSequencePreview,
+  parseTheaSeanceStructured,
+  parseTheaSequenceStructured,
+} from "@/lib/thea/chat/parse-create-response";
 import type { TheaAskRequest, TheaAskResponse } from "@/lib/thea/chat/types";
 import { AiExhaustedError, isAnyAiProviderConfigured } from "@/lib/thea/orchestrator";
 import { AI_QUEUE_USER_MESSAGE } from "@/lib/thea/messages";
@@ -39,9 +45,59 @@ export async function POST(request: Request) {
 
     const bundle = await loadTeacherProfileBundle();
     const prompt = buildTheaChatPrompt(body, bundle);
-    const reply = (await askThea(prompt)).trim();
+    const raw = (await askThea(prompt)).trim();
 
-    const payload: TheaAskResponse = { reply, mode };
+    if (mode === "create_seance" && body.createContext) {
+      try {
+        const structured = parseTheaSeanceStructured(raw);
+        const payload: TheaAskResponse = {
+          reply: formatSeancePreview(structured),
+          mode,
+          structured,
+          canSave: true,
+        };
+        return NextResponse.json({ route: ROUTE_PATH, ...payload });
+      } catch (parseError) {
+        return NextResponse.json({
+          route: ROUTE_PATH,
+          reply: raw,
+          mode,
+          structured: null,
+          canSave: false,
+          parseWarning:
+            parseError instanceof Error
+              ? parseError.message
+              : "Réponse non structurée — enregistrement indisponible.",
+        });
+      }
+    }
+
+    if (mode === "create_sequence" && body.createContext) {
+      try {
+        const structured = parseTheaSequenceStructured(raw);
+        const payload: TheaAskResponse = {
+          reply: formatSequencePreview(structured),
+          mode,
+          structured,
+          canSave: true,
+        };
+        return NextResponse.json({ route: ROUTE_PATH, ...payload });
+      } catch (parseError) {
+        return NextResponse.json({
+          route: ROUTE_PATH,
+          reply: raw,
+          mode,
+          structured: null,
+          canSave: false,
+          parseWarning:
+            parseError instanceof Error
+              ? parseError.message
+              : "Réponse non structurée — enregistrement indisponible.",
+        });
+      }
+    }
+
+    const payload: TheaAskResponse = { reply: raw, mode };
     return NextResponse.json({ route: ROUTE_PATH, ...payload });
   } catch (error) {
     if (error instanceof AiExhaustedError) {

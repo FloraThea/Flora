@@ -37,16 +37,63 @@ Contexte de création :
 - Durée visée : ${ctx?.dureeMinutes ?? 45} minutes
 - Consignes : ${ctx?.consignes || input.message}
 
-Produis une proposition de séance structurée en français :
-1. Titre
-2. Compétence visée
-3. Objectif
-4. Matériel
-5. Déroulement (phases avec durées)
-6. Différenciation (si pertinent)
-7. Évaluation formative
+Produis une séance pédagogique originale adaptée au profil.
+Réponds UNIQUEMENT en JSON valide (sans markdown) :
 
-Ne pas inventer de données déjà importées dans Flora. Proposer un contenu pédagogique original adapté au profil.
+{
+  "title": "",
+  "competenceBo": "",
+  "objectif": "",
+  "prerequis": [],
+  "materiel": [],
+  "dureeMinutes": ${ctx?.dureeMinutes ?? 45},
+  "methode": "",
+  "pedagogicalChoices": [],
+  "phases": [
+    {
+      "phaseKey": "accueil",
+      "title": "Accueil",
+      "dureeMinutes": 5,
+      "summary": "",
+      "activities": [
+        {
+          "sortOrder": 1,
+          "objectif": "",
+          "consignesEnseignant": "",
+          "consignesEleves": "",
+          "organisation": "",
+          "dureeMinutes": 5,
+          "questions": [],
+          "reponsesAttendues": [],
+          "erreursFrequentes": [],
+          "remediations": []
+        }
+      ]
+    }
+  ],
+  "evaluation": {
+    "formative": "",
+    "criteresReussite": [],
+    "observables": [],
+    "remediations": []
+  },
+  "differentiation": {
+    "elevesFragiles": [],
+    "elevesAvances": [],
+    "groupesBesoins": [],
+    "adaptations": [],
+    "variantes": []
+  },
+  "traceEcrite": {
+    "enseignant": "",
+    "eleve": "",
+    "lecon": "",
+    "aideMemoire": ""
+  }
+}
+
+Phases possibles : accueil, rappel, manipulation, recherche, mise_en_commun, institutionnalisation, entrainement, reinvestissement, synthese, trace_ecrite.
+Ne pas inventer de données déjà importées dans Flora.
 `.trim();
   }
 
@@ -65,15 +112,40 @@ Contexte de création :
 - Nombre de séances visé : ${ctx?.sessionCount ?? 4}
 - Consignes : ${ctx?.consignes || input.message}
 
-Produis une proposition de séquence structurée en français :
-1. Titre de la séquence
-2. Compétences et objectifs
-3. Prérequis
-4. Plan séance par séance (titre + objectif + durée)
-5. Matériel global
-6. Évaluation finale
+Produis une séquence pédagogique originale adaptée au profil.
+Réponds UNIQUEMENT en JSON valide (sans markdown) :
 
-Adapter au profil enseignant. Contenu original, pas une copie de documents importés.
+{
+  "title": "",
+  "competenceBo": "",
+  "objectifs": [],
+  "prerequis": [],
+  "notions": [],
+  "materiel": [],
+  "methode": "",
+  "sessions": [
+    {
+      "sessionNumber": 1,
+      "title": "",
+      "objectif": "",
+      "dureeMinutes": 45,
+      "placeProgression": ""
+    }
+  ],
+  "evaluationFinale": {
+    "label": "",
+    "criteres": []
+  },
+  "differentiation": {
+    "elevesEnDifficulte": [],
+    "elevesAvances": [],
+    "groupes": [],
+    "adaptations": []
+  }
+}
+
+Générer exactement ${ctx?.sessionCount ?? 4} séances dans "sessions".
+Contenu original, pas une copie de documents importés.
 `.trim();
   }
 

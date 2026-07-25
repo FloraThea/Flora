@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { TheaGlow } from "@/components/ui/TheaGlow";
@@ -9,6 +10,7 @@ import type {
   TheaChatMessage,
   TheaChatMode,
   TheaCreateDraftInput,
+  TheaSaveResponse,
 } from "@/lib/thea/chat/types";
 import { useTheaChat } from "./thea-chat-context";
 
@@ -23,12 +25,16 @@ const CHAT_SUGGESTIONS = [
 
 type TabMode = "chat" | "create";
 
-function newMessage(role: TheaChatMessage["role"], content: string, mode?: TheaChatMode): TheaChatMessage {
+function newMessage(
+  role: TheaChatMessage["role"],
+  content: string,
+  options?: Pick<TheaChatMessage, "mode" | "structured" | "canSave" | "saved">,
+): TheaChatMessage {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     role,
     content,
-    mode,
+    ...options,
   };
 }
 
@@ -39,6 +45,7 @@ export function TheaChatDrawer() {
   const [messages, setMessages] = useState<TheaChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [savingMessageId, setSavingMessageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<TheaCreateDraftInput>({
     matiere: "",
@@ -78,13 +85,28 @@ export function TheaChatDrawer() {
           body: JSON.stringify({ mode, message, history, createContext }),
         });
 
-        const data = (await response.json()) as TheaAskResponse & { error?: string; message?: string };
+        const data = (await response.json()) as TheaAskResponse & {
+          error?: string;
+          message?: string;
+          parseWarning?: string;
+        };
 
         if (!response.ok) {
           throw new Error(data.message || data.error || "Impossible de contacter Théa.");
         }
 
-        setMessages((prev) => [...prev, newMessage("assistant", data.reply, mode)]);
+        if (data.parseWarning) {
+          setError(data.parseWarning);
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          newMessage("assistant", data.reply, {
+            mode,
+            structured: data.structured ?? null,
+            canSave: Boolean(data.canSave && data.structured),
+          }),
+        ]);
       } catch (requestError) {
         const messageText =
           requestError instanceof Error ? requestError.message : "Une erreur est survenue.";
@@ -100,7 +122,7 @@ export function TheaChatDrawer() {
     const text = input.trim();
     if (!text || loading) return;
 
-    setMessages((prev) => [...prev, newMessage("user", text, "chat")]);
+    setMessages((prev) => [...prev, newMessage("user", text, { mode: "chat" })]);
     setInput("");
     await sendRequest("chat", text);
   }, [input, loading, sendRequest]);
@@ -118,10 +140,65 @@ export function TheaChatDrawer() {
       ? `Créer une séance de ${draft.matiere} — ${objectif}`
       : `Créer une séquence de ${draft.matiere} — ${objectif}`;
 
-    setMessages((prev) => [...prev, newMessage("user", summary, createKind)]);
+    setMessages((prev) => [...prev, newMessage("user", summary, { mode: createKind })]);
     setError(null);
     await sendRequest(createKind, (draft.consignes ?? "").trim() || objectif, draft);
   }, [createKind, draft, loading, sendRequest]);
+
+  const handleSaveProposal = useCallback(
+    async (message: TheaChatMessage) => {
+      if (!message.structured || !message.mode || message.mode === "chat" || savingMessageId) {
+        return;
+      }
+
+      setSavingMessageId(message.id);
+      setError(null);
+
+      try {
+        const response = await fetch("/api/thea/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: message.mode,
+            structured: message.structured,
+            createContext: draft,
+          }),
+        });
+
+        const data = (await response.json()) as TheaSaveResponse & {
+          error?: string;
+          message?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.message || data.error || "Enregistrement impossible.");
+        }
+
+        setMessages((prev) =>
+          prev.map((entry) =>
+            entry.id === message.id
+              ? {
+                  ...entry,
+                  saved: {
+                    type: data.type,
+                    id: data.id,
+                    href: data.href,
+                    title: data.title,
+                  },
+                }
+              : entry,
+          ),
+        );
+      } catch (saveError) {
+        const messageText =
+          saveError instanceof Error ? saveError.message : "Enregistrement impossible.";
+        setError(messageText);
+      } finally {
+        setSavingMessageId(null);
+      }
+    },
+    [draft, savingMessageId],
+  );
 
   const handleSuggestion = (suggestion: string) => {
     setInput(suggestion);
@@ -292,8 +369,7 @@ export function TheaChatDrawer() {
             </div>
 
             <p className="mb-4 text-sm font-light text-flora-text-muted">
-              Génération IA sur demande — Théa propose un brouillon que vous pourrez adapter avant
-              import.
+              Génération IA sur demande — prévisualisez puis enregistrez directement dans Flora.
             </p>
 
             <div className="space-y-3">
@@ -392,16 +468,44 @@ export function TheaChatDrawer() {
                   .filter((message) => message.mode !== "chat")
                   .slice(-2)
                   .map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        "rounded-2xl px-4 py-3 text-sm font-light leading-relaxed",
-                        message.role === "user"
-                          ? "bg-rose-poudre/15 text-flora-text-muted"
-                          : "bg-white/70 text-flora-text",
-                      )}
-                    >
-                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    <div key={message.id} className="space-y-2">
+                      <div
+                        className={cn(
+                          "rounded-2xl px-4 py-3 text-sm font-light leading-relaxed",
+                          message.role === "user"
+                            ? "bg-rose-poudre/15 text-flora-text-muted"
+                            : "bg-white/70 text-flora-text",
+                        )}
+                      >
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                      </div>
+
+                      {message.role === "assistant" && message.canSave && message.structured ? (
+                        message.saved ? (
+                          <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/70 px-4 py-3 text-sm font-light text-flora-text">
+                            <p>Enregistré : {message.saved.title}</p>
+                            <Link
+                              href={message.saved.href}
+                              className="mt-2 inline-flex text-sm text-emerald-800 underline underline-offset-2"
+                              onClick={closeChat}
+                            >
+                              Ouvrir dans {message.saved.type === "seance" ? "Séances" : "Séquences"}
+                            </Link>
+                          </div>
+                        ) : (
+                          <FloraButton
+                            accent="rose"
+                            variant="secondary"
+                            className="w-full"
+                            disabled={Boolean(savingMessageId)}
+                            onClick={() => void handleSaveProposal(message)}
+                          >
+                            {savingMessageId === message.id
+                              ? "Enregistrement…"
+                              : `Enregistrer la ${createKind === "create_seance" ? "séance" : "séquence"} dans Flora`}
+                          </FloraButton>
+                        )
+                      ) : null}
                     </div>
                   ))}
               </div>

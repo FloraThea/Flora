@@ -280,6 +280,36 @@ export async function saveSeance(input: {
   });
 }
 
+export async function createIndependentSeanceFromDraft(
+  draft: SeanceDraft,
+  metadata?: Record<string, unknown>,
+): Promise<SeancePayload> {
+  if (!draft.title?.trim()) {
+    throw new Error("Le titre de la séance est requis.");
+  }
+  if (!draft.matiere?.trim()) {
+    throw new Error("La matière est requise.");
+  }
+
+  const scope = await requireTeacherScope();
+
+  return insertSeanceRecord({
+    draft,
+    sequenceSessionId: null,
+    sequenceId: null,
+    progressionId: null,
+    progressionRowId: null,
+    programmationId: null,
+    teacherProfileId: scope.profileId,
+    linkMode: "independent",
+    metadata: {
+      source_type: "thea_chat",
+      created_independently: true,
+      ...metadata,
+    },
+  });
+}
+
 export async function createIndependentSeance(
   input: IndependentSeanceCreateInput,
 ): Promise<SeancePayload> {
