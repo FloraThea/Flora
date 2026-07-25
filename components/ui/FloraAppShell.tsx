@@ -3,6 +3,9 @@
 import { useState, type ReactNode } from "react";
 import { Sidebar } from "@/app/components/Sidebar";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { TheaChatDrawer } from "@/components/thea/TheaChatDrawer";
+import { TheaChatFab } from "@/components/thea/TheaChatFab";
+import { TheaChatProvider } from "@/components/thea/thea-chat-context";
 import { layout } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
@@ -17,6 +20,7 @@ export function FloraAppShell({ children, className, mainClassName }: FloraAppSh
 
   return (
     <ThemeProvider>
+      <TheaChatProvider>
       <div className={cn(layout.pageShell, className)}>
       <div
         className={cn(
@@ -52,7 +56,11 @@ export function FloraAppShell({ children, className, mainClassName }: FloraAppSh
 
         <main className={cn(layout.main, mainClassName)}>{children}</main>
       </div>
+
+      <TheaChatFab />
+      <TheaChatDrawer />
       </div>
+      </TheaChatProvider>
     </ThemeProvider>
   );
 }

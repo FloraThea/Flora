@@ -124,6 +124,7 @@ function testMhmSequenceRestitutionFromProgressionRows() {
   assert.ok(
     seanceDraft.phases.some((phase) => phase.summary.length > 0) || seanceDraft.objectif.length > 0,
   );
+  console.log(
     `✓ Restitution MHM — ${groups.size} séquences, module 1 = ${draft.sessionCount} séances`,
   );
 }

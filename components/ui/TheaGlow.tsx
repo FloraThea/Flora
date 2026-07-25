@@ -130,7 +130,15 @@ export function TheaGlow({
   );
 }
 
-export function TheaHeroPanel({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function TheaHeroPanel({
+  className,
+  onDiscuss,
+  onCreate,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & {
+  onDiscuss?: () => void;
+  onCreate?: () => void;
+}) {
   return (
     <TheaGlow
       size="lg"
@@ -140,13 +148,25 @@ export function TheaHeroPanel({ className, ...props }: HTMLAttributes<HTMLDivEle
       className={className}
       {...props}
     >
-      <button
-        type="button"
-        className="flora-btn-primary mt-2 inline-flex items-center gap-2 px-6 py-3 text-sm font-normal active:scale-[0.98]"
-      >
-        Discuter avec Théa
-        <span aria-hidden>✨</span>
-      </button>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:justify-center">
+        <button
+          type="button"
+          onClick={onDiscuss}
+          className="flora-btn-primary inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-normal active:scale-[0.98]"
+        >
+          Discuter avec Théa
+          <span aria-hidden>✨</span>
+        </button>
+        {onCreate ? (
+          <button
+            type="button"
+            onClick={onCreate}
+            className="flora-btn-secondary inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-normal active:scale-[0.98]"
+          >
+            Créer une séance
+          </button>
+        ) : null}
+      </div>
     </TheaGlow>
   );
 }

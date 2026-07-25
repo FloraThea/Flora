@@ -1,5 +1,6 @@
 import "server-only";
 
+import { deleteProgression } from "@/lib/progression/progression-service";
 import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
 import { deleteStorageObject } from "@/lib/storage/delete-storage-object";

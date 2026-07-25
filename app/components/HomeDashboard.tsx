@@ -6,6 +6,7 @@ import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraDashboardCard } from "@/components/ui/FloraDashboardCard";
 import { TheaHeroPanel } from "@/components/ui/TheaGlow";
+import { useTheaChat } from "@/components/thea/thea-chat-context";
 import { FloraProgressBar } from "@/components/ui/FloraProgressBar";
 
 type DashboardSummary = {
@@ -34,6 +35,7 @@ function capitalize(value: string): string {
 }
 
 export function HomeDashboard() {
+  const { openChat } = useTheaChat();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -258,7 +260,11 @@ export function HomeDashboard() {
       </div>
 
       <aside className="w-full shrink-0 xl:w-[320px]">
-        <TheaHeroPanel className="sticky top-8" />
+        <TheaHeroPanel
+          className="sticky top-8"
+          onDiscuss={() => openChat("chat")}
+          onCreate={() => openChat("create_seance")}
+        />
       </aside>
     </div>
   );
