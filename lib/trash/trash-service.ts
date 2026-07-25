@@ -2,8 +2,8 @@ import "server-only";
 
 import { floraDb } from "@/lib/supabase/get-db";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
-import { getStorageBucketName } from "@/lib/supabase/storage-config";
-import { deleteProgression } from "@/lib/progression/progression-service";
+import { deleteStorageObject } from "@/lib/storage/delete-storage-object";
+import { deleteDocument, restoreDocument, trashDocument } from "@/lib/documents/document-service";
 import { normalizeMatiere, normalizeSousMatiere } from "@/lib/pedagogical/subjects";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { onlyActive, onlyTrashed } from "./active-query";
@@ -87,6 +87,16 @@ const ENTITY_CONFIG: Record<TrashEntityType, EntityConfig> = {
       type: "sequence",
       table: "sequences",
       titleField: "title",
+    },
+  },
+  document: {
+    table: "documents",
+    titleField: "title",
+    matiereFields: {
+      matiere: "matiere",
+      sousMatiere: "sous_matiere",
+      niveau: "niveau",
+      periode: "annee",
     },
   },
 };
@@ -250,6 +260,11 @@ export async function moveToTrash(input: {
   id: string;
   reason?: string;
 }): Promise<void> {
+  if (input.entityType === "document") {
+    await trashDocument(input.id, input.reason);
+    return;
+  }
+
   const { scope, row } = await loadEntityRow(input.entityType, input.id);
 
   if (row.deleted_at) {
@@ -281,6 +296,11 @@ export async function restoreFromTrash(input: {
   id: string;
   mode?: TrashRestoreMode;
 }): Promise<{ restoredParentId?: string }> {
+  if (input.entityType === "document") {
+    await restoreDocument(input.id);
+    return {};
+  }
+
   const { scope, row } = await loadEntityRow(input.entityType, input.id);
 
   if (!row.deleted_at) {
@@ -335,7 +355,10 @@ async function permanentDeleteProgrammation(id: string): Promise<void> {
 
   const storagePath = String(programmation.source_storage_path ?? "").trim();
   if (storagePath) {
-    await db.storage.from(getStorageBucketName()).remove([storagePath]).catch(() => undefined);
+    await deleteStorageObject({
+      storagePath,
+      metadata: (programmation.metadata as Record<string, unknown> | null) ?? null,
+    });
   }
 
   const { error } = await db.from("programmations").delete().eq("id", id);
@@ -390,6 +413,9 @@ export async function permanentDeleteFromTrash(input: {
       return;
     case "seance":
       await permanentDeleteSeance(input.id);
+      return;
+    case "document":
+      await deleteDocument(String(input.id));
       return;
     default:
       throw new Error("Type d'élément non pris en charge.");

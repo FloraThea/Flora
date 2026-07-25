@@ -8,5 +8,7 @@ export {
   deleteDocument,
   getDocumentDetails,
   listDocuments,
+  restoreDocument,
   searchDocuments,
+  trashDocument,
 } from "./document-service";

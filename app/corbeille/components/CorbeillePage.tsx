@@ -15,6 +15,7 @@ const TYPE_LABELS: Record<TrashEntityType, string> = {
   progression: "Progression",
   sequence: "Séquence",
   seance: "Séance",
+  document: "Document bibliothèque",
 };
 
 type BulkAction = null | "restore-all" | "empty";

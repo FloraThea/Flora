@@ -144,24 +144,28 @@ function BibliothequePageContent() {
     setSelectedBoId(null);
   }, []);
 
-  const handleDeleteDocument = useCallback(async () => {
+  const handleTrashDocument = useCallback(async () => {
     if (!selectedPedagogical) return;
     setIsArchiving(true);
     try {
-      const response = await fetch("/api/documents/delete", {
+      const response = await fetch("/api/documents/trash", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: selectedPedagogical.id }),
       });
       const payload = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Impossible de supprimer le document.");
+      if (!response.ok) {
+        throw new Error(payload.error || "Impossible de placer le document dans la Corbeille.");
+      }
       setSelectedPedagogical(null);
       await loadLibrary();
     } catch (error) {
       setUploadState((current) => ({
         ...current,
         globalError:
-          error instanceof Error ? error.message : "Impossible de supprimer le document.",
+          error instanceof Error
+            ? error.message
+            : "Impossible de placer le document dans la Corbeille.",
       }));
     } finally {
       setIsArchiving(false);
@@ -248,7 +252,7 @@ function BibliothequePageContent() {
         <DocumentDetails
           document={selectedPedagogical}
           onClose={() => setSelectedPedagogical(null)}
-          onArchive={handleDeleteDocument}
+          onArchive={handleTrashDocument}
           isArchiving={isArchiving}
         />
       ) : null}

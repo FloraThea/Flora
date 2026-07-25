@@ -22,6 +22,7 @@ export type SequenceSession = {
   dureeMinutes: number;
   ordrePedagogique: number;
   placeProgression: string;
+  metadata?: Record<string, unknown>;
 };
 
 export type SequenceDifferentiation = {

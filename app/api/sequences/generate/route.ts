@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { sequenceGenerator } from "@/lib/sequences/SequenceGenerator";
+import { findExistingModuleSequence } from "@/lib/sequences/sequence-restitution";
 import { saveSequence } from "@/lib/sequences/sequence-service";
 import type { SequenceGenerationInput } from "@/lib/sequences/types";
 import { floraDb } from "@/lib/supabase/get-db";
+import { onlyActive } from "@/lib/trash/active-query";
 
 export async function POST(request: Request) {
   try {
@@ -12,20 +14,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "progressionRowId requis." }, { status: 400 });
     }
 
-    const { data: existing } = await (await floraDb())
-      .from("sequences")
-      .select("id")
-      .eq("progression_row_id", body.progressionRowId)
-      .maybeSingle();
+    const { draft, context, restitution } = await sequenceGenerator.generate(body);
 
-    if (existing?.id) {
-      return NextResponse.json(
-        { error: "Une séquence existe déjà pour cette ligne de progression." },
-        { status: 409 },
-      );
+    if (restitution) {
+      const existingId = await findExistingModuleSequence({
+        progressionId: context.progression.id,
+        sequenceModule: restitution.sequenceModule,
+      });
+
+      if (existingId) {
+        return NextResponse.json(
+          { error: `Une séquence existe déjà pour ${restitution.sequenceModule}.` },
+          { status: 409 },
+        );
+      }
+    } else {
+      const { data: existing } = await onlyActive(
+        (await floraDb()).from("sequences").select("id").eq("progression_row_id", body.progressionRowId),
+      ).maybeSingle();
+
+      if (existing?.id) {
+        return NextResponse.json(
+          { error: "Une séquence existe déjà pour cette ligne de progression." },
+          { status: 409 },
+        );
+      }
     }
-
-    const { draft, context } = await sequenceGenerator.generate(body);
 
     const payload = await saveSequence({
       draft,
@@ -33,6 +47,14 @@ export async function POST(request: Request) {
       progressionRowId: body.progressionRowId,
       programmationId: context.progression.programmation_id,
       progressionTabId: context.tab.id,
+      metadata: restitution
+        ? {
+            restitutionMode: true,
+            sequenceModule: restitution.sequenceModule,
+            sequenceModuleKey: restitution.sequenceModuleKey,
+            progressionRowIds: restitution.progressionRowIds,
+          }
+        : undefined,
     });
 
     return NextResponse.json(payload);

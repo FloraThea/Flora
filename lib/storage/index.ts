@@ -1,4 +1,5 @@
 export { storageService, StorageService, readDocumentStorageProvider } from "./StorageService";
+export { deleteStorageObject } from "./delete-storage-object";
 export {
   getStorageProviderName,
   getR2Config,

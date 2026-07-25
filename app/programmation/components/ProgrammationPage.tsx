@@ -13,6 +13,7 @@ import type { ProgrammationPayload, ProgrammingCellContent } from "@/lib/program
 import type { ProfilFormValues } from "@/lib/profile/types";
 import { colors } from "@/lib/theme";
 import { CalendarPreview } from "./CalendarPreview";
+import { TrashConfirmDialog } from "@/components/pedagogical/TrashConfirmDialog";
 import { PedagogicalModuleToolbar } from "@/components/pedagogical/PedagogicalModuleToolbar";
 import { PedagogicalSubjectBrowser } from "@/components/pedagogical/PedagogicalSubjectBrowser";
 import type { PedagogicalDocumentListItem } from "@/components/pedagogical/PedagogicalDocumentCard";
@@ -88,6 +89,9 @@ function ProgrammationPageContent() {
       metadata?: unknown;
     }>
   >([]);
+  const [trashTarget, setTrashTarget] = useState<PedagogicalDocumentListItem | null>(null);
+  const [isTrashing, setIsTrashing] = useState(false);
+  const [trashError, setTrashError] = useState<string | null>(null);
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
   const [viewMode, setViewMode] = useState<DocumentViewMode>("structured");
@@ -328,6 +332,32 @@ function ProgrammationPageContent() {
     [savedProgrammations],
   );
 
+  const handleConfirmTrash = useCallback(async () => {
+    if (!trashTarget) return;
+    setIsTrashing(true);
+    setTrashError(null);
+    try {
+      const response = await fetch("/api/corbeille/trash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "programmation", id: trashTarget.id }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Impossible de placer dans la Corbeille.");
+      if (payload?.programmation.id === trashTarget.id) setPayload(null);
+      setTrashTarget(null);
+      const listResponse = await fetch("/api/programmation/list");
+      if (listResponse.ok) {
+        const listData = (await listResponse.json()) as { programmations?: typeof savedProgrammations };
+        setSavedProgrammations(listData.programmations ?? []);
+      }
+    } catch (error) {
+      setTrashError(error instanceof Error ? error.message : "Impossible de placer dans la Corbeille.");
+    } finally {
+      setIsTrashing(false);
+    }
+  }, [payload?.programmation.id, trashTarget]);
+
   const handleMoveProgrammationSubject = useCallback(
     async (id: string, matiere: string, sousMatiere: string) => {
       const response = await fetch("/api/pedagogical/subject", {
@@ -381,6 +411,22 @@ function ProgrammationPageContent() {
           onMoveSubject={(id, matiere, sousMatiere) =>
             void handleMoveProgrammationSubject(id, matiere, sousMatiere)
           }
+          onTrash={(item) => setTrashTarget(item)}
+        />
+      ) : null}
+
+      {trashTarget ? (
+        <TrashConfirmDialog
+          title="Placer dans la Corbeille ?"
+          description={`Voulez-vous placer « ${trashTarget.title} » dans la Corbeille ?`}
+          isSubmitting={isTrashing}
+          error={trashError}
+          onCancel={() => {
+            if (isTrashing) return;
+            setTrashTarget(null);
+            setTrashError(null);
+          }}
+          onConfirm={() => void handleConfirmTrash()}
         />
       ) : null}
 

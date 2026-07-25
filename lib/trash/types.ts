@@ -1,6 +1,11 @@
 export const TRASH_RETENTION_DAYS = 30;
 
-export type TrashEntityType = "programmation" | "progression" | "sequence" | "seance";
+export type TrashEntityType =
+  | "programmation"
+  | "progression"
+  | "sequence"
+  | "seance"
+  | "document";
 
 export type TrashItem = {
   id: string;

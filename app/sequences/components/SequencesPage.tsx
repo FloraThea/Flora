@@ -8,6 +8,7 @@ import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
+import { TrashConfirmDialog } from "@/components/pedagogical/TrashConfirmDialog";
 import { PedagogicalModuleToolbar } from "@/components/pedagogical/PedagogicalModuleToolbar";
 import { PedagogicalSubjectBrowser } from "@/components/pedagogical/PedagogicalSubjectBrowser";
 import type { PedagogicalDocumentListItem } from "@/components/pedagogical/PedagogicalDocumentCard";
@@ -39,6 +40,20 @@ function SequencesPageContent() {
   const [formValues, setFormValues] = useState<SequencesFormValues>(initialSequencesFormValues);
   const [progressions, setProgressions] = useState<ValidatedProgressionSummary[]>([]);
   const [rows, setRows] = useState<ProgressionRowOption[]>([]);
+  const [modules, setModules] = useState<
+    Array<{
+      moduleKey: string;
+      sequenceModule: string;
+      rowCount: number;
+      hasSequence: boolean;
+      anchorRowId: string;
+      subjectLabel: string;
+      subSubjectLabel: string;
+    }>
+  >([]);
+  const [trashTarget, setTrashTarget] = useState<PedagogicalDocumentListItem | null>(null);
+  const [isTrashing, setIsTrashing] = useState(false);
+  const [trashError, setTrashError] = useState<string | null>(null);
   const [sequences, setSequences] = useState<SequenceCardSummary[]>([]);
   const [selectedPayload, setSelectedPayload] = useState<SequencePayload | null>(null);
   const [generatingRowId, setGeneratingRowId] = useState<string | null>(null);
@@ -72,6 +87,28 @@ function SequencesPageContent() {
     }
 
     setSequences(data.sequences ?? []);
+  }, []);
+
+  const loadModules = useCallback(async (progressionId: string) => {
+    const response = await fetch(`/api/sequences/modules?progressionId=${progressionId}`);
+    const data = (await response.json()) as {
+      modules?: Array<{
+        moduleKey: string;
+        sequenceModule: string;
+        rowCount: number;
+        hasSequence: boolean;
+        anchorRowId: string;
+        subjectLabel: string;
+        subSubjectLabel: string;
+      }>;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(data.error || "Impossible de charger les modules.");
+    }
+
+    setModules(data.modules ?? []);
   }, []);
 
   const loadRows = useCallback(async (progressionId: string) => {
@@ -143,6 +180,7 @@ function SequencesPageContent() {
       try {
         await Promise.all([
           loadRows(formValues.progressionId),
+          loadModules(formValues.progressionId),
           loadSequences(formValues.progressionId),
         ]);
       } catch (loadError) {
@@ -161,7 +199,7 @@ function SequencesPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [formValues.progressionId, loadRows, loadSequences]);
+  }, [formValues.progressionId, loadModules, loadRows, loadSequences]);
 
   const handleGenerate = useCallback(
     async (progressionRowId: string) => {
@@ -183,6 +221,7 @@ function SequencesPageContent() {
 
         await Promise.all([
           loadRows(formValues.progressionId),
+          loadModules(formValues.progressionId),
           loadSequences(formValues.progressionId),
         ]);
 
@@ -197,7 +236,7 @@ function SequencesPageContent() {
         setGeneratingRowId(null);
       }
     },
-    [formValues.progressionId, loadRows, loadSequences],
+    [formValues.progressionId, loadModules, loadRows, loadSequences],
   );
 
   const openSequence = useCallback(async (sequenceId: string) => {
@@ -250,6 +289,28 @@ function SequencesPageContent() {
     [loadAllSequences],
   );
 
+  const handleConfirmTrash = useCallback(async () => {
+    if (!trashTarget) return;
+    setIsTrashing(true);
+    setTrashError(null);
+    try {
+      const response = await fetch("/api/corbeille/trash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "sequence", id: trashTarget.id }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Impossible de placer dans la Corbeille.");
+      if (selectedPayload?.sequence.id === trashTarget.id) setSelectedPayload(null);
+      setTrashTarget(null);
+      await loadAllSequences();
+    } catch (error) {
+      setTrashError(error instanceof Error ? error.message : "Impossible de placer dans la Corbeille.");
+    } finally {
+      setIsTrashing(false);
+    }
+  }, [loadAllSequences, selectedPayload?.sequence.id, trashTarget]);
+
   return (
     <div className="flex flex-col gap-8">
       <FloraPageTitle
@@ -285,6 +346,22 @@ function SequencesPageContent() {
           onMoveSubject={(id, matiere, sousMatiere) =>
             void handleMoveSequenceSubject(id, matiere, sousMatiere)
           }
+          onTrash={(item) => setTrashTarget(item)}
+        />
+      ) : null}
+
+      {trashTarget ? (
+        <TrashConfirmDialog
+          title="Placer dans la Corbeille ?"
+          description={`Voulez-vous placer « ${trashTarget.title} » dans la Corbeille ?`}
+          isSubmitting={isTrashing}
+          error={trashError}
+          onCancel={() => {
+            if (isTrashing) return;
+            setTrashTarget(null);
+            setTrashError(null);
+          }}
+          onConfirm={() => void handleConfirmTrash()}
         />
       ) : null}
 
@@ -375,7 +452,41 @@ function SequencesPageContent() {
         </p>
       )}
 
-      {rows.length > 0 && (
+      {modules.length > 0 && (
+        <FloraCard padding="lg" accent="lavender">
+          <h3 className="mb-4 font-serif text-xl text-flora-text">Modules de progression</h3>
+          <div className="grid gap-3">
+            {modules.map((module) => (
+              <div
+                key={module.moduleKey}
+                className="flex flex-col gap-3 rounded-2xl border border-white/70 bg-white/55 p-4 md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    <FloraBadge accent="lavender">
+                      {module.subSubjectLabel || module.subjectLabel}
+                    </FloraBadge>
+                    <FloraBadge accent="cream">{module.rowCount} séance(s)</FloraBadge>
+                    {module.hasSequence && <FloraBadge accent="sage">Séquence créée</FloraBadge>}
+                  </div>
+                  <p className="font-medium text-flora-text">{module.sequenceModule}</p>
+                  <p className="text-sm font-light text-flora-text-muted">
+                    1 module = 1 séquence · restitution fidèle des données importées
+                  </p>
+                </div>
+                <FloraButton
+                  disabled={module.hasSequence || generatingRowId === module.anchorRowId}
+                  onClick={() => void handleGenerate(module.anchorRowId)}
+                >
+                  {generatingRowId === module.anchorRowId ? "Génération…" : "Générer la séquence"}
+                </FloraButton>
+              </div>
+            ))}
+          </div>
+        </FloraCard>
+      )}
+
+      {rows.length > 0 && modules.length === 0 && (
         <FloraCard padding="lg" accent="lavender">
           <h3 className="mb-4 font-serif text-xl text-flora-text">Lignes de progression</h3>
           <div className="grid gap-3">

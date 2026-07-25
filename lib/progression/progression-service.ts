@@ -13,7 +13,7 @@ import { logPedagogicalChange } from "@/lib/pedagogical/change-history";
 import { pedagogicalEngine } from "@/lib/pedagogical/PedagogicalEngine";
 import { resolveReferentielIds } from "@/lib/pedagogical/competence-resolver";
 import { getSupabaseErrorMessage } from "@/lib/supabase-errors";
-import { getStorageBucketName } from "@/lib/supabase/storage-config";
+import { deleteStorageObject } from "@/lib/storage/delete-storage-object";
 import { onlyActive } from "@/lib/trash/active-query";
 import type {
   ProgressionDeleteMode,
@@ -413,42 +413,98 @@ export async function listValidatedProgressions() {
 }
 
 export async function listProgressionRows(progressionId: string) {
+  const modules = await listProgressionModules(progressionId);
+  return modules.flatMap((module) => module.rows);
+}
+
+export async function listProgressionModules(progressionId: string) {
   const { data: tabs } = await (await floraDb())
     .from("progression_tabs")
     .select("id, subject_label, sub_subject_label")
     .eq("progression_id", progressionId)
     .order("sort_order");
 
-  const rows = [];
+  const modules: Array<{
+    moduleKey: string;
+    sequenceModule: string;
+    tabId: string;
+    subjectLabel: string;
+    subSubjectLabel: string;
+    rowCount: number;
+    hasSequence: boolean;
+    anchorRowId: string;
+    rows: Array<{
+      id: string;
+      tabId: string;
+      subjectLabel: string;
+      subSubjectLabel: string;
+      periodNumber: number;
+      weekNumber: number;
+      seanceLabel: string;
+      competenceBo: string;
+      sequenceModule: string;
+      hasSequence: boolean;
+    }>;
+  }> = [];
+
+  const { normalizeSequenceModuleKey, findExistingModuleSequence } = await import(
+    "@/lib/sequences/sequence-restitution"
+  );
 
   for (const tab of tabs ?? []) {
     const { data: tabRows } = await (await floraDb())
       .from("progression_rows")
-      .select("id, period_number, week_number, seance_label, competence_bo, sequence_module")
+      .select("id, period_number, week_number, seance_label, competence_bo, sequence_module, sort_order")
       .eq("tab_id", tab.id)
       .order("sort_order");
 
+    const grouped = new Map<string, typeof tabRows>();
     for (const row of tabRows ?? []) {
-      const { data: existingSequence } = await onlyActive(
-        (await floraDb()).from("sequences").select("id").eq("progression_row_id", row.id),
-      ).maybeSingle();
+      const key = normalizeSequenceModuleKey(String(row.sequence_module ?? ""));
+      const list = grouped.get(key) ?? [];
+      list.push(row);
+      grouped.set(key, list);
+    }
 
-      rows.push({
-        id: row.id,
+    for (const [moduleKey, moduleRows] of grouped.entries()) {
+      const rows = moduleRows ?? [];
+      const sequenceModule = String(rows[0]?.sequence_module ?? moduleKey);
+      const existingSequenceId = await findExistingModuleSequence({
+        progressionId,
+        sequenceModule,
+      });
+
+      const mappedRows = [];
+      for (const row of rows ?? []) {
+        mappedRows.push({
+          id: row.id,
+          tabId: tab.id,
+          subjectLabel: tab.subject_label,
+          subSubjectLabel: tab.sub_subject_label,
+          periodNumber: row.period_number,
+          weekNumber: row.week_number,
+          seanceLabel: row.seance_label,
+          competenceBo: row.competence_bo,
+          sequenceModule: row.sequence_module,
+          hasSequence: Boolean(existingSequenceId),
+        });
+      }
+
+      modules.push({
+        moduleKey,
+        sequenceModule,
         tabId: tab.id,
         subjectLabel: tab.subject_label,
         subSubjectLabel: tab.sub_subject_label,
-        periodNumber: row.period_number,
-        weekNumber: row.week_number,
-        seanceLabel: row.seance_label,
-        competenceBo: row.competence_bo,
-        sequenceModule: row.sequence_module,
-        hasSequence: Boolean(existingSequence),
+        rowCount: mappedRows.length,
+        hasSequence: Boolean(existingSequenceId),
+        anchorRowId: mappedRows[0]?.id ?? "",
+        rows: mappedRows,
       });
     }
   }
 
-  return rows;
+  return modules;
 }
 
 async function assertProgressionOwnership(progressionId: string) {
@@ -704,12 +760,15 @@ async function removeProgressionStorageFile(metadata: unknown): Promise<void> {
   const storagePath = String((metadata as Record<string, unknown>).source_storage_path ?? "").trim();
   if (!storagePath) return;
 
-  const { error } = await (await floraDb()).storage.from(getStorageBucketName()).remove([storagePath]);
-
-  if (error) {
+  try {
+    await deleteStorageObject({
+      storagePath,
+      metadata: metadata as Record<string, unknown>,
+    });
+  } catch (error) {
     console.warn("[progression] Suppression fichier storage ignorée", {
       storagePath,
-      error: getSupabaseErrorMessage(error, "Suppression storage échouée"),
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 }

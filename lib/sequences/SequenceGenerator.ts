@@ -11,6 +11,13 @@ import { differentiationEngine } from "./DifferentiationEngine";
 import { evaluationPlanner } from "./EvaluationPlanner";
 import { learningScenarioBuilder } from "./LearningScenarioBuilder";
 import { buildSequencePrompt, parseSequenceEnrichment } from "./prompts/generateSequence";
+import {
+  buildSequenceDraftFromModuleRows,
+  findModuleRowsForAnchorRow,
+  loadAllProgressionRows,
+  normalizeSequenceModuleKey,
+  shouldUseSequenceRestitution,
+} from "./sequence-restitution";
 import { resourcePlanner } from "./ResourcePlanner";
 import type { SequenceContext, SequenceDraft, SequenceGenerationInput } from "./types";
 
@@ -152,10 +159,42 @@ export class SequenceGenerator {
   async generate(input: SequenceGenerationInput): Promise<{
     draft: SequenceDraft;
     context: SequenceContext;
+    restitution?: {
+      sequenceModule: string;
+      sequenceModuleKey: string;
+      progressionRowIds: string[];
+    };
   }> {
+    const context = await this.buildContext(input);
+
+    if (
+      shouldUseSequenceRestitution({
+        methode: context.methode,
+        progressionMetadata: context.progression.metadata,
+      })
+    ) {
+      const { rows } = await loadAllProgressionRows(context.progression.id);
+      const moduleRows = findModuleRowsForAnchorRow(rows, context.row);
+      const draft = buildSequenceDraftFromModuleRows({
+        rows: moduleRows,
+        tab: context.tab,
+        context,
+      });
+
+      const sequenceModule = moduleRows[0]?.sequenceModule || context.row.sequenceModule;
+      return {
+        draft,
+        context,
+        restitution: {
+          sequenceModule,
+          sequenceModuleKey: normalizeSequenceModuleKey(sequenceModule),
+          progressionRowIds: moduleRows.map((row) => row.id),
+        },
+      };
+    }
+
     const teacherProfile = await loadTeacherProfileForGeneration();
     const profileInstructions = buildTheaInstructionBlock(teacherProfile);
-    const context = await this.buildContext(input);
     const competence = competenceAnalyzer.analyze(context);
     const resources = await resourcePlanner.plan(context);
     const libraryContent = resources.libraryMatches

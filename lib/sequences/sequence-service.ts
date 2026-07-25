@@ -92,6 +92,7 @@ async function insertSequenceRecord(input: {
         duree_minutes: session.dureeMinutes,
         ordre_pedagogique: session.ordrePedagogique,
         place_progression: session.placeProgression,
+        metadata: session.metadata ?? {},
       })),
     )
     .select("*");
@@ -123,6 +124,7 @@ async function insertSequenceRecord(input: {
         dureeMinutes: session.duree_minutes,
         ordrePedagogique: session.ordre_pedagogique,
         placeProgression: session.place_progression,
+        metadata: (session.metadata as Record<string, unknown> | null) ?? {},
       }),
     ),
     (evaluations ?? []).map(
@@ -154,6 +156,7 @@ export async function saveSequence(input: {
   progressionRowId: string;
   programmationId: string | null;
   progressionTabId?: string;
+  metadata?: Record<string, unknown>;
 }): Promise<SequencePayload> {
   return insertSequenceRecord({
     draft: input.draft,
@@ -162,7 +165,10 @@ export async function saveSequence(input: {
     programmationId: input.programmationId,
     progressionTabId: input.progressionTabId ?? null,
     linkMode: "linked",
-    metadata: { source_type: "generated" },
+    metadata: {
+      source_type: "generated",
+      ...input.metadata,
+    },
   });
 }
 
@@ -333,6 +339,7 @@ export async function loadSequence(id: string): Promise<SequencePayload | null> 
         dureeMinutes: session.duree_minutes,
         ordrePedagogique: session.ordre_pedagogique,
         placeProgression: session.place_progression,
+        metadata: (session.metadata as Record<string, unknown> | null) ?? {},
       }),
     ),
     (evaluations ?? []).map(

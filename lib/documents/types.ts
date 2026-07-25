@@ -60,6 +60,10 @@ export type FloraDocument = {
   annee: string;
   resume: string;
   metadata: Record<string, unknown>;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
+  deletion_reason?: string | null;
+  purge_after?: string | null;
 };
 
 export type DocumentChunk = {

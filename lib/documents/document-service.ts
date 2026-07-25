@@ -1,9 +1,10 @@
 import { searchEngine } from "@/lib/knowledge/SearchEngine";
 import { clearDocumentKnowledge } from "@/lib/knowledge/pipeline";
+import { deleteStorageObject } from "@/lib/storage/delete-storage-object";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 import { floraDb } from "@/lib/supabase/get-db";
-import { getStorageBucketName } from "@/lib/supabase/storage-config";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
+import { TRASH_RETENTION_DAYS } from "@/lib/trash/types";
 import { importQueue } from "./import/ImportQueue";
 import { uploadManager } from "./import/UploadManager";
 import type {
@@ -52,9 +53,16 @@ async function fetchDocumentsForSearch(profileId: string): Promise<DocumentWithO
   return (fallback.data ?? []) as DocumentWithOptionalRelations[];
 }
 
-/** Exclut les documents archivés (suppression douce). */
-function isArchived(document: FloraDocument): boolean {
+/** Exclut les documents archivés ou en corbeille. */
+function isArchived(document: FloraDocument & { deleted_at?: string | null }): boolean {
+  if (document.deleted_at) return true;
   return Boolean(document.metadata?.archived);
+}
+
+function computeDocumentPurgeAfter(deletedAt: Date): string {
+  const purge = new Date(deletedAt);
+  purge.setDate(purge.getDate() + TRASH_RETENTION_DAYS);
+  return purge.toISOString();
 }
 
 function normalizeQuery(query?: string): string {
@@ -179,6 +187,7 @@ export async function searchDocuments(
 
 export async function getDocumentDetails(
   documentId: string,
+  options?: { includeTrashed?: boolean },
 ): Promise<DocumentWithRelations | null> {
   const scope = await requireTeacherScope();
 
@@ -199,6 +208,10 @@ export async function getDocumentDetails(
 
   if (!error && data) {
     const document = data as DocumentWithRelations;
+
+    if (!options?.includeTrashed && isArchived(document)) {
+      return null;
+    }
 
     return {
       ...document,
@@ -241,40 +254,95 @@ export async function getDocumentDetails(
   };
 }
 
-/** Suppression douce : conserve les données en base. */
-export async function archiveDocument(documentId: string): Promise<FloraDocument> {
+/** Mettre à la corbeille : conserve métadonnées et fichier source. */
+export async function trashDocument(documentId: string, reason?: string): Promise<FloraDocument> {
+  const scope = await requireTeacherScope();
   const existing = await getDocumentDetails(documentId);
 
   if (!existing) {
     throw new Error("Document introuvable.");
   }
 
+  if (isArchived(existing)) {
+    throw new Error("Ce document est déjà dans la Corbeille.");
+  }
+
+  const deletedAt = new Date().toISOString();
+
   const { data, error } = await (await floraDb())
     .from("documents")
     .update({
+      deleted_at: deletedAt,
+      deleted_by: scope.profileId,
+      deletion_reason: reason ?? null,
+      purge_after: computeDocumentPurgeAfter(new Date(deletedAt)),
       metadata: {
         ...(existing.metadata ?? {}),
         archived: true,
-        archived_at: new Date().toISOString(),
+        archived_at: deletedAt,
+        trashed_at: deletedAt,
       },
     })
     .eq("id", documentId)
+    .eq("teacher_profile_id", scope.profileId)
     .select()
     .single();
 
   if (error || !data) {
-    throw error ?? new Error("Impossible d'archiver le document.");
+    throw error ?? new Error("Impossible de placer le document dans la Corbeille.");
   }
 
   return data as FloraDocument;
+}
+
+/** Restaure un document depuis la corbeille. */
+export async function restoreDocument(documentId: string): Promise<FloraDocument> {
+  const scope = await requireTeacherScope();
+  const existing = await getDocumentDetails(documentId, { includeTrashed: true });
+
+  if (!existing) {
+    throw new Error("Document introuvable.");
+  }
+
+  if (!isArchived(existing)) {
+    throw new Error("Ce document n'est pas dans la Corbeille.");
+  }
+
+  const { data, error } = await (await floraDb())
+    .from("documents")
+    .update({
+      deleted_at: null,
+      deleted_by: null,
+      deletion_reason: null,
+      purge_after: null,
+      metadata: {
+        ...(existing.metadata ?? {}),
+        archived: false,
+        archived_at: null,
+        trashed_at: null,
+      },
+    })
+    .eq("id", documentId)
+    .eq("teacher_profile_id", scope.profileId)
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw error ?? new Error("Impossible de restaurer le document.");
+  }
+
+  return data as FloraDocument;
+}
+
+/** @deprecated Utiliser trashDocument — alias conservé pour compatibilité. */
+export async function archiveDocument(documentId: string): Promise<FloraDocument> {
+  return trashDocument(documentId);
 }
 
 async function removeDocumentStorageFiles(
   document: FloraDocument,
   extraPaths: string[] = [],
 ): Promise<void> {
-  const bucket =
-    (document.metadata?.storage_bucket as string | undefined) ?? getStorageBucketName();
   const paths = new Set<string>();
 
   if (document.storage_path?.trim()) {
@@ -285,22 +353,17 @@ async function removeDocumentStorageFiles(
     if (path.trim()) paths.add(path.trim());
   }
 
-  if (paths.size === 0) return;
-
-  const { error } = await (await floraDb()).storage.from(bucket).remove([...paths]);
-
-  if (error) {
-    console.warn("[documents] Suppression fichier storage ignorée", {
-      documentId: document.id,
-      paths: [...paths],
-      error: getSupabaseErrorMessage(error, "Suppression storage échouée"),
+  for (const path of paths) {
+    await deleteStorageObject({
+      storagePath: path,
+      metadata: document.metadata,
     });
   }
 }
 
 /** Suppression définitive : document, fichier source et analyse associée. */
 export async function deleteDocument(documentId: string): Promise<void> {
-  const existing = await getDocumentDetails(documentId);
+  const existing = await getDocumentDetails(documentId, { includeTrashed: true });
 
   if (!existing) {
     throw new Error("Document introuvable.");

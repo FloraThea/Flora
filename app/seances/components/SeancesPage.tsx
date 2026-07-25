@@ -8,6 +8,7 @@ import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
 import { FloraPageTitle } from "@/components/ui/FloraPageTitle";
+import { TrashConfirmDialog } from "@/components/pedagogical/TrashConfirmDialog";
 import { PedagogicalModuleToolbar } from "@/components/pedagogical/PedagogicalModuleToolbar";
 import { PedagogicalSubjectBrowser } from "@/components/pedagogical/PedagogicalSubjectBrowser";
 import type { PedagogicalDocumentListItem } from "@/components/pedagogical/PedagogicalDocumentCard";
@@ -48,6 +49,9 @@ function SeancesPageContent() {
   const [flowMode, setFlowMode] = useState<null | "menu" | "linked" | "independent" | "import">("menu");
   const [independentSeances, setIndependentSeances] = useState<SeanceCardSummary[]>([]);
   const [allSeances, setAllSeances] = useState<Array<Record<string, unknown>>>([]);
+  const [trashTarget, setTrashTarget] = useState<PedagogicalDocumentListItem | null>(null);
+  const [isTrashing, setIsTrashing] = useState(false);
+  const [trashError, setTrashError] = useState<string | null>(null);
 
   const loadAllSeances = useCallback(async () => {
     const response = await fetch("/api/seances/list?all=true");
@@ -322,6 +326,28 @@ function SeancesPageContent() {
     [loadAllSeances],
   );
 
+  const handleConfirmTrash = useCallback(async () => {
+    if (!trashTarget) return;
+    setIsTrashing(true);
+    setTrashError(null);
+    try {
+      const response = await fetch("/api/corbeille/trash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "seance", id: trashTarget.id }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Impossible de placer dans la Corbeille.");
+      if (selectedPayload?.seance.id === trashTarget.id) setSelectedPayload(null);
+      setTrashTarget(null);
+      await loadAllSeances();
+    } catch (error) {
+      setTrashError(error instanceof Error ? error.message : "Impossible de placer dans la Corbeille.");
+    } finally {
+      setIsTrashing(false);
+    }
+  }, [loadAllSeances, selectedPayload?.seance.id, trashTarget]);
+
   return (
     <div className="flex flex-col gap-8">
       <FloraPageTitle
@@ -357,6 +383,22 @@ function SeancesPageContent() {
           onMoveSubject={(id, matiere, sousMatiere) =>
             void handleMoveSeanceSubject(id, matiere, sousMatiere)
           }
+          onTrash={(item) => setTrashTarget(item)}
+        />
+      ) : null}
+
+      {trashTarget ? (
+        <TrashConfirmDialog
+          title="Placer dans la Corbeille ?"
+          description={`Voulez-vous placer « ${trashTarget.title} » dans la Corbeille ?`}
+          isSubmitting={isTrashing}
+          error={trashError}
+          onCancel={() => {
+            if (isTrashing) return;
+            setTrashTarget(null);
+            setTrashError(null);
+          }}
+          onConfirm={() => void handleConfirmTrash()}
         />
       ) : null}
 

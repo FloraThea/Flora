@@ -15,6 +15,7 @@ import { homeworkGenerator } from "./HomeworkGenerator";
 import { lessonPlanner } from "./LessonPlanner";
 import { materialPlanner } from "./MaterialPlanner";
 import { buildSeancePrompt, parseSeanceEnrichment } from "./prompts/generateSeance";
+import { buildSeanceDraftFromProgressionRow, shouldUseSeanceRestitution } from "./seance-restitution";
 import { saveSeance } from "./seance-service";
 import { traceEcriteGenerator } from "./TraceEcriteGenerator";
 import type { SeanceContext, SeanceDraft, SeanceGenerationInput, SeancePayload } from "./types";
@@ -102,7 +103,9 @@ export class LessonGenerator {
       throw new Error("Séquence introuvable.");
     }
 
-    const progressionRowId = sequencePayload.sequence.progression_row_id;
+    const sessionMetadata = (sessionRow.metadata as Record<string, unknown> | null) ?? {};
+    const sessionProgressionRowId = String(sessionMetadata.progressionRowId ?? "");
+    const progressionRowId = sessionProgressionRowId || sequencePayload.sequence.progression_row_id;
     if (!progressionRowId) {
       throw new Error(
         "Cette séquence est indépendante : générez la séance via la création manuelle ou associez-la à une progression.",
@@ -123,10 +126,18 @@ export class LessonGenerator {
       throw new Error("Session absente de la séquence.");
     }
 
+    const enrichedSession = {
+      ...sequenceSession,
+      metadata: {
+        ...(sequenceSession.metadata ?? {}),
+        ...sessionMetadata,
+      },
+    };
+
     return {
       teacherProfile,
       sequencePayload,
-      sequenceSession,
+      sequenceSession: enrichedSession,
       progressionRow,
       referentiel: await loadReferentiel(
         sequencePayload.sequence.referentielIds,
@@ -148,6 +159,25 @@ export class LessonGenerator {
 
   buildDraft(context: SeanceContext): SeanceDraft {
     const sequence = context.sequencePayload.sequence;
+
+    if (
+      shouldUseSeanceRestitution({
+        methode: context.methode,
+        sequenceMetadata: sequence.metadata,
+      })
+    ) {
+      return buildSeanceDraftFromProgressionRow({
+        row: context.progressionRow,
+        sequenceSession: context.sequenceSession,
+        matiere: sequence.matiere,
+        sousMatiere: sequence.sousMatiere,
+        niveau: sequence.niveau,
+        cycle: sequence.cycle,
+        methode: context.methode,
+        periodNumber: sequence.periodNumber,
+      });
+    }
+
     const session = context.sequenceSession;
 
     let phases = lessonPlanner.buildPhases(context);
@@ -199,60 +229,72 @@ export class LessonGenerator {
   async generateOne(sequenceSessionId: string): Promise<SeancePayload> {
     const context = await this.buildContext(sequenceSessionId);
     let draft = this.buildDraft(context);
-
-    const libraryMatches = await findLibraryEntityMatches({
+    const sequence = context.sequencePayload.sequence;
+    const useRestitution = shouldUseSeanceRestitution({
       methode: context.methode,
-      matiere: context.sequencePayload.sequence.matiere,
-      resourceIds: context.sequencePayload.sequence.resourceIds,
-      moduleLabel: context.progressionRow.sequenceModule,
-      seanceLabel: context.progressionRow.seanceLabel,
-      sourcePath: String(context.progressionRow.metadata?.sourcePath ?? ""),
+      sequenceMetadata: sequence.metadata,
     });
 
-    const libraryContent = libraryMatches
-      .map((match) => match.content || match.sourceText)
-      .filter(Boolean)
-      .join("\n\n");
+    if (!useRestitution) {
+      const libraryMatches = await findLibraryEntityMatches({
+        methode: context.methode,
+        matiere: context.sequencePayload.sequence.matiere,
+        resourceIds: context.sequencePayload.sequence.resourceIds,
+        moduleLabel: context.progressionRow.sequenceModule,
+        seanceLabel: context.progressionRow.seanceLabel,
+        sourcePath: String(context.progressionRow.metadata?.sourcePath ?? ""),
+      });
 
-    if (libraryContent && !draft.objectif.includes(libraryContent.slice(0, 40))) {
-      draft = {
-        ...draft,
-        objectif: draft.objectif || libraryContent.split("\n")[0] || draft.objectif,
-        pedagogicalChoices: [
-          ...draft.pedagogicalChoices,
-          `Contenu issu de la bibliothèque : ${libraryMatches[0]?.documentTitle ?? "document source"}.`,
-        ],
-      };
+      const libraryContent = libraryMatches
+        .map((match) => match.content || match.sourceText)
+        .filter(Boolean)
+        .join("\n\n");
+
+      if (libraryContent && !draft.objectif.includes(libraryContent.slice(0, 40))) {
+        draft = {
+          ...draft,
+          objectif: draft.objectif || libraryContent.split("\n")[0] || draft.objectif,
+          pedagogicalChoices: [
+            ...draft.pedagogicalChoices,
+            `Contenu issu de la bibliothèque : ${libraryMatches[0]?.documentTitle ?? "document source"}.`,
+          ],
+        };
+      }
+
+      try {
+        const prompt = buildSeancePrompt(
+          context,
+          draft,
+          buildTheaInstructionBlock(context.teacherProfile),
+        );
+        const raw = await askThea(prompt);
+        draft = parseSeanceEnrichment(raw, draft);
+      } catch (error) {
+        console.error("Enrichissement Théa séance :", error);
+      }
     }
-
-    try {
-      const prompt = buildSeancePrompt(
-        context,
-        draft,
-        buildTheaInstructionBlock(context.teacherProfile),
-      );
-      const raw = await askThea(prompt);
-      draft = parseSeanceEnrichment(raw, draft);
-    } catch (error) {
-      console.error("Enrichissement Théa séance :", error);
-    }
-
-    const sequence = context.sequencePayload.sequence;
 
     return saveSeance({
       draft,
       sequenceSessionId,
       sequenceId: sequence.id,
       progressionId: sequence.progression_id,
-      progressionRowId: sequence.progression_row_id,
+      progressionRowId:
+        String(context.sequenceSession.metadata?.progressionRowId ?? "") ||
+        sequence.progression_row_id,
       programmationId: sequence.programmation_id,
       teacherProfileId: context.teacherProfile.profile.id,
-      metadata: buildProvenanceMetadata({
-        matches: libraryMatches,
-        moduleLabel: context.progressionRow.sequenceModule,
-        seanceLabel: context.progressionRow.seanceLabel,
-        sourcePath: String(context.progressionRow.metadata?.sourcePath ?? ""),
-      }),
+      metadata: {
+        restitutionMode: useRestitution,
+        ...(useRestitution
+          ? {}
+          : buildProvenanceMetadata({
+              matches: [],
+              moduleLabel: context.progressionRow.sequenceModule,
+              seanceLabel: context.progressionRow.seanceLabel,
+              sourcePath: String(context.progressionRow.metadata?.sourcePath ?? ""),
+            })),
+      },
     });
   }
 

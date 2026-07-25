@@ -83,7 +83,7 @@ export function DocumentDetails({
             onClick={() => {
               if (
                 !window.confirm(
-                  "Supprimer ce document et son analyse ? Cette action est définitive.",
+                  "Mettre ce document à la corbeille ? Vous pourrez le restaurer depuis la Corbeille.",
                 )
               ) {
                 return;
@@ -91,7 +91,7 @@ export function DocumentDetails({
               onArchive();
             }}
           >
-            {isArchiving ? "Suppression…" : "Supprimer le document"}
+            {isArchiving ? "Mise à la corbeille…" : "Mettre à la corbeille"}
           </FloraButton>
         </div>
       </div>
