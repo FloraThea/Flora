@@ -4,6 +4,7 @@ import { deleteStorageObject } from "@/lib/storage/delete-storage-object";
 import { getSupabaseErrorMessage, serializeSupabaseError } from "@/lib/supabase-errors";
 import { floraDb } from "@/lib/supabase/get-db";
 import { requireTeacherScope } from "@/lib/tenant/teacher-context";
+import { onlyActive } from "@/lib/trash/active-query";
 import { TRASH_RETENTION_DAYS } from "@/lib/trash/types";
 import { importQueue } from "./import/ImportQueue";
 import { uploadManager } from "./import/UploadManager";
@@ -25,12 +26,27 @@ type DocumentWithOptionalRelations = FloraDocument & {
   document_competences?: Array<{ competence: string; code_bo: string }>;
 };
 
+function isMissingDocumentTrashColumnError(error: unknown): boolean {
+  const details = serializeSupabaseError(error);
+  return (
+    details.code === "42703" &&
+    /deleted_at|deleted_by|purge_after|deletion_reason/.test(details.message)
+  );
+}
+
+function documentTrashSchemaError(): Error {
+  return new Error(
+    "La corbeille bibliothèque n'est pas activée sur cette base. Appliquez les migrations en attente (Administration ou scripts/apply-pending-migrations.ts).",
+  );
+}
+
 async function fetchDocumentsForSearch(profileId: string): Promise<DocumentWithOptionalRelations[]> {
-  const { data, error } = await (await floraDb())
-    .from("documents")
-    .select(DOCUMENT_SELECT)
-    .eq("teacher_profile_id", profileId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("documents")
+      .select(DOCUMENT_SELECT)
+      .eq("teacher_profile_id", profileId),
+  ).order("created_at", { ascending: false });
 
   if (!error) {
     return (data ?? []) as DocumentWithOptionalRelations[];
@@ -39,11 +55,12 @@ async function fetchDocumentsForSearch(profileId: string): Promise<DocumentWithO
   const supabaseError = serializeSupabaseError(error);
   console.warn("[documents] Jointure tags/compétences indisponible, repli sur select('*')", supabaseError);
 
-  const fallback = await (await floraDb())
-    .from("documents")
-    .select("*")
-    .eq("teacher_profile_id", profileId)
-    .order("created_at", { ascending: false });
+  const fallback = await onlyActive(
+    (await floraDb())
+      .from("documents")
+      .select("*")
+      .eq("teacher_profile_id", profileId),
+  ).order("created_at", { ascending: false });
 
   if (fallback.error) {
     console.error("[documents] Échec du repli select('*')", serializeSupabaseError(fallback.error));
@@ -136,11 +153,12 @@ function matchesDocumentSearch(
 export async function listDocuments(): Promise<FloraDocument[]> {
   const scope = await requireTeacherScope();
 
-  const { data, error } = await (await floraDb())
-    .from("documents")
-    .select("*")
-    .eq("teacher_profile_id", scope.profileId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await onlyActive(
+    (await floraDb())
+      .from("documents")
+      .select("*")
+      .eq("teacher_profile_id", scope.profileId),
+  ).order("created_at", { ascending: false });
 
   if (error) throw error;
 
@@ -245,6 +263,10 @@ export async function getDocumentDetails(
 
   const base = fallback.data as FloraDocument;
 
+  if (!options?.includeTrashed && isArchived(base)) {
+    return null;
+  }
+
   return {
     ...base,
     document_chunks: [],
@@ -286,10 +308,19 @@ export async function trashDocument(documentId: string, reason?: string): Promis
     .eq("id", documentId)
     .eq("teacher_profile_id", scope.profileId)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
-    throw error ?? new Error("Impossible de placer le document dans la Corbeille.");
+  if (error) {
+    if (isMissingDocumentTrashColumnError(error)) {
+      throw documentTrashSchemaError();
+    }
+    throw new Error(
+      getSupabaseErrorMessage(error, "Impossible de placer le document dans la Corbeille."),
+    );
+  }
+
+  if (!data) {
+    throw new Error("Document introuvable ou accès refusé.");
   }
 
   return data as FloraDocument;
@@ -325,10 +356,17 @@ export async function restoreDocument(documentId: string): Promise<FloraDocument
     .eq("id", documentId)
     .eq("teacher_profile_id", scope.profileId)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
-    throw error ?? new Error("Impossible de restaurer le document.");
+  if (error) {
+    if (isMissingDocumentTrashColumnError(error)) {
+      throw documentTrashSchemaError();
+    }
+    throw new Error(getSupabaseErrorMessage(error, "Impossible de restaurer le document."));
+  }
+
+  if (!data) {
+    throw new Error("Document introuvable ou accès refusé.");
   }
 
   return data as FloraDocument;

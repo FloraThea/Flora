@@ -144,33 +144,42 @@ function BibliothequePageContent() {
     setSelectedBoId(null);
   }, []);
 
-  const handleTrashDocument = useCallback(async () => {
-    if (!selectedPedagogical) return;
-    setIsArchiving(true);
-    try {
-      const response = await fetch("/api/documents/trash", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedPedagogical.id }),
-      });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(payload.error || "Impossible de placer le document dans la Corbeille.");
+  const handleTrashDocument = useCallback(
+    async (documentId: string) => {
+      setIsArchiving(true);
+      setUploadState((current) => ({ ...current, globalError: null, globalMessage: null }));
+      try {
+        const response = await fetch("/api/corbeille/trash", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entityType: "document", id: documentId }),
+        });
+        const payload = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          throw new Error(payload.error || "Impossible de placer le document dans la Corbeille.");
+        }
+        setSelectedPedagogical(null);
+        setUploadState((current) => ({
+          ...current,
+          globalMessage: "Document placé dans la Corbeille. Vous pouvez le restaurer depuis le module Corbeille.",
+          globalError: null,
+        }));
+        await loadLibrary();
+      } catch (error) {
+        setUploadState((current) => ({
+          ...current,
+          globalError:
+            error instanceof Error
+              ? error.message
+              : "Impossible de placer le document dans la Corbeille.",
+          globalMessage: null,
+        }));
+      } finally {
+        setIsArchiving(false);
       }
-      setSelectedPedagogical(null);
-      await loadLibrary();
-    } catch (error) {
-      setUploadState((current) => ({
-        ...current,
-        globalError:
-          error instanceof Error
-            ? error.message
-            : "Impossible de placer le document dans la Corbeille.",
-      }));
-    } finally {
-      setIsArchiving(false);
-    }
-  }, [loadLibrary, selectedPedagogical]);
+    },
+    [loadLibrary],
+  );
 
   const boCount = useMemo(
     () => items.filter((item) => item.category === "Référentiel BO").length,
@@ -252,7 +261,11 @@ function BibliothequePageContent() {
         <DocumentDetails
           document={selectedPedagogical}
           onClose={() => setSelectedPedagogical(null)}
-          onArchive={handleTrashDocument}
+          onArchive={() => {
+            if (selectedPedagogical) {
+              void handleTrashDocument(selectedPedagogical.id);
+            }
+          }}
           isArchiving={isArchiving}
         />
       ) : null}
