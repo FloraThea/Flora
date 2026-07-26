@@ -1,3 +1,5 @@
+import { resolveProgressionRowCompetences } from "@/lib/pedagogical/competence-resolver";
+import { inferCycleFromLevels } from "@/lib/referentiel/bo-cycle-utils";
 import type { ProgrammingTable } from "@/lib/programming/types";
 import type { LearningItem, ProgressionContext, ProgressionRowDraft, WeeklySlot } from "./types";
 
@@ -163,6 +165,66 @@ export class WeeklyPlanner {
     }
 
     return rows;
+  }
+
+  async enrichRowsWithCompetenceAssociation(
+    rows: ProgressionRowDraft[],
+    table: ProgrammingTable,
+    context: ProgressionContext,
+    options?: { minConfidence?: number },
+  ): Promise<ProgressionRowDraft[]> {
+    const minConfidence = options?.minConfidence ?? 0.45;
+    const levels = context.programmation.programmation.levels;
+    const niveau = levels[0];
+    const cycle = inferCycleFromLevels(levels);
+    const enriched: ProgressionRowDraft[] = [];
+
+    for (const row of rows) {
+      if (row.referentielIds.length > 0) {
+        enriched.push(row);
+        continue;
+      }
+
+      try {
+        const association = await resolveProgressionRowCompetences({
+          row,
+          matiere: table.subjectLabel,
+          sousMatiere: table.subSubjectLabel,
+          niveau,
+          cycle,
+          methode: context.methode,
+          referentiel: context.referentiel,
+        });
+
+        const primary = association.primary;
+        if (primary && primary.confidence >= minConfidence) {
+          enriched.push({
+            ...row,
+            competenceBo: primary.competenceText,
+            referentielIds: [primary.referentielId],
+            metadata: {
+              ...(row.metadata ?? {}),
+              competenceAssociation: {
+                referentielId: primary.referentielId,
+                confidence: primary.confidence,
+                explanation: primary.explanation,
+                status: primary.status,
+                contentHash: association.contentProfile.contentHash,
+                proposals: association.proposals.slice(0, 5),
+                autoAssociated: true,
+              },
+            },
+          });
+          continue;
+        }
+      } catch (error) {
+        console.warn("[WeeklyPlanner] Association compétence ignorée:", error);
+      }
+
+      enriched.push(row);
+    }
+
+    return enriched;
   }
 
   listWeeklySlots(table: ProgrammingTable, context: ProgressionContext): WeeklySlot[] {

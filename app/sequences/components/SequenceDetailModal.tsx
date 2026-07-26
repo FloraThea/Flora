@@ -3,6 +3,10 @@
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
+import {
+  CompetenceAssociationSummary,
+  readCompetenceAssociationMetadata,
+} from "@/components/pedagogical/CompetenceAssociationSummary";
 import { sequenceExporter } from "@/lib/sequences/SequenceExporter";
 import type { SequencePayload } from "@/lib/sequences/types";
 
@@ -13,6 +17,7 @@ type SequenceDetailModalProps = {
 
 export function SequenceDetailModal({ payload, onClose }: SequenceDetailModalProps) {
   const { sequence } = payload;
+  const competenceAssociation = readCompetenceAssociationMetadata(sequence.metadata);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-flora-text/25 p-4 backdrop-blur-sm">
@@ -45,6 +50,10 @@ export function SequenceDetailModal({ payload, onClose }: SequenceDetailModalPro
           <section>
             <h4 className="mb-2 font-serif text-lg text-flora-text">Compétence BO</h4>
             <p className="text-sm font-light text-flora-text-muted">{sequence.competenceBo}</p>
+            <CompetenceAssociationSummary
+              association={competenceAssociation}
+              className="mt-4"
+            />
             <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Attendus</h4>
             <ul className="list-disc pl-5 text-sm font-light text-flora-text-muted">
               {sequence.attendus.map((item) => (

@@ -99,6 +99,7 @@ export class ProgressionGenerator {
       });
 
       let rows = weeklyPlanner.planTableRows(table, sequencedPaths, context);
+      rows = await weeklyPlanner.enrichRowsWithCompetenceAssociation(rows, table, context);
 
       try {
         const prompt = buildProgressionPrompt(context, table, rows, profileInstructions);

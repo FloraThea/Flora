@@ -4,6 +4,10 @@ import { useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
+import {
+  CompetenceAssociationSummary,
+  readCompetenceAssociationMetadata,
+} from "@/components/pedagogical/CompetenceAssociationSummary";
 import { lessonExporter } from "@/lib/seances/LessonExporter";
 import type { SeancePayload } from "@/lib/seances/types";
 
@@ -21,6 +25,7 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { seance } = localPayload;
+  const competenceAssociation = readCompetenceAssociationMetadata(seance.metadata);
 
   const patchField = async (
     entityType: "seance" | "phase" | "activity",
@@ -170,6 +175,10 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
             />
             <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Compétence BO</h4>
             <p className="text-sm font-light text-flora-text-muted">{seance.competenceBo}</p>
+            <CompetenceAssociationSummary
+              association={competenceAssociation}
+              className="mt-4"
+            />
             <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Choix pédagogiques</h4>
             <ul className="list-disc pl-5 text-sm font-light text-flora-text-muted">
               {seance.pedagogicalChoices.map((item) => (

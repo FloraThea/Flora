@@ -21,6 +21,8 @@ import { getFormatsAcceptesLabel } from "@/lib/import/accepted-formats";
 import type { ProgrammationFormValues } from "../types";
 import { ProgrammationImportBatchPanel } from "./ProgrammationImportBatchPanel";
 import { ImportPreviewTable } from "@/components/import/ImportPreviewTable";
+import { ImportCompetencyMatchPanel } from "@/components/pedagogical/ImportCompetencyMatchPanel";
+import type { CompetencyMatchResult } from "@/lib/programming/import/types";
 
 const MAPPING_FIELDS: ProgrammationColumnField[] = [
   "date",
@@ -81,6 +83,7 @@ export function ProgrammationImportWizard({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [columnMapping, setColumnMapping] = useState<Partial<Record<ProgrammationColumnField, number>>>({});
+  const [competencyMatches, setCompetencyMatches] = useState<CompetencyMatchResult[]>([]);
 
   const schoolYear = formValues.schoolYear;
   const academicZone = formValues.academicZone;
@@ -164,6 +167,7 @@ export function ProgrammationImportWizard({
       const data = (await response.json()) as { session?: ProgrammationImportSession; error?: string };
       if (!response.ok) throw new Error(data.error || "Adaptation impossible.");
       setSession(data.session ?? null);
+      setCompetencyMatches(data.session?.competencyMatches ?? []);
       setStep(3);
     } catch (adaptError) {
       setError(adaptError instanceof Error ? adaptError.message : "Adaptation impossible.");
@@ -193,6 +197,7 @@ export function ProgrammationImportWizard({
           sourceStoragePaths: storagePaths,
           sourceFileName: file?.name ?? parsed.fileName,
           batchId,
+          competencyMatches,
         }),
       });
       const data = (await response.json()) as ProgrammationPayload & { error?: string };
@@ -216,6 +221,7 @@ export function ProgrammationImportWizard({
     storagePaths,
     batchId,
     file,
+    competencyMatches,
     onComplete,
   ]);
 
@@ -537,17 +543,11 @@ export function ProgrammationImportWizard({
               className="w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2"
             />
           </label>
-          {session?.competencyMatches.length ? (
-            <div className="rounded-2xl bg-white/50 p-4 text-sm">
-              <p className="font-medium text-flora-text-muted">Correspondances BO</p>
-              <ul className="mt-2 space-y-1 font-light text-flora-text-subtle">
-                {session.competencyMatches.slice(0, 8).map((match) => (
-                  <li key={match.importedLabel}>
-                    {match.importedLabel} → {match.matchedLabel || "—"} ({match.status})
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {competencyMatches.length ? (
+            <ImportCompetencyMatchPanel
+              matches={competencyMatches}
+              onChange={setCompetencyMatches}
+            />
           ) : null}
           <FloraButton onClick={() => void runSave()} disabled={isLoading || !title.trim()}>
             {isLoading ? "Enregistrement…" : "Valider et créer la programmation"}

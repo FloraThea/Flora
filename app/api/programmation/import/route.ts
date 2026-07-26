@@ -18,7 +18,7 @@ import {
 } from "@/lib/programming/import/programmation-import-batch-service";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type { AcademicZone, SchoolLevel } from "@/lib/programming/types";
-import type { ProgrammationFormatConfig } from "@/lib/programming/import/types";
+import type { CompetencyMatchResult, ProgrammationFormatConfig } from "@/lib/programming/import/types";
 import type { ImportBatchMergeMode, ProgrammingImportUploadedFileDescriptor } from "@/lib/programming/import/batch-types";
 import {
   ProgrammingImportError,
@@ -199,6 +199,7 @@ export async function POST(request: Request) {
       fileId?: string;
       pageOrder?: number;
       pastedText?: string;
+      competencyMatches?: CompetencyMatchResult[];
     };
 
     action = body.action;
@@ -295,6 +296,10 @@ export async function POST(request: Request) {
         matiere: body.matiere ?? body.parsed.discipline,
         formatConfig: body.formatConfig,
       });
+
+      if (Array.isArray(body.competencyMatches) && body.competencyMatches.length > 0) {
+        session.competencyMatches = body.competencyMatches;
+      }
 
       const title =
         body.title ??
