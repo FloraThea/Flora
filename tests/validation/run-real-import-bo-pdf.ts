@@ -65,7 +65,7 @@ async function main() {
     cycle: metadata.cycle,
     matiere: metadata.matiere,
   });
-  const drafts = mapFaithfulResultToDrafts(faithful, {
+  const { confirmed: drafts } = mapFaithfulResultToDrafts(faithful, {
     cycle: metadata.cycle,
     matiere: metadata.matiere,
   });

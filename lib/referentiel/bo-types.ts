@@ -105,6 +105,15 @@ export type BoCompetenceDraft = {
   sousCompetence: string;
   sourceExcerpt: string;
   code: string;
+  /** Objectif d'apprentissage officiel (colonne ou sous-domaine). */
+  objectifApprentissage?: string;
+  /** Texte officiel extrait du BO. */
+  texteOfficiel?: string;
+  /** Identifiant unique stable (cycle+niveau+matière+domaine+compétence). */
+  identifiant?: string;
+  /** confirmed = enregistré ; needs_review = liste « À vérifier ». */
+  reviewStatus?: "confirmed" | "needs_review";
+  reviewReason?: string;
   tableTitle?: string;
   columnName?: string;
   tableFormat?: string;

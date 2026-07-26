@@ -29,6 +29,7 @@
     "test:validation:bo-api": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-bo-api.ts",
     "test:validation:bo-analyze": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-bo-analyze.ts",
     "test:validation:bo-faithful": "node node_modules/tsx/dist/cli.mjs scripts/run-bo-faithful-tests.ts",
+    "test:validation:bo-niveau": "node node_modules/tsx/dist/cli.mjs scripts/run-bo-niveau-separation-tests.ts",
     "test:competence-association": "node node_modules/tsx/dist/cli.mjs scripts/run-competence-association-tests.ts",
     "test:library:pdf": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/test-library-pdf-chain.ts",
     "generate:import-fixtures": "node node_modules/tsx/dist/cli.mjs scripts/generate-import-fixtures.ts",

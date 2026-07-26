@@ -1,7 +1,11 @@
+import { detectSchoolNiveauFromLine } from "../niveau-utils";
+
 const LEVEL_PATTERNS: Array<{ pattern: RegExp; niveau: string }> = [
   { pattern: /^cours preparatoire$/i, niveau: "CP" },
   { pattern: /^cours elementaire premiere annee$/i, niveau: "CE1" },
+  { pattern: /^cours elementaire 1(?:re|ere)? annee$/i, niveau: "CE1" },
   { pattern: /^cours elementaire deuxieme annee$/i, niveau: "CE2" },
+  { pattern: /^cours elementaire 2(?:e|eme)? annee$/i, niveau: "CE2" },
   { pattern: /^cours moyen premiere annee$/i, niveau: "CM1" },
   { pattern: /^cours moyen deuxieme annee$/i, niveau: "CM2" },
 ];
@@ -58,11 +62,7 @@ export function normalizeBoKey(value: string): string {
 }
 
 export function detectNiveauFromLine(line: string): string | null {
-  const key = stripNiveauDecorators(line);
-  for (const entry of LEVEL_PATTERNS) {
-    if (entry.pattern.test(key)) return entry.niveau;
-  }
-  return null;
+  return detectSchoolNiveauFromLine(line);
 }
 
 function stripNiveauDecorators(line: string): string {
@@ -187,26 +187,20 @@ export function isEvarDomainHeading(line: string): boolean {
 }
 
 export function detectShortNiveauFromLine(line: string): string | null {
-  const trimmed = normalizeBoLine(line);
-  const key = stripNiveauDecorators(line);
-
-  if (/^cp$/i.test(trimmed) || /^cp\b/i.test(key)) return "CP";
-  if (/^ce1$/i.test(trimmed) || /^ce1\b/i.test(key)) return "CE1";
-  if (/^ce2$/i.test(trimmed) || /^ce2\b/i.test(key)) return "CE2";
-  if (/^cm1$/i.test(trimmed) || /^cm1\b/i.test(key)) return "CM1";
-  if (/^cm2$/i.test(trimmed) || /^cm2\b/i.test(key)) return "CM2";
-
-  const fromLong = detectNiveauFromLine(trimmed);
-  if (fromLong) return fromLong;
-
-  return null;
+  return detectSchoolNiveauFromLine(line);
 }
 
 export function detectEvarNiveauFromContext(line: string): string | null {
   const trimmed = normalizeBoLine(line);
   if (/^cycle 2$/i.test(trimmed)) return "Cycle 2";
   if (/^cycle 3$/i.test(trimmed)) return "Cycle 3";
-  return detectShortNiveauFromLine(trimmed);
+  const school = detectSchoolNiveauFromLine(trimmed);
+  if (school) return school;
+  const key = stripNiveauDecorators(line);
+  for (const entry of LEVEL_PATTERNS) {
+    if (entry.pattern.test(key)) return entry.niveau;
+  }
+  return null;
 }
 
 export function isCompetenceBullet(line: string): boolean {

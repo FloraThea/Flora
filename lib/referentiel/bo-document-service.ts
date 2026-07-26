@@ -5,6 +5,7 @@ import { checkStorageBucketExists } from "@/lib/supabase/storage-health";
 import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type { BoCompetenceDraft, BoDocumentRow, BoDocumentStatus, BoValidationReport } from "./bo-types";
 import { normalizeBoDocumentStatus } from "./bo-status";
+import { isStrictSchoolNiveau } from "./niveau-utils";
 
 export type BoFileUploadResult = {
   storagePath: string | null;
@@ -205,18 +206,28 @@ export async function appendBoCompetences(input: {
     input.sortOrderStart ??
     (await countBoCompetences(input.documentId)) + 1;
 
-  const rows = input.competences.map((item, index) => ({
+  const confirmed = input.competences.filter(
+    (item) =>
+      item.reviewStatus !== "needs_review" &&
+      isStrictSchoolNiveau(item.niveau),
+  );
+
+  if (confirmed.length === 0) {
+    return 0;
+  }
+
+  const rows = confirmed.map((item, index) => ({
     document_source_id: input.documentId,
     cycle: item.cycle || null,
-    niveau: item.niveau || "Non précisé",
+    niveau: item.niveau,
     discipline: item.matiere || "Français",
     domaine: item.domaine || item.section,
     sous_domaine: item.sousDomaine || null,
     competence: item.competence,
     sous_competence: item.sousCompetence || null,
-    code: item.code || null,
+    code: item.identifiant || item.code || null,
     section: item.section,
-    source_excerpt: item.sourceExcerpt || null,
+    source_excerpt: item.texteOfficiel || item.sourceExcerpt || null,
     competence_type: item.competenceType,
     source_document: null,
     sort_order: sortOrderStart + index,
@@ -226,6 +237,10 @@ export async function appendBoCompetences(input: {
       table_title: item.tableTitle ?? null,
       column_name: item.columnName ?? null,
       table_format: item.tableFormat ?? null,
+      objectif_apprentissage: item.objectifApprentissage ?? null,
+      texte_officiel: item.texteOfficiel ?? item.sourceExcerpt ?? null,
+      identifiant: item.identifiant ?? item.code ?? null,
+      review_status: "confirmed",
     },
   }));
 

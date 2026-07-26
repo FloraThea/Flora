@@ -40,6 +40,7 @@ export type BoFaithfulQualityReport = {
   competencesBySousMatiere: Record<string, number>;
   competencesBySousSousMatiere: Record<string, number>;
   competencesByNiveau: Record<string, number>;
+  competencesToReview: number;
   tables: BoFaithfulTableReport[];
   warnings: string[];
   passed: boolean;

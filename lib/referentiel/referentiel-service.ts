@@ -5,6 +5,7 @@ import {
   getLatestReadyBoDocument,
 } from "./bo-document-service";
 import { inferCycleFromLevels } from "./bo-cycle-utils";
+import { isStrictSchoolNiveau, niveauMatchesStrict } from "./niveau-utils";
 import type { ReferentielCompetence } from "@/lib/programming/types";
 import type { BoReferenceDraft } from "@/lib/thea/analyseBoDocument";
 
@@ -122,10 +123,12 @@ export async function loadReferentielCompetences(options?: {
   const rows = (data ?? []) as ReferentielRow[];
   const filtered = rows
     .filter((row) => {
+      const rowNiveau = String(row.niveau ?? "");
       const matchesLevel =
-        levels.length === 0 || levels.includes(String(row.niveau ?? "")) || row.niveau === "Non précisé";
+        levels.length === 0 ||
+        levels.some((level) => niveauMatchesStrict(rowNiveau, level));
       const matchesSubject = matchesMatiere(row.discipline, matiere);
-      return matchesLevel && matchesSubject;
+      return matchesLevel && matchesSubject && isStrictSchoolNiveau(rowNiveau);
     })
     .map(mapReferentielRow)
     .filter((row) => row.competence);

@@ -3,30 +3,38 @@ import { resolveProgrammeKind, sectionIdFromLabel, type BoProgrammeKind } from "
 import type { BoFaithfulCompetence, BoFaithfulExtractionResult, BoFaithfulQualityReport } from "./types";
 import { extractFaithfulBoCompetences, sliceProgrammeText } from "./extract-tables";
 import { findIntroductionSplitIndex } from "./normalize";
+import {
+  finalizeCompetencesWithStrictNiveau,
+  mapFaithfulCompetenceToStrictDraft,
+  mapReviewItemToDraft,
+  type BoCompetenceReviewItem,
+} from "./niveau-separation";
+
+export type { BoCompetenceReviewItem };
 
 function buildQualityReport(input: {
   introduction: string;
   structuredText: string;
   competences: BoFaithfulCompetence[];
   tables: BoFaithfulExtractionResult["quality"]["tables"];
+  competencesToReview: number;
+  separationWarnings: string[];
+  competencesByNiveau: Record<string, number>;
 }): BoFaithfulQualityReport {
   const competencesByMatiere: Record<string, number> = {};
   const competencesBySousMatiere: Record<string, number> = {};
   const competencesBySousSousMatiere: Record<string, number> = {};
-  const competencesByNiveau: Record<string, number> = {};
-  const warnings: string[] = [];
+  const warnings: string[] = [...input.separationWarnings];
 
   for (const item of input.competences) {
     const matiere = item.hierarchy.matiere || "Non précisé";
     const sousMatiere = item.hierarchy.sousMatiere || "Non précisé";
     const sousSousMatiere = item.hierarchy.sousSousMatiere || "Non précisé";
-    const niveau = item.hierarchy.niveau || "Non précisé";
 
     competencesByMatiere[matiere] = (competencesByMatiere[matiere] ?? 0) + 1;
     competencesBySousMatiere[sousMatiere] = (competencesBySousMatiere[sousMatiere] ?? 0) + 1;
     competencesBySousSousMatiere[sousSousMatiere] =
       (competencesBySousSousMatiere[sousSousMatiere] ?? 0) + 1;
-    competencesByNiveau[niveau] = (competencesByNiveau[niveau] ?? 0) + 1;
   }
 
   const emptyTables = input.tables.filter((table) => table.competencesExtracted === 0);
@@ -68,7 +76,8 @@ function buildQualityReport(input: {
     competencesByMatiere,
     competencesBySousMatiere,
     competencesBySousSousMatiere,
-    competencesByNiveau,
+    competencesByNiveau: input.competencesByNiveau,
+    competencesToReview: input.competencesToReview,
     tables: input.tables,
     warnings,
     passed: input.competences.length > 0,
@@ -81,7 +90,8 @@ export function extractBoFaithfully(input: {
   matiere: string;
   domaine?: string;
   programme?: BoProgrammeKind;
-}): BoFaithfulExtractionResult {
+  documentNiveaux?: string;
+}): BoFaithfulExtractionResult & { toReview: BoCompetenceReviewItem[] } {
   const programme = resolveProgrammeKind({
     text: input.text,
     matiere: input.matiere,
@@ -93,24 +103,33 @@ export function extractBoFaithfully(input: {
   const introduction = scopedText.slice(0, splitIndex).trim();
   const structuredText = scopedText.slice(splitIndex).trim();
 
-  const { competences, tables } = extractFaithfulBoCompetences({
+  const { competences: rawCompetences, tables } = extractFaithfulBoCompetences({
     text: scopedText,
     cycle: input.cycle,
     matiere: input.matiere,
     programme,
   });
 
+  const separation = finalizeCompetencesWithStrictNiveau(rawCompetences, {
+    cycle: input.cycle,
+    documentNiveaux: input.documentNiveaux,
+  });
+
   const quality = buildQualityReport({
     introduction,
     structuredText,
-    competences,
+    competences: separation.confirmed,
     tables,
+    competencesToReview: separation.toReview.length,
+    separationWarnings: separation.warnings,
+    competencesByNiveau: separation.competencesByNiveau,
   });
 
   return {
     introduction,
     structuredText,
-    competences,
+    competences: separation.confirmed,
+    toReview: separation.toReview,
     quality,
     extractionMethod: "faithful_v1",
   };
@@ -120,29 +139,19 @@ export function mapFaithfulCompetenceToDraft(
   item: BoFaithfulCompetence,
   defaults: { matiere: string; cycle: string },
 ): BoCompetenceDraft {
+  const draft = mapFaithfulCompetenceToStrictDraft(item, defaults);
   const sectionLabel = item.hierarchy.sousMatiere || item.tableTitle || defaults.matiere;
   return {
-    cycle: item.hierarchy.cycle || defaults.cycle,
-    niveau: item.hierarchy.niveau,
-    matiere: item.hierarchy.matiere || defaults.matiere,
-    section: sectionLabel,
+    ...draft,
     sectionId: sectionIdFromLabel(sectionLabel) as BoSectionId,
-    domaine: item.hierarchy.sousMatiere,
-    sousDomaine: item.hierarchy.sousSousMatiere,
-    competenceType: "competence",
-    competence: item.competence,
-    sousCompetence: "",
-    sourceExcerpt: item.sourceExcerpt,
-    code: "",
-    tableTitle: item.tableTitle,
-    columnName: item.columnName,
-    tableFormat: item.tableFormat,
   };
 }
 
 export function mapFaithfulResultToDrafts(
-  result: BoFaithfulExtractionResult,
+  result: BoFaithfulExtractionResult & { toReview?: BoCompetenceReviewItem[] },
   defaults: { matiere: string; cycle: string },
-): BoCompetenceDraft[] {
-  return result.competences.map((item) => mapFaithfulCompetenceToDraft(item, defaults));
+): { confirmed: BoCompetenceDraft[]; toReview: BoCompetenceDraft[] } {
+  const confirmed = result.competences.map((item) => mapFaithfulCompetenceToDraft(item, defaults));
+  const toReview = (result.toReview ?? []).map(mapReviewItemToDraft);
+  return { confirmed, toReview };
 }

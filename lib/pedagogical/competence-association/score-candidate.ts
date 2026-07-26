@@ -12,6 +12,7 @@ import {
   substringBoost,
   tokenizeAssociationText,
 } from "./text-utils";
+import { niveauMatchesStrict } from "@/lib/referentiel/niveau-utils";
 
 const SIGNAL_WEIGHTS = {
   textSimilarity: 0.45,
@@ -203,9 +204,7 @@ export function filterCandidates(
 }
 
 function niveauMatches(candidate: string | null | undefined, target: string | null | undefined): boolean {
-  const normalizedCandidate = normalizeDiscipline(candidate);
   const normalizedTarget = normalizeDiscipline(target);
   if (!normalizedTarget) return true;
-  if (!normalizedCandidate || normalizedCandidate === "non precise") return true;
-  return normalizedCandidate === normalizedTarget;
+  return niveauMatchesStrict(candidate, target);
 }

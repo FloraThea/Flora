@@ -62,6 +62,7 @@ async function main() {
     console.log("tables:", result.quality.tablesDetected);
     console.log("by sousMatiere:", result.quality.competencesBySousMatiere);
     console.log("by niveau:", result.quality.competencesByNiveau);
+    console.log("to review:", result.quality.competencesToReview);
     console.log("warnings:", result.quality.warnings);
 
     if (result.quality.totalCompetences < file.minCompetences) {
@@ -76,12 +77,22 @@ async function main() {
 
     if ("minNiveauCoverage" in file && file.minNiveauCoverage) {
       const specifiedNiveaux = Object.entries(result.quality.competencesByNiveau).filter(
-        ([niveau, count]) => niveau !== "Non précisé" && niveau !== "" && count > 0,
+        ([niveau, count]) => count > 0 && niveau !== "Non précisé" && niveau !== "",
       );
       if (specifiedNiveaux.length < file.minNiveauCoverage) {
         console.error(
           `FAIL: expected >= ${file.minNiveauCoverage} niveaux précisés, got ${specifiedNiveaux.length}`,
         );
+        failed += 1;
+      }
+    }
+
+    if (file.label === "Français cycle 2") {
+      const invalid = result.competences.filter(
+        (item) => !["CP", "CE1", "CE2"].includes(item.hierarchy.niveau),
+      );
+      if (invalid.length > 0) {
+        console.error(`FAIL: ${invalid.length} compétence(s) sans niveau cycle 2 strict`);
         failed += 1;
       }
     }

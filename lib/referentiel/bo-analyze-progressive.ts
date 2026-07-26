@@ -168,6 +168,10 @@ async function finalizeBoAnalyzeJob(
       },
       sectionsProcessed: sections.map((section) => section.label),
       insertedCount: competences.length,
+      competencesToReview: faithfulMetadata.competencesToReview ?? [],
+      reviewQueueCount: Array.isArray(faithfulMetadata.competencesToReview)
+        ? faithfulMetadata.competencesToReview.length
+        : 0,
       analyzedAt: new Date().toISOString(),
       savedToLibrary: false,
       error_message: "",
@@ -220,8 +224,9 @@ export async function runBoAnalyzeTick(
       cycle: defaults.cycle,
       matiere: defaults.matiere,
       domaine: existing.domaine ?? undefined,
+      documentNiveaux: existing.niveau ?? undefined,
     });
-    const competences = mapFaithfulResultToDrafts(faithful, defaults);
+    const { confirmed: competences, toReview } = mapFaithfulResultToDrafts(faithful, defaults);
 
     await clearBoCompetences(documentId);
     const insertedCount = await appendBoCompetences({
@@ -239,6 +244,7 @@ export async function runBoAnalyzeTick(
       introductionCharCount: faithful.quality.introductionCharCount,
       extractionMethod: faithful.extractionMethod,
       qualityReport: faithful.quality,
+      competencesToReview: toReview,
       faithfulAnalysis: {
         tablesDetected: faithful.quality.tablesDetected,
         tablesProcessed: faithful.quality.tablesProcessed,
@@ -246,6 +252,7 @@ export async function runBoAnalyzeTick(
         competencesBySousMatiere: faithful.quality.competencesBySousMatiere,
         competencesBySousSousMatiere: faithful.quality.competencesBySousSousMatiere,
         competencesByNiveau: faithful.quality.competencesByNiveau,
+        competencesToReview: faithful.quality.competencesToReview,
         warnings: faithful.quality.warnings,
         passed: faithful.quality.passed,
       },
