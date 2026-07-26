@@ -1,13 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
+import {
+  CompetenceProposalPanel,
+  type CompetenceAssociationSelection,
+} from "@/components/pedagogical/CompetenceProposalPanel";
+import { buildAssociationInputFromProgressionRow } from "@/lib/pedagogical/competence-association/build-input";
 import type { ProgressionRow } from "@/lib/progression/types";
+
+type ProgressionAssociationContext = {
+  matiere: string;
+  niveau?: string;
+  cycle?: string;
+  sousMatiere?: string;
+  methode?: string;
+};
 
 type ProgressionRowModalProps = {
   title: string;
   row: ProgressionRow;
+  associationContext?: ProgressionAssociationContext;
   onClose: () => void;
   onSave: (row: ProgressionRow) => void;
 };
@@ -26,10 +40,53 @@ function fromLines(value: string): string[] {
 export function ProgressionRowModal({
   title,
   row,
+  associationContext,
   onClose,
   onSave,
 }: ProgressionRowModalProps) {
+  const competenceInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState<ProgressionRow>(row);
+
+  const associationContent = useMemo(
+    () =>
+      associationContext
+        ? buildAssociationInputFromProgressionRow({
+            row: draft,
+            matiere: associationContext.matiere,
+            niveau: associationContext.niveau,
+            cycle: associationContext.cycle,
+            sousMatiere: associationContext.sousMatiere,
+            methode: associationContext.methode,
+            entityId: draft.id,
+          })
+        : null,
+    [associationContext, draft],
+  );
+
+  function applyAssociationSelection(selection: CompetenceAssociationSelection) {
+    setDraft((current) => ({
+      ...current,
+      competenceBo: selection.competenceBo,
+      referentielIds: selection.referentielIds,
+      metadata: {
+        ...(current.metadata ?? {}),
+        competenceAssociation: {
+          referentielId: selection.proposal.referentielId,
+          confidence: selection.proposal.confidence,
+          explanation: selection.proposal.explanation,
+          status: selection.proposal.status,
+          contentHash: selection.contentHash,
+          acceptedAt: new Date().toISOString(),
+        },
+      },
+    }));
+  }
+
+  function handleModifySelection(selection: CompetenceAssociationSelection) {
+    applyAssociationSelection(selection);
+    competenceInputRef.current?.focus();
+    competenceInputRef.current?.select();
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-flora-text/25 p-4 backdrop-blur-sm">
@@ -82,6 +139,7 @@ export function ProgressionRowModal({
               Compétence BO
             </span>
             <input
+              ref={competenceInputRef}
               value={draft.competenceBo}
               onChange={(event) =>
                 setDraft({ ...draft, competenceBo: event.target.value })
@@ -89,6 +147,18 @@ export function ProgressionRowModal({
               className="w-full rounded-2xl border border-white/70 bg-white/60 px-4 py-3 text-sm font-light outline-none"
             />
           </label>
+
+          {associationContent ? (
+            <div className="lg:col-span-2">
+              <CompetenceProposalPanel
+                content={associationContent}
+                currentCompetence={draft.competenceBo}
+                currentReferentielIds={draft.referentielIds}
+                onAccept={applyAssociationSelection}
+                onModify={handleModifySelection}
+              />
+            </div>
+          ) : null}
 
           <label className="block lg:col-span-2">
             <span className="mb-2 block text-[11px] font-medium tracking-[0.12em] text-flora-text-subtle uppercase">

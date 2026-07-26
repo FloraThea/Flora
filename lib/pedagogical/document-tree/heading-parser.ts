@@ -180,23 +180,23 @@ export function deduplicateModuleHeadings(
 ): Array<ParsedHeading & { lineIndex: number }> {
   const byNumber = new Map<number, ParsedHeading & { lineIndex: number }>();
 
-  for (const module of modules) {
-    const number = module.moduleNumber;
+  for (const moduleHeading of modules) {
+    const number = moduleHeading.moduleNumber;
     if (!number) continue;
 
     const existing = byNumber.get(number);
     if (!existing) {
-      byNumber.set(number, module);
+      byNumber.set(number, moduleHeading);
       continue;
     }
 
-    if ((module.sessionCount ?? 0) > (existing.sessionCount ?? 0)) {
-      byNumber.set(number, module);
+    if ((moduleHeading.sessionCount ?? 0) > (existing.sessionCount ?? 0)) {
+      byNumber.set(number, moduleHeading);
       continue;
     }
 
-    if (module.lineIndex < existing.lineIndex && module.sessionCount) {
-      byNumber.set(number, module);
+    if (moduleHeading.lineIndex < existing.lineIndex && moduleHeading.sessionCount) {
+      byNumber.set(number, moduleHeading);
     }
   }
 

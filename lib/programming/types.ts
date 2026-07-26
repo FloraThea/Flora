@@ -179,10 +179,13 @@ export type ReferentielCompetence = {
   code: string | null;
   discipline: string | null;
   domaine: string | null;
+  sousDomaine?: string | null;
   niveau: string | null;
   section?: string | null;
   competenceType?: string | null;
   documentSourceId?: string | null;
+  sourceExcerpt?: string | null;
+  cycle?: string | null;
 };
 
 export type ResourceContext = {

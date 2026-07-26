@@ -14,6 +14,24 @@ type BoDocumentDrawerProps = {
   onUpdated: () => void;
 };
 
+type QualityReport = {
+  totalCompetences?: number;
+  tablesDetected?: number;
+  tablesProcessed?: number;
+  introductionCharCount?: number;
+  competencesByMatiere?: Record<string, number>;
+  competencesBySousMatiere?: Record<string, number>;
+  competencesBySousSousMatiere?: Record<string, number>;
+  competencesByNiveau?: Record<string, number>;
+  warnings?: string[];
+  passed?: boolean;
+  tables?: Array<{
+    tableTitle: string;
+    columnName: string;
+    competencesExtracted: number;
+  }>;
+};
+
 type CentreDocument = {
   id: string;
   original_filename: string;
@@ -28,6 +46,9 @@ type CentreDocument = {
   page_count: number | null;
   created_at: string;
   sections: string[];
+  introduction?: string;
+  qualityReport?: QualityReport | null;
+  faithfulAnalysis?: QualityReport | null;
   analyzeProgress?: {
     progress?: number;
     stageLabel?: string;
@@ -50,6 +71,27 @@ type CompetencePreview = {
   source_excerpt: string | null;
 };
 
+function RecordTable({ title, records }: { title: string; records?: Record<string, number> }) {
+  const entries = Object.entries(records ?? {}).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return null;
+
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-flora-text-subtle">{title}</p>
+      <table className="w-full text-left text-xs">
+        <tbody>
+          {entries.map(([label, count]) => (
+            <tr key={label} className="border-t border-white/50">
+              <td className="py-1 pr-2">{label}</td>
+              <td className="py-1 text-right font-medium">{count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentDrawerProps) {
   const [document, setDocument] = useState<CentreDocument | null>(null);
   const [competences, setCompetences] = useState<CompetencePreview[]>([]);
@@ -58,6 +100,8 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
   const [error, setError] = useState<string | null>(null);
   const [analyzeProgress, setAnalyzeProgress] = useState(0);
   const [analyzeStage, setAnalyzeStage] = useState<string | null>(null);
+  const [showIntroduction, setShowIntroduction] = useState(false);
+  const [showQualityReport, setShowQualityReport] = useState(true);
 
   const loadDocument = useCallback(async () => {
     const payload = await fetchApiWithDiagnostics<{ documents: CentreDocument[] }>(
@@ -88,13 +132,15 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
 
   useEffect(() => {
     if (document?.status !== "ANALYZING") return;
-    const progress = document.analyzeProgress?.progress;
-    if (typeof progress === "number") {
-      setAnalyzeProgress(progress);
-    }
-    if (document.analyzeProgress?.stageLabel) {
-      setAnalyzeStage(document.analyzeProgress.stageLabel);
-    }
+    deferEffect(() => {
+      const progress = document.analyzeProgress?.progress;
+      if (typeof progress === "number") {
+        setAnalyzeProgress(progress);
+      }
+      if (document.analyzeProgress?.stageLabel) {
+        setAnalyzeStage(document.analyzeProgress.stageLabel);
+      }
+    });
   }, [document]);
 
   async function runProgressiveAnalyze(reset = true) {
@@ -102,7 +148,7 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
     setError(null);
     setMessage(null);
     setAnalyzeProgress(0);
-    setAnalyzeStage("Analyse Théa démarrée…");
+    setAnalyzeStage("Analyse fidèle démarrée…");
 
     try {
       let done = false;
@@ -135,7 +181,7 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
         }
       }
 
-      setMessage("Analyse Théa terminée.");
+      setMessage("Analyse fidèle terminée.");
       setAnalyzeProgress(100);
       await loadDocument();
       await loadCompetences();
@@ -196,6 +242,8 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
   }
 
   const normalized = normalizeBoDocumentStatus(document.status);
+  const qualityReport = document.qualityReport ?? document.faithfulAnalysis ?? null;
+  const introduction = document.introduction?.trim() ?? "";
 
   return (
     <FloraCard padding="lg" accent="lavender" className="space-y-4">
@@ -206,6 +254,11 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
             <FloraBadge accent="lavender">{BO_STATUS_LABELS[normalized] ?? document.status}</FloraBadge>
             {document.active_for_programmation ? (
               <FloraBadge accent="sage">Actif pour programmation</FloraBadge>
+            ) : null}
+            {qualityReport?.passed === false ? (
+              <FloraBadge accent="rose">Rapport incomplet</FloraBadge>
+            ) : qualityReport?.passed === true ? (
+              <FloraBadge accent="sage">Extraction validée</FloraBadge>
             ) : null}
           </div>
           <h3 className="font-serif text-2xl font-medium">{document.original_filename}</h3>
@@ -225,11 +278,91 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
         <p className="text-sm font-light text-[#b88989]">{document.error_message}</p>
       ) : null}
 
+      {introduction ? (
+        <div className="rounded-2xl bg-white/45 px-4 py-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between text-left text-sm font-medium"
+            onClick={() => setShowIntroduction((value) => !value)}
+          >
+            <span>Introduction du programme ({introduction.length.toLocaleString("fr-FR")} car.)</span>
+            <span className="text-flora-text-subtle">{showIntroduction ? "Masquer" : "Afficher"}</span>
+          </button>
+          {showIntroduction ? (
+            <p className="mt-3 max-h-48 overflow-y-auto whitespace-pre-wrap text-sm font-light leading-relaxed text-flora-text-subtle">
+              {introduction.slice(0, 4000)}
+              {introduction.length > 4000 ? "…" : ""}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {qualityReport ? (
+        <div className="rounded-2xl bg-white/45 px-4 py-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between text-left text-sm font-medium"
+            onClick={() => setShowQualityReport((value) => !value)}
+          >
+            <span>
+              Rapport qualité · {qualityReport.totalCompetences ?? document.competence_count} compétence(s)
+              {typeof qualityReport.tablesDetected === "number"
+                ? ` · ${qualityReport.tablesDetected} tableau(x)`
+                : ""}
+            </span>
+            <span className="text-flora-text-subtle">{showQualityReport ? "Masquer" : "Afficher"}</span>
+          </button>
+
+          {showQualityReport ? (
+            <div className="mt-3 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <RecordTable title="Par sous-matière" records={qualityReport.competencesBySousMatiere} />
+                <RecordTable title="Par niveau" records={qualityReport.competencesByNiveau} />
+              </div>
+
+              {qualityReport.tables && qualityReport.tables.length > 0 ? (
+                <div>
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-flora-text-subtle">
+                    Tableaux traités
+                  </p>
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-flora-text-subtle">
+                        <th className="pb-1 pr-2">Tableau</th>
+                        <th className="pb-1 pr-2">Colonne</th>
+                        <th className="pb-1 text-right">Compétences</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {qualityReport.tables.map((table, index) => (
+                        <tr key={`${table.tableTitle}-${index}`} className="border-t border-white/50">
+                          <td className="py-1 pr-2 align-top">{table.tableTitle}</td>
+                          <td className="py-1 pr-2 align-top">{table.columnName}</td>
+                          <td className="py-1 text-right align-top">{table.competencesExtracted}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {qualityReport.warnings && qualityReport.warnings.length > 0 ? (
+                <ul className="space-y-1 text-xs font-light text-[#b88989]">
+                  {qualityReport.warnings.map((warning) => (
+                    <li key={warning}>• {warning}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {busyAction === "analyze" || document.status === "ANALYZING" ? (
         <div className="space-y-2 rounded-2xl bg-white/45 px-4 py-3">
           <div className="flex items-center justify-between text-sm">
             <span className="font-light text-flora-text-subtle">
-              {analyzeStage ?? "Analyse Théa en cours…"}
+              {analyzeStage ?? "Analyse fidèle en cours…"}
             </span>
             <span className="font-medium text-flora-text">{analyzeProgress}%</span>
           </div>
@@ -338,7 +471,7 @@ export function BoDocumentDrawer({ documentId, onClose, onUpdated }: BoDocumentD
         </div>
       ) : (
         <p className="text-sm font-light text-flora-text-subtle">
-          Aucune compétence enregistrée. Lancez l&apos;analyse Théa pour extraire le référentiel officiel.
+          Aucune compétence enregistrée. Lancez l&apos;analyse fidèle pour extraire le référentiel officiel.
         </p>
       )}
     </FloraCard>

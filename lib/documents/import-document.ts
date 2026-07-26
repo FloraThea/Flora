@@ -17,6 +17,7 @@ import {
   isComingSoonExtension,
 } from "@/lib/documents/types";
 import { runKnowledgePipeline } from "@/lib/knowledge/pipeline";
+import { requireTeacherScope } from "@/lib/tenant/teacher-context";
 import { analyseResourceWithThea } from "@/lib/thea/analyseResource";
 
 import { getStorageBucketName } from "@/lib/supabase/storage-config";
@@ -98,6 +99,7 @@ export async function importDocumentFromFile(
 
   const extension = getFileExtension(file.name);
   const storagePath = buildStoragePath(file.name);
+  const scope = await requireTeacherScope();
 
   const { error: uploadError } = await (await floraDb()).storage
     .from(getStorageBucketName())
@@ -113,6 +115,7 @@ export async function importDocumentFromFile(
   const { data: createdDocument, error: createError } = await (await floraDb())
     .from("documents")
     .insert({
+      teacher_profile_id: scope.profileId,
       title: file.name.replace(/\.[^.]+$/, ""),
       original_filename: file.name,
       document_type: "",

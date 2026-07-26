@@ -104,6 +104,8 @@ export type CompetencyMatchResult = {
   matchedLabel: string;
   confidence: number;
   status: "matched" | "fuzzy" | "missing" | "manual";
+  explanation?: string;
+  rowKey?: string;
 };
 
 export type ProgrammationFormatColumn =

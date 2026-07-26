@@ -57,10 +57,13 @@ export function mapReferentielRow(row: ReferentielRow): ReferentielCompetence {
     code: row.code ?? null,
     discipline: row.discipline ?? null,
     domaine: row.domaine ?? null,
+    sousDomaine: row.sous_domaine ?? null,
     niveau: row.niveau ?? null,
     section: row.section ?? null,
     competenceType: row.competence_type ?? null,
     documentSourceId: row.document_source_id ?? null,
+    sourceExcerpt: row.source_excerpt ?? null,
+    cycle: row.cycle ?? null,
   };
 }
 

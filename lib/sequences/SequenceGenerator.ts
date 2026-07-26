@@ -241,6 +241,14 @@ export class SequenceGenerator {
       resourceIds: resources.resourceIds.length ? resources.resourceIds : context.row.resourceIds,
       sessions: scenario.sessions,
       evaluations: evaluation.evaluations,
+      metadata: {
+        ...(context.row.metadata ?? {}),
+        competenceAssociation: {
+          confidence: competence.associationConfidence,
+          explanation: competence.associationExplanation,
+          proposals: competence.proposals,
+        },
+      },
     };
 
     try {

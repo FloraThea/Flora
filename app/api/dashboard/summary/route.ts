@@ -85,7 +85,7 @@ export async function GET() {
         boDocumentsCount: 0,
         error: error instanceof Error ? error.message : "Erreur",
       },
-      { status: 200 },
+      { status: 500 },
     );
   }
 }

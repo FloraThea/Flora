@@ -3,7 +3,12 @@ import { buildTheaInstructionBlock, loadTeacherProfileForGeneration } from "@/li
 import { loadProgrammation } from "@/lib/programming/programmation-service";
 import { inferCycleFromLevels } from "@/lib/referentiel/bo-cycle-utils";
 import { loadReferentielCompetences } from "@/lib/referentiel/referentiel-service";
-import { loadLibraryResourcesForGeneration, findLibraryEntityMatches, buildProvenanceMetadata } from "@/lib/pedagogical/library-context";
+import { resolveProgressionRowCompetences } from "@/lib/pedagogical/competence-resolver";
+import {
+  buildProvenanceMetadata,
+  findLibraryEntityMatches,
+  loadLibraryResourcesForGeneration,
+} from "@/lib/pedagogical/library-context";
 import { floraDb } from "@/lib/supabase/get-db";
 import { loadSequence } from "@/lib/sequences/sequence-service";
 import type { ProgressionRow } from "@/lib/progression/types";
@@ -234,6 +239,7 @@ export class LessonGenerator {
       methode: context.methode,
       sequenceMetadata: sequence.metadata,
     });
+    let association: Awaited<ReturnType<typeof resolveProgressionRowCompetences>> | null = null;
 
     if (!useRestitution) {
       const libraryMatches = await findLibraryEntityMatches({
@@ -249,6 +255,35 @@ export class LessonGenerator {
         .map((match) => match.content || match.sourceText)
         .filter(Boolean)
         .join("\n\n");
+
+      association = await resolveProgressionRowCompetences({
+        row: {
+          ...context.progressionRow,
+          metadata: {
+            ...context.progressionRow.metadata,
+            libraryContent,
+          },
+        },
+        matiere: sequence.matiere,
+        niveau: sequence.niveau,
+        cycle: sequence.cycle,
+        sousMatiere: sequence.sousMatiere,
+        methode: context.methode,
+        libraryContent,
+        referentiel: context.referentiel,
+      });
+
+      if (association.primary) {
+        draft = {
+          ...draft,
+          competenceBo: association.primary.competenceText,
+          referentielIds: [
+            association.primary.referentielId,
+            ...association.proposals.slice(1, 3).map((proposal) => proposal.referentielId),
+            ...draft.referentielIds,
+          ].filter((value, index, array) => array.indexOf(value) === index),
+        };
+      }
 
       if (libraryContent && !draft.objectif.includes(libraryContent.slice(0, 40))) {
         draft = {
@@ -286,6 +321,14 @@ export class LessonGenerator {
       teacherProfileId: context.teacherProfile.profile.id,
       metadata: {
         restitutionMode: useRestitution,
+        competenceAssociation: association?.primary
+          ? {
+              confidence: association.primary.confidence,
+              explanation: association.primary.explanation,
+              proposals: association.proposals,
+              contentHash: association.contentProfile.contentHash,
+            }
+          : undefined,
         ...(useRestitution
           ? {}
           : buildProvenanceMetadata({

@@ -13,6 +13,7 @@ export function validateBoExtraction(input: {
   competences: BoCompetenceDraft[];
   sections: BoSectionChunk[];
   matiere: string;
+  qualityReport?: Record<string, unknown>;
 }): BoValidationReport {
   const emc = isEmcMatiere(input.matiere);
   const catalog = emc ? BO_EVAR_SECTIONS : BO_FRANCAIS_SECTIONS;
@@ -22,9 +23,26 @@ export function validateBoExtraction(input: {
   const probableMissing: string[] = [];
 
   for (const item of input.competences) {
-    competencesBySection[item.section] = (competencesBySection[item.section] ?? 0) + 1;
+    const sectionKey = item.domaine || item.section;
+    competencesBySection[sectionKey] = (competencesBySection[sectionKey] ?? 0) + 1;
     competencesByType[item.competenceType] =
       (competencesByType[item.competenceType] ?? 0) + 1;
+  }
+
+  const quality = input.qualityReport;
+  if (quality && Array.isArray(quality.warnings)) {
+    for (const warning of quality.warnings) {
+      if (typeof warning === "string") warnings.push(warning);
+    }
+  }
+
+  if (quality && typeof quality.competencesBySousMatiere === "object" && quality.competencesBySousMatiere) {
+    for (const [label, count] of Object.entries(quality.competencesBySousMatiere as Record<string, number>)) {
+      if (count === 0) {
+        warnings.push(`Aucune compétence détectée pour la sous-matière « ${label} ».`);
+        probableMissing.push(label);
+      }
+    }
   }
 
   const sectionsDetected = Object.keys(competencesBySection);

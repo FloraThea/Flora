@@ -104,6 +104,7 @@ export type TheaSaveRequest = {
   mode: "create_seance" | "create_sequence";
   structured: TheaCreateStructured;
   createContext: TheaCreateDraftInput;
+  referentielIds?: string[];
 };
 
 export type TheaSaveResponse = {
@@ -119,6 +120,7 @@ export type TheaChatMessage = {
   content: string;
   mode?: TheaChatMode;
   structured?: TheaCreateStructured | null;
+  referentielIds?: string[];
   canSave?: boolean;
   saved?: {
     type: "seance" | "sequence";

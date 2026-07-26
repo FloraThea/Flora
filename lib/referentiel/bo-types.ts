@@ -105,6 +105,9 @@ export type BoCompetenceDraft = {
   sousCompetence: string;
   sourceExcerpt: string;
   code: string;
+  tableTitle?: string;
+  columnName?: string;
+  tableFormat?: string;
 };
 
 export type BoValidationReport = {

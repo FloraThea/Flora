@@ -356,7 +356,7 @@ function ProgrammationPageContent() {
     } finally {
       setIsTrashing(false);
     }
-  }, [payload?.programmation.id, trashTarget]);
+  }, [payload, trashTarget]);
 
   const handleMoveProgrammationSubject = useCallback(
     async (id: string, matiere: string, sousMatiere: string) => {

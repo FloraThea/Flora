@@ -11,6 +11,13 @@ import { ProgressionRowModal } from "./ProgressionRowModal";
 type ProgressionTableViewProps = {
   tab: ProgressionTab;
   highlightRowId?: string | null;
+  associationContext?: {
+    matiere: string;
+    niveau?: string;
+    cycle?: string;
+    sousMatiere?: string;
+    methode?: string;
+  };
   onRowChange: (rowId: string, row: ProgressionRow) => void;
   onRowsReorder: (rows: ProgressionRow[]) => void;
 };
@@ -38,6 +45,7 @@ const cellTextClass =
 export function ProgressionTableView({
   tab,
   highlightRowId,
+  associationContext,
   onRowChange,
   onRowsReorder,
 }: ProgressionTableViewProps) {
@@ -161,6 +169,12 @@ export function ProgressionTableView({
         <ProgressionRowModal
           row={selectedRow}
           title={`${title} — ${selectedRow.seanceLabel}`}
+          associationContext={
+            associationContext ?? {
+              matiere: tab.subjectLabel,
+              sousMatiere: tab.subSubjectLabel || undefined,
+            }
+          }
           onClose={() => setSelectedRow(null)}
           onSave={(row) => {
             onRowChange(row.id, row);

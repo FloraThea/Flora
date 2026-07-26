@@ -9,6 +9,7 @@ import {
   updateBoDocument,
 } from "./bo-document-service";
 import { inferNiveauxFromCycle } from "./bo-cycle-utils";
+import { extractBoFaithfully } from "./bo-faithful/extract-faithful";
 import { inferBoMetadata, splitBoTextIntoSections } from "./bo-section-splitter";
 import type { BoImportResult } from "./bo-types";
 import { validateBoExtraction } from "./bo-validator";
@@ -20,6 +21,11 @@ export async function runBoImportAndExtractStep(input: {
 }): Promise<BoImportResult> {
   const metadata = inferBoMetadata(input.extraction.text);
   const upload = await tryUploadBoFileOptional(input.file);
+  const faithfulPreview = extractBoFaithfully({
+    text: input.extraction.text,
+    cycle: metadata.cycle,
+    matiere: metadata.matiere,
+  });
 
   let document = await createBoDocument({
     file: input.file,
@@ -40,6 +46,14 @@ export async function runBoImportAndExtractStep(input: {
       pdf_archived: upload.archived,
       storage_bucket: upload.bucket,
       storage_path: upload.storagePath,
+      introduction: faithfulPreview.introduction,
+      introductionCharCount: faithfulPreview.quality.introductionCharCount,
+      extractionMethod: input.extraction.extractionMethod,
+      faithfulPreview: {
+        totalCompetences: faithfulPreview.quality.totalCompetences,
+        tablesDetected: faithfulPreview.quality.tablesDetected,
+        passed: faithfulPreview.quality.passed,
+      },
     },
   });
 

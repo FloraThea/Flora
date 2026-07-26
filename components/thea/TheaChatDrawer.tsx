@@ -2,15 +2,25 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { deferEffect } from "@/lib/hooks/defer-effect";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { TheaGlow } from "@/components/ui/TheaGlow";
 import { cn } from "@/lib/cn";
+import {
+  CompetenceProposalPanel,
+  buildTheaSeanceAssociationContent,
+  buildTheaSequenceAssociationContent,
+  type CompetenceAssociationSelection,
+} from "@/components/pedagogical/CompetenceProposalPanel";
 import type {
   TheaAskResponse,
   TheaChatMessage,
   TheaChatMode,
   TheaCreateDraftInput,
+  TheaCreateStructured,
   TheaSaveResponse,
+  TheaSeanceStructured,
+  TheaSequenceStructured,
 } from "@/lib/thea/chat/types";
 import { useTheaChat } from "./thea-chat-context";
 
@@ -38,6 +48,46 @@ function newMessage(
   };
 }
 
+function buildTheaAssociationContent(
+  structured: TheaCreateStructured,
+  mode: TheaChatMode,
+  draft: TheaCreateDraftInput,
+) {
+  if (mode === "create_seance") {
+    return buildTheaSeanceAssociationContent({
+      structured: structured as TheaSeanceStructured,
+      matiere: draft.matiere,
+      niveau: draft.niveau,
+    });
+  }
+
+  return buildTheaSequenceAssociationContent({
+    structured: structured as TheaSequenceStructured,
+    matiere: draft.matiere,
+    niveau: draft.niveau,
+  });
+}
+
+function applyAssociationToMessage(
+  message: TheaChatMessage,
+  selection: CompetenceAssociationSelection,
+): TheaChatMessage {
+  if (!message.structured) return message;
+
+  return {
+    ...message,
+    referentielIds: selection.referentielIds,
+    structured: {
+      ...message.structured,
+      competenceBo: selection.competenceBo,
+    },
+    content: message.content.replace(
+      /Compétence : .*/u,
+      `Compétence : ${selection.competenceBo}`,
+    ),
+  };
+}
+
 export function TheaChatDrawer() {
   const { isOpen, initialMode, closeChat } = useTheaChat();
   const [tab, setTab] = useState<TabMode>("chat");
@@ -60,11 +110,13 @@ export function TheaChatDrawer() {
 
   useEffect(() => {
     if (!isOpen) return;
-    setTab(initialMode === "chat" ? "chat" : "create");
-    if (initialMode === "create_seance" || initialMode === "create_sequence") {
-      setCreateKind(initialMode);
-    }
-    window.setTimeout(() => inputRef.current?.focus(), 200);
+    deferEffect(() => {
+      setTab(initialMode === "chat" ? "chat" : "create");
+      if (initialMode === "create_seance" || initialMode === "create_sequence") {
+        setCreateKind(initialMode);
+      }
+      window.setTimeout(() => inputRef.current?.focus(), 200);
+    });
   }, [initialMode, isOpen]);
 
   useEffect(() => {
@@ -162,6 +214,7 @@ export function TheaChatDrawer() {
             mode: message.mode,
             structured: message.structured,
             createContext: draft,
+            referentielIds: message.referentielIds ?? [],
           }),
         });
 
@@ -493,17 +546,49 @@ export function TheaChatDrawer() {
                             </Link>
                           </div>
                         ) : (
-                          <FloraButton
-                            accent="rose"
-                            variant="secondary"
-                            className="w-full"
-                            disabled={Boolean(savingMessageId)}
-                            onClick={() => void handleSaveProposal(message)}
-                          >
-                            {savingMessageId === message.id
-                              ? "Enregistrement…"
-                              : `Enregistrer la ${createKind === "create_seance" ? "séance" : "séquence"} dans Flora`}
-                          </FloraButton>
+                          <>
+                            {message.mode && message.mode !== "chat" ? (
+                              <CompetenceProposalPanel
+                                content={buildTheaAssociationContent(
+                                  message.structured,
+                                  message.mode,
+                                  draft,
+                                )}
+                                currentCompetence={message.structured.competenceBo}
+                                currentReferentielIds={message.referentielIds ?? []}
+                                autoLoad
+                                onAccept={(selection) => {
+                                  setMessages((prev) =>
+                                    prev.map((entry) =>
+                                      entry.id === message.id
+                                        ? applyAssociationToMessage(entry, selection)
+                                        : entry,
+                                    ),
+                                  );
+                                }}
+                                onModify={(selection) => {
+                                  setMessages((prev) =>
+                                    prev.map((entry) =>
+                                      entry.id === message.id
+                                        ? applyAssociationToMessage(entry, selection)
+                                        : entry,
+                                    ),
+                                  );
+                                }}
+                              />
+                            ) : null}
+                            <FloraButton
+                              accent="rose"
+                              variant="secondary"
+                              className="w-full"
+                              disabled={Boolean(savingMessageId)}
+                              onClick={() => void handleSaveProposal(message)}
+                            >
+                              {savingMessageId === message.id
+                                ? "Enregistrement…"
+                                : `Enregistrer la ${createKind === "create_seance" ? "séance" : "séquence"} dans Flora`}
+                            </FloraButton>
+                          </>
                         )
                       ) : null}
                     </div>

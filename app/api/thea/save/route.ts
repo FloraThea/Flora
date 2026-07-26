@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       structured: body.structured,
       createContext: body.createContext,
       bundle,
+      referentielIds: body.referentielIds,
     });
 
     const payload: TheaSaveResponse =

@@ -1,4 +1,11 @@
 import { CompetenceMatcher } from "@/lib/knowledge/CompetenceMatcher";
+import {
+  associateCompetences,
+  associateCompetencesFromCandidates,
+  mapCandidatesFromReferentiel,
+} from "@/lib/pedagogical/competence-association";
+import { buildAssociationInputFromProgressionRow } from "@/lib/pedagogical/competence-association/build-input";
+import type { PedagogicalContentInput } from "@/lib/pedagogical/competence-association/types";
 import { floraDb } from "@/lib/supabase/get-db";
 
 const matcher = new CompetenceMatcher();
@@ -19,6 +26,62 @@ export async function resolveReferentielIds(labels: string[]): Promise<string[]>
   }
 
   return [...ids];
+}
+
+export async function associateContentToBoCompetences(input: {
+  content: PedagogicalContentInput;
+  teacherProfileId?: string;
+  limit?: number;
+}) {
+  return associateCompetences({
+    content: input.content,
+    teacherProfileId: input.teacherProfileId,
+    limit: input.limit ?? 5,
+    minConfidence: 0.45,
+  });
+}
+
+export async function resolveProgressionRowCompetences(input: {
+  row: {
+    id?: string;
+    sequenceModule?: string;
+    seanceLabel?: string;
+    competenceBo?: string;
+    objectifs?: string[];
+    deroulement?: string;
+    materiel?: string[];
+    resources?: string[];
+    metadata?: Record<string, unknown>;
+  };
+  matiere: string;
+  niveau?: string;
+  cycle?: string;
+  sousMatiere?: string;
+  methode?: string;
+  libraryContent?: string;
+  referentiel?: Array<{ id: string; competence: string; code?: string | null; discipline?: string | null; domaine?: string | null; niveau?: string | null; section?: string | null; sousDomaine?: string | null; sourceExcerpt?: string | null; cycle?: string | null }>;
+}) {
+  const content = buildAssociationInputFromProgressionRow({
+    row: input.row,
+    matiere: input.matiere,
+    niveau: input.niveau,
+    cycle: input.cycle,
+    sousMatiere: input.sousMatiere,
+    methode: input.methode,
+    libraryContent: input.libraryContent,
+    entityId: input.row.id,
+  });
+
+  if (input.referentiel?.length) {
+    return associateCompetencesFromCandidates({
+      content,
+      candidates: mapCandidatesFromReferentiel(input.referentiel),
+      limit: 5,
+      minConfidence: 0.45,
+    });
+  }
+
+  return associateCompetences({ content, limit: 5, minConfidence: 0.45 });
 }
 
 export async function syncCellReferentielIds(cellId: string, competenceLabels: string[]): Promise<string[]> {

@@ -43,7 +43,15 @@ export function HomeDashboard() {
     async function load() {
       try {
         const response = await fetch("/api/dashboard/summary");
-        const data = (await response.json()) as DashboardSummary;
+        if (!response.ok) {
+          setSummary(null);
+          return;
+        }
+        const data = (await response.json()) as DashboardSummary & { error?: string };
+        if (data.error) {
+          setSummary(null);
+          return;
+        }
         setSummary(data);
       } catch {
         setSummary(null);

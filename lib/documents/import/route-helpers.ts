@@ -123,10 +123,11 @@ export function importJsonSuccess<T extends Record<string, unknown>>(payload: T)
 }
 
 export async function findDuplicateCandidates(sessionId: string) {
-  const session = await uploadManager.getSession(sessionId);
-  if (!session) return [];
+  const owned = await uploadManager.requireSessionForCurrentTeacher(sessionId).catch(() => null);
+  if (!owned) return [];
   return duplicateDetector.findDuplicates({
-    filename: session.originalFilename,
-    fileSize: session.fileSize,
+    filename: owned.session.originalFilename,
+    fileSize: owned.session.fileSize,
+    teacherProfileId: owned.metadata.teacher_profile_id ?? owned.metadata.user_id,
   });
 }

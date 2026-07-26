@@ -9,8 +9,10 @@ type AgendaReminderToastsProps = {
   pollIntervalMs?: number;
 };
 
+const EMPTY_DUE: AgendaReminder[] = [];
+
 export function AgendaReminderToasts({
-  initialDue = [],
+  initialDue = EMPTY_DUE,
   pollIntervalMs = 30_000,
 }: AgendaReminderToastsProps) {
   const { toasts, pushToast, dismissToast } = useFloraToasts();

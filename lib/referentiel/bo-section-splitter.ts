@@ -35,11 +35,13 @@ function findBestSectionStart(
   return best;
 }
 
+export type BoProgrammeKind = "francais" | "evar" | "emc_moral";
+
 export function inferBoMetadata(text: string): {
   cycle: string;
   matiere: string;
   domaine: string;
-  programme: "francais" | "emc";
+  programme: BoProgrammeKind;
 } {
   const normalized = normalizeForMatch(text);
 
@@ -50,7 +52,8 @@ export function inferBoMetadata(text: string): {
   else if (normalized.includes("ecole elementaire")) cycle = "Cycle 2";
 
   let matiere = "Français";
-  let programme: "francais" | "emc" = "francais";
+  let programme: BoProgrammeKind = "francais";
+  let domaine = "Français";
 
   if (
     normalized.includes("education a la vie affective") ||
@@ -59,28 +62,69 @@ export function inferBoMetadata(text: string): {
     normalized.includes("education a la sexualite")
   ) {
     matiere = "EMC";
-    programme = "emc";
+    programme = "evar";
+    domaine = "Éducation à la vie affective et relationnelle";
+  } else if (
+    normalized.includes("enseignement moral et civique") ||
+    normalized.includes("moral et civique")
+  ) {
+    matiere = "EMC";
+    programme = "emc_moral";
+    domaine = "Enseignement moral et civique";
   } else if (normalized.includes("mathematiques") || normalized.includes("mathematique")) {
     matiere = "Mathématiques";
+    domaine = "Mathématiques";
   } else if (normalized.includes("francais")) {
     matiere = "Français";
+    domaine = "Français";
   }
 
   return {
     cycle,
     matiere,
     programme,
-    domaine:
-      matiere === "EMC"
-        ? "Éducation à la vie affective et relationnelle"
-        : matiere === "Français"
-          ? "Français"
-          : matiere,
+    domaine,
   };
 }
 
+export function resolveProgrammeKind(input: {
+  text: string;
+  matiere?: string;
+  domaine?: string;
+  programme?: BoProgrammeKind;
+}): BoProgrammeKind {
+  if (input.programme) return input.programme;
+
+  const normalizedDomaine = normalizeForMatch(input.domaine ?? "");
+  if (normalizedDomaine.includes("moral et civique") || normalizedDomaine.includes("enseignement moral")) {
+    return "emc_moral";
+  }
+  if (
+    normalizedDomaine.includes("vie affective") ||
+    normalizedDomaine.includes("evar") ||
+    normalizedDomaine.includes("sexualite")
+  ) {
+    return "evar";
+  }
+
+  const normalizedMatiere = normalizeForMatch(input.matiere ?? "");
+  const normalizedText = normalizeForMatch(input.text);
+  if (normalizedMatiere.includes("emc")) {
+    if (normalizedText.includes("enseignement moral et civique")) return "emc_moral";
+    if (
+      normalizedText.includes("education a la vie affective") ||
+      normalizedText.includes("vie affective et relationnelle")
+    ) {
+      return "evar";
+    }
+  }
+
+  return inferBoMetadata(input.text).programme;
+}
+
 export function resolveBoSectionCatalog(text: string): BoSectionDefinition[] {
-  return inferBoMetadata(text).programme === "emc" ? BO_EVAR_SECTIONS : BO_FRANCAIS_SECTIONS;
+  const programme = inferBoMetadata(text).programme;
+  return programme === "evar" || programme === "emc_moral" ? BO_EVAR_SECTIONS : BO_FRANCAIS_SECTIONS;
 }
 
 export function splitBoTextIntoSections(

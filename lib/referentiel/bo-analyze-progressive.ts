@@ -1,5 +1,8 @@
 import { toErrorMessage } from "@/lib/api/route-diagnostics";
-import { analyseBoSectionPart } from "./bo-section-analyser";
+import {
+  extractBoFaithfully,
+  mapFaithfulResultToDrafts,
+} from "./bo-faithful/extract-faithful";
 import {
   appendBoCompetences,
   clearBoCompetences,
@@ -8,7 +11,7 @@ import {
   markBoDocumentError,
   updateBoDocument,
 } from "./bo-document-service";
-import { inferBoMetadata, splitBoTextIntoSections, chunkSectionText } from "./bo-section-splitter";
+import { inferBoMetadata, splitBoTextIntoSections } from "./bo-section-splitter";
 import type { BoCompetenceDraft, BoImportResult, BoSectionChunk } from "./bo-types";
 import { validateBoExtraction } from "./bo-validator";
 
@@ -42,30 +45,29 @@ function readCheckpoint(metadata: Record<string, unknown> | null | undefined): B
   return raw as BoAnalyzeCheckpoint;
 }
 
-function buildCheckpoint(sections: BoSectionChunk[]): BoAnalyzeCheckpoint {
-  const partsTotal = sections.reduce(
-    (sum, section) => sum + Math.max(1, chunkSectionText(section.text).length),
-    0,
-  );
-
-  return {
-    sectionIndex: 0,
-    partIndex: 0,
-    sectionBuffer: [],
-    sectionsTotal: sections.length,
-    partsTotal,
-    partsCompleted: 0,
-    sectionsCompleted: [],
-    nextSortOrder: 1,
-    startedAt: new Date().toISOString(),
-  };
-}
-
 export function readBoAnalyzeProgress(document: {
   status: string;
   metadata?: Record<string, unknown> | null;
 }): BoAnalyzeProgress | null {
   const checkpoint = readCheckpoint(document.metadata ?? undefined);
+  const analyzeProgress = document.metadata?.analyzeProgress;
+  if (analyzeProgress && typeof analyzeProgress === "object") {
+    const progress = analyzeProgress as Record<string, unknown>;
+    return {
+      done: document.status !== "ANALYZING",
+      progress: typeof progress.progress === "number" ? progress.progress : 0,
+      stageLabel: typeof progress.stageLabel === "string" ? progress.stageLabel : "Analyse BO",
+      sectionsProcessed: Array.isArray(progress.sectionsCompleted)
+        ? (progress.sectionsCompleted as string[])
+        : [],
+      sectionsTotal: typeof progress.sectionsTotal === "number" ? progress.sectionsTotal : 1,
+      partsCompleted: typeof progress.partsCompleted === "number" ? progress.partsCompleted : 0,
+      partsTotal: typeof progress.partsTotal === "number" ? progress.partsTotal : 1,
+      insertedCount: typeof progress.insertedCount === "number" ? progress.insertedCount : 0,
+      documentStatus: document.status,
+    };
+  }
+
   if (!checkpoint) return null;
 
   const progress =
@@ -73,18 +75,10 @@ export function readBoAnalyzeProgress(document: {
       ? Math.min(100, Math.round((checkpoint.partsCompleted / checkpoint.partsTotal) * 100))
       : 0;
 
-  const currentSection = checkpoint.sectionsCompleted.at(-1) ?? null;
-  const stageLabel =
-    document.status === "ANALYZING"
-      ? currentSection
-        ? `Analyse en cours — ${currentSection}`
-        : "Analyse Théa en cours…"
-      : "Analyse terminée";
-
   return {
     done: document.status !== "ANALYZING",
     progress,
-    stageLabel,
+    stageLabel: document.status === "ANALYZING" ? "Analyse BO en cours…" : "Analyse terminée",
     sectionsProcessed: checkpoint.sectionsCompleted,
     sectionsTotal: checkpoint.sectionsTotal,
     partsCompleted: checkpoint.partsCompleted,
@@ -104,21 +98,21 @@ export async function startBoAnalyzeJob(documentId: string): Promise<BoAnalyzePr
     throw new Error("Aucun texte extrait. Relancez l'extraction avant l'analyse.");
   }
 
-  const sections = splitBoTextIntoSections(existing.extracted_text);
-  const checkpoint = buildCheckpoint(sections);
-
   await clearBoCompetences(documentId);
   await updateBoDocument(documentId, {
     status: "ANALYZING",
     error_message: "",
     metadata: {
       ...(existing.metadata ?? {}),
-      analyzeCheckpoint: checkpoint,
+      analyzeCheckpoint: null,
       analyzeProgress: {
         progress: 0,
-        stageLabel: "Analyse Théa démarrée…",
-        sectionsTotal: checkpoint.sectionsTotal,
-        partsTotal: checkpoint.partsTotal,
+        stageLabel: "Analyse fidèle du BO démarrée…",
+        sectionsTotal: 1,
+        partsTotal: 1,
+        partsCompleted: 0,
+        sectionsCompleted: [],
+        insertedCount: 0,
       },
       error_message: "",
     },
@@ -127,147 +121,53 @@ export async function startBoAnalyzeJob(documentId: string): Promise<BoAnalyzePr
   return {
     done: false,
     progress: 0,
-    stageLabel: "Analyse Théa démarrée…",
+    stageLabel: "Analyse fidèle du BO démarrée…",
     sectionsProcessed: [],
-    sectionsTotal: checkpoint.sectionsTotal,
+    sectionsTotal: 1,
     partsCompleted: 0,
-    partsTotal: checkpoint.partsTotal,
+    partsTotal: 1,
     insertedCount: 0,
     documentStatus: "ANALYZING",
   };
-}
-
-export async function runBoAnalyzeTick(documentId: string): Promise<BoAnalyzeProgress & BoImportResult | BoAnalyzeProgress> {
-  const existing = await getBoDocumentById(documentId);
-  if (!existing) {
-    throw new Error("Document BO introuvable.");
-  }
-
-  if (!existing.extracted_text?.trim()) {
-    throw new Error("Aucun texte extrait. Relancez l'extraction avant l'analyse.");
-  }
-
-  let checkpoint = readCheckpoint(existing.metadata ?? undefined);
-  if (!checkpoint || existing.status !== "ANALYZING") {
-    await startBoAnalyzeJob(documentId);
-    const restarted = await getBoDocumentById(documentId);
-    checkpoint = readCheckpoint(restarted?.metadata ?? undefined);
-    if (!checkpoint) {
-      throw new Error("Impossible d'initialiser l'analyse progressive.");
-    }
-  }
-
-  const metadata = inferBoMetadata(existing.extracted_text);
-  const sections = splitBoTextIntoSections(existing.extracted_text);
-  const defaults = {
-    cycle: existing.cycle || metadata.cycle,
-    matiere: existing.matiere || metadata.matiere,
-  };
-
-  try {
-    if (checkpoint.sectionIndex >= sections.length) {
-      return finalizeBoAnalyzeJob(documentId, sections, defaults, checkpoint);
-    }
-
-    const section = sections[checkpoint.sectionIndex];
-    const parts = chunkSectionText(section.text);
-    const part = parts[checkpoint.partIndex];
-
-    if (!part) {
-      checkpoint.sectionIndex += 1;
-      checkpoint.partIndex = 0;
-      checkpoint.sectionBuffer = [];
-      await persistCheckpoint(documentId, existing.metadata ?? {}, checkpoint, section.label);
-      return progressFromCheckpoint(documentId, "ANALYZING", checkpoint, `Section terminée : ${section.label}`);
-    }
-
-    const partLabel = parts.length > 1 ? `${checkpoint.partIndex + 1}/${parts.length}` : undefined;
-
-    console.info("[bo-analyser] Analyse bloc", {
-      documentId,
-      section: section.label,
-      part: partLabel ?? "1/1",
-      textLength: part.length,
-    });
-
-    const items = await analyseBoSectionPart({
-      section,
-      text: part,
-      partLabel,
-      defaults,
-    });
-
-    checkpoint.sectionBuffer.push(...items);
-    checkpoint.partIndex += 1;
-    checkpoint.partsCompleted += 1;
-
-    const sectionDone = checkpoint.partIndex >= parts.length;
-    let stageLabel = `Analyse : ${section.label}${partLabel ? ` (${partLabel})` : ""}`;
-
-    if (sectionDone) {
-      const inserted = await appendBoCompetences({
-        documentId,
-        competences: checkpoint.sectionBuffer,
-        sortOrderStart: checkpoint.nextSortOrder,
-      });
-      checkpoint.nextSortOrder += inserted;
-      checkpoint.sectionsCompleted.push(section.label);
-      checkpoint.sectionBuffer = [];
-      checkpoint.sectionIndex += 1;
-      checkpoint.partIndex = 0;
-      stageLabel = `Section enregistrée : ${section.label}`;
-
-      console.info("[bo-analyser] Section enregistrée", {
-        documentId,
-        section: section.label,
-        items: inserted,
-      });
-    }
-
-    if (checkpoint.sectionIndex >= sections.length) {
-      return finalizeBoAnalyzeJob(documentId, sections, defaults, checkpoint);
-    }
-
-    await persistCheckpoint(documentId, existing.metadata ?? {}, checkpoint, stageLabel);
-    return progressFromCheckpoint(documentId, "ANALYZING", checkpoint, stageLabel);
-  } catch (error) {
-    const message = toErrorMessage(error);
-    await markBoDocumentError(documentId, message, "TEXT_EXTRACTED");
-    throw new Error(message);
-  }
 }
 
 async function finalizeBoAnalyzeJob(
   documentId: string,
   sections: BoSectionChunk[],
   defaults: { cycle: string; matiere: string },
-  checkpoint: BoAnalyzeCheckpoint,
+  competences: BoCompetenceDraft[],
+  faithfulMetadata: Record<string, unknown>,
 ): Promise<BoAnalyzeProgress & BoImportResult> {
-  const existing = await getBoDocumentById(documentId);
-  const insertedCount = await countBoCompetences(documentId);
   const validation = validateBoExtraction({
-    competences: [],
+    competences,
     sections,
     matiere: defaults.matiere,
+    qualityReport: faithfulMetadata.qualityReport as Record<string, unknown> | undefined,
   });
-  validation.totalCompetences = insertedCount;
+  validation.totalCompetences = competences.length;
 
+  const existing = await getBoDocumentById(documentId);
   const document = await updateBoDocument(documentId, {
     status: "ANALYZED",
     validation,
     metadata: {
       ...(existing?.metadata ?? {}),
+      ...faithfulMetadata,
       analyzeCheckpoint: null,
       analyzeProgress: {
         progress: 100,
-        stageLabel: "Analyse Théa terminée",
-        sectionsTotal: checkpoint.sectionsTotal,
-        partsTotal: checkpoint.partsTotal,
-        partsCompleted: checkpoint.partsCompleted,
-        sectionsCompleted: checkpoint.sectionsCompleted,
+        stageLabel: "Analyse fidèle terminée",
+        sectionsTotal: 1,
+        partsTotal: 1,
+        partsCompleted: 1,
+        sectionsCompleted: Object.keys(
+          (faithfulMetadata.qualityReport as { competencesBySousMatiere?: Record<string, number> })
+            ?.competencesBySousMatiere ?? {},
+        ),
+        insertedCount: competences.length,
       },
-      sectionsProcessed: checkpoint.sectionsCompleted,
-      insertedCount,
+      sectionsProcessed: sections.map((section) => section.label),
+      insertedCount: competences.length,
       analyzedAt: new Date().toISOString(),
       savedToLibrary: false,
       error_message: "",
@@ -277,82 +177,92 @@ async function finalizeBoAnalyzeJob(
   return {
     done: true,
     progress: 100,
-    stageLabel: "Analyse Théa terminée",
-    sectionsProcessed: checkpoint.sectionsCompleted,
-    sectionsTotal: checkpoint.sectionsTotal,
-    partsCompleted: checkpoint.partsCompleted,
-    partsTotal: checkpoint.partsTotal,
-    insertedCount,
+    stageLabel: "Analyse fidèle terminée",
+    sectionsProcessed: sections.map((section) => section.label),
+    sectionsTotal: 1,
+    partsCompleted: 1,
+    partsTotal: 1,
+    insertedCount: competences.length,
     documentStatus: document.status,
     document,
-    competences: [],
+    competences,
     validation,
     savedToLibrary: false,
   };
 }
 
-async function persistCheckpoint(
+export async function runBoAnalyzeTick(
   documentId: string,
-  metadata: Record<string, unknown>,
-  checkpoint: BoAnalyzeCheckpoint,
-  stageLabel: string,
-) {
-  const progress =
-    checkpoint.partsTotal > 0
-      ? Math.min(100, Math.round((checkpoint.partsCompleted / checkpoint.partsTotal) * 100))
-      : 0;
+): Promise<BoAnalyzeProgress & BoImportResult | BoAnalyzeProgress> {
+  const existing = await getBoDocumentById(documentId);
+  if (!existing) {
+    throw new Error("Document BO introuvable.");
+  }
 
-  await updateBoDocument(documentId, {
-    status: "ANALYZING",
-    metadata: {
-      ...metadata,
-      analyzeCheckpoint: checkpoint,
-      analyzeProgress: {
-        progress,
-        stageLabel,
-        sectionsTotal: checkpoint.sectionsTotal,
-        partsTotal: checkpoint.partsTotal,
-        partsCompleted: checkpoint.partsCompleted,
-        sectionsCompleted: checkpoint.sectionsCompleted,
-      },
-    },
-  });
-}
+  if (!existing.extracted_text?.trim()) {
+    throw new Error("Aucun texte extrait. Relancez l'extraction avant l'analyse.");
+  }
 
-function progressFromCheckpoint(
-  documentId: string,
-  status: string,
-  checkpoint: BoAnalyzeCheckpoint,
-  stageLabel: string,
-): BoAnalyzeProgress {
-  const progress =
-    checkpoint.partsTotal > 0
-      ? Math.min(100, Math.round((checkpoint.partsCompleted / checkpoint.partsTotal) * 100))
-      : 0;
+  if (existing.status !== "ANALYZING") {
+    await startBoAnalyzeJob(documentId);
+  }
 
-  return {
-    done: false,
-    progress,
-    stageLabel,
-    sectionsProcessed: checkpoint.sectionsCompleted,
-    sectionsTotal: checkpoint.sectionsTotal,
-    partsCompleted: checkpoint.partsCompleted,
-    partsTotal: checkpoint.partsTotal,
-    insertedCount: checkpoint.nextSortOrder - 1,
-    documentStatus: status,
+  const metadata = inferBoMetadata(existing.extracted_text);
+  const defaults = {
+    cycle: existing.cycle || metadata.cycle,
+    matiere: existing.matiere || metadata.matiere,
   };
+  const sections = splitBoTextIntoSections(existing.extracted_text);
+
+  try {
+    const faithful = extractBoFaithfully({
+      text: existing.extracted_text,
+      cycle: defaults.cycle,
+      matiere: defaults.matiere,
+      domaine: existing.domaine ?? undefined,
+    });
+    const competences = mapFaithfulResultToDrafts(faithful, defaults);
+
+    await clearBoCompetences(documentId);
+    const insertedCount = await appendBoCompetences({
+      documentId,
+      competences,
+      sortOrderStart: 1,
+    });
+
+    if (insertedCount === 0) {
+      throw new Error("Aucune compétence extraite du BO. Vérifiez le format du document.");
+    }
+
+    return finalizeBoAnalyzeJob(documentId, sections, defaults, competences, {
+      introduction: faithful.introduction,
+      introductionCharCount: faithful.quality.introductionCharCount,
+      extractionMethod: faithful.extractionMethod,
+      qualityReport: faithful.quality,
+      faithfulAnalysis: {
+        tablesDetected: faithful.quality.tablesDetected,
+        tablesProcessed: faithful.quality.tablesProcessed,
+        competencesByMatiere: faithful.quality.competencesByMatiere,
+        competencesBySousMatiere: faithful.quality.competencesBySousMatiere,
+        competencesBySousSousMatiere: faithful.quality.competencesBySousSousMatiere,
+        competencesByNiveau: faithful.quality.competencesByNiveau,
+        warnings: faithful.quality.warnings,
+        passed: faithful.quality.passed,
+      },
+    });
+  } catch (error) {
+    const message = toErrorMessage(error);
+    await markBoDocumentError(documentId, message, "TEXT_EXTRACTED");
+    throw new Error(message);
+  }
 }
 
 /** Boucle locale (tests CLI) — une requête HTTP = un tick côté API. */
 export async function runBoAnalyzeStepProgressive(documentId: string): Promise<BoImportResult> {
-  let latest: (BoAnalyzeProgress & Partial<BoImportResult>) | null = null;
-
-  for (let guard = 0; guard < 500; guard += 1) {
-    latest = await runBoAnalyzeTick(documentId);
-    if (latest.done && "document" in latest && latest.document) {
-      return latest as BoImportResult;
-    }
+  const latest = await runBoAnalyzeTick(documentId);
+  if (latest.done && "document" in latest && latest.document) {
+    return latest as BoImportResult;
   }
 
-  throw new Error("Analyse progressive interrompue (limite de ticks).");
+  throw new Error("Analyse fidèle interrompue.");
 }

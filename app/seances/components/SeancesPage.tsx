@@ -346,7 +346,7 @@ function SeancesPageContent() {
     } finally {
       setIsTrashing(false);
     }
-  }, [loadAllSeances, selectedPayload?.seance.id, trashTarget]);
+  }, [loadAllSeances, selectedPayload, trashTarget]);
 
   return (
     <div className="flex flex-col gap-8">

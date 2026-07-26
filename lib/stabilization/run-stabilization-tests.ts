@@ -25,9 +25,14 @@ function testUnifiedImportAcceptIncludesCoreFormats() {
 }
 
 function testImportEngineRegistry() {
-  assert.equal(UNIFIED_IMPORT_MODULES.length, 4);
+  assert.equal(UNIFIED_IMPORT_MODULES.length, 6);
   for (const moduleName of UNIFIED_IMPORT_MODULES) {
-    assert.equal(["programmation", "progression", "timetable", "document"].includes(moduleName), true);
+    assert.equal(
+      ["programmation", "progression", "sequence", "seance", "timetable", "document"].includes(
+        moduleName,
+      ),
+      true,
+    );
   }
 }
 

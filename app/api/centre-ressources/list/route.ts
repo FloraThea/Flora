@@ -58,6 +58,20 @@ export async function GET(request: Request) {
             ? document.metadata.analyzeProgress
             : null,
         validation: document.validation,
+        introduction:
+          typeof document.metadata?.introduction === "string" ? document.metadata.introduction : "",
+        qualityReport:
+          document.metadata?.qualityReport && typeof document.metadata.qualityReport === "object"
+            ? document.metadata.qualityReport
+            : document.metadata?.faithfulAnalysis && typeof document.metadata.faithfulAnalysis === "object"
+              ? document.metadata.faithfulAnalysis
+              : document.metadata?.faithfulPreview && typeof document.metadata.faithfulPreview === "object"
+                ? document.metadata.faithfulPreview
+                : null,
+        faithfulAnalysis:
+          document.metadata?.faithfulAnalysis && typeof document.metadata.faithfulAnalysis === "object"
+            ? document.metadata.faithfulAnalysis
+            : null,
       })),
       storage,
     });

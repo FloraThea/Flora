@@ -638,6 +638,12 @@ function ProgressionPageContent() {
             <ProgressionTableView
               tab={activeTab}
               highlightRowId={highlightRowId}
+              associationContext={{
+                matiere: payload.programmation?.matiere ?? activeTab.subjectLabel,
+                sousMatiere: activeTab.subSubjectLabel || undefined,
+                niveau: payload.programmation?.levels?.[0],
+                methode: payload.progression.methode,
+              }}
               onRowChange={(rowId, row) => void handleRowChange(activeTab.subjectKey, rowId, row)}
               onRowsReorder={(rows) =>
                 updateTab(activeTab.subjectKey, (tab) => ({ ...tab, rows }))

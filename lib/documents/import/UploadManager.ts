@@ -177,22 +177,42 @@ export class UploadManager {
     };
   }
 
-  async completeUpload(input: CompleteUploadInput): Promise<CompleteUploadResult> {
+  async requireSessionForCurrentTeacher(sessionId: string): Promise<{
+    session: UploadSession;
+    sessionRow: Record<string, unknown>;
+    metadata: SessionMetadata;
+  }> {
+    const bundle = await loadTeacherProfileBundle();
+    if (!bundle) {
+      throw new Error("Profil enseignant requis.");
+    }
+
     const { data: sessionRow, error } = await (await floraDb())
       .from("document_upload_sessions")
       .select("*")
-      .eq("id", input.sessionId)
+      .eq("id", sessionId)
       .single();
 
     if (error || !sessionRow) {
-      failImportPipeline(
-        { step: "database_query", table: "document_upload_sessions", sessionId: input.sessionId },
-        error ?? new Error("Session introuvable."),
-      );
+      throw new Error("Session d'upload introuvable.");
     }
 
-    const session = mapSession(sessionRow);
-    const sessionMetadata = (sessionRow.metadata as SessionMetadata) ?? {};
+    const metadata = (sessionRow.metadata as SessionMetadata) ?? {};
+    const ownerId = metadata.teacher_profile_id ?? metadata.user_id;
+    if (ownerId && ownerId !== bundle.profile.id) {
+      throw new Error("Session d'upload non autorisée.");
+    }
+
+    return {
+      session: mapSession(sessionRow),
+      sessionRow,
+      metadata,
+    };
+  }
+
+  async completeUpload(input: CompleteUploadInput): Promise<CompleteUploadResult> {
+    const { session, sessionRow, metadata: sessionMetadata } =
+      await this.requireSessionForCurrentTeacher(input.sessionId);
     const uploaded = new Set(session.uploadedChunkIndexes);
 
     if (uploaded.size < session.totalChunks) {
@@ -205,6 +225,7 @@ export class UploadManager {
       filename: session.originalFilename,
       fileSize: session.fileSize,
       checksum: input.checksum,
+      teacherProfileId: sessionMetadata.teacher_profile_id ?? sessionMetadata.user_id,
     });
 
     if (duplicates.length > 0 && !input.duplicateResolution) {

@@ -16,16 +16,20 @@ export async function saveTheaCreateProposal(input: {
   structured: TheaSeanceStructured | TheaSequenceStructured;
   createContext: TheaCreateDraftInput;
   bundle: TeacherProfileBundle | null;
+  referentielIds?: string[];
 }): Promise<
   | { type: "seance"; payload: SeancePayload }
   | { type: "sequence"; payload: SequencePayload }
 > {
   if (input.mode === "create_seance") {
-    const draft = buildSeanceDraftFromTheaStructured(
-      input.structured as TheaSeanceStructured,
-      input.createContext,
-      input.bundle,
-    );
+    const draft = {
+      ...buildSeanceDraftFromTheaStructured(
+        input.structured as TheaSeanceStructured,
+        input.createContext,
+        input.bundle,
+      ),
+      referentielIds: input.referentielIds ?? [],
+    };
 
     const payload = await createIndependentSeanceFromDraft(draft, {
       source_type: "thea_chat",
@@ -36,11 +40,14 @@ export async function saveTheaCreateProposal(input: {
     return { type: "seance", payload };
   }
 
-  const draft = buildSequenceDraftFromTheaStructured(
-    input.structured as TheaSequenceStructured,
-    input.createContext,
-    input.bundle,
-  );
+  const draft = {
+    ...buildSequenceDraftFromTheaStructured(
+      input.structured as TheaSequenceStructured,
+      input.createContext,
+      input.bundle,
+    ),
+    referentielIds: input.referentielIds ?? [],
+  };
 
   const payload = await createIndependentSequenceFromDraft(draft, {
     source_type: "thea_chat",

@@ -1,4 +1,5 @@
 import { floraDb } from "@/lib/supabase/get-db";
+import { loadTeacherProfileBundle } from "@/lib/profile/profile-service";
 import type { FloraDocument } from "../types";
 
 export class DuplicateDetector {
@@ -6,23 +7,34 @@ export class DuplicateDetector {
     filename: string;
     fileSize: number;
     checksum?: string;
+    teacherProfileId?: string;
   }): Promise<FloraDocument[]> {
     const baseName = input.filename.replace(/\.[^.]+$/, "").toLowerCase();
 
-    const { data: byName } = await (await floraDb())
+    let byNameQuery = (await floraDb())
       .from("documents")
       .select("*")
-      .ilike("original_filename", `%${baseName}%`)
-      .limit(5);
+      .ilike("original_filename", `%${baseName}%`);
+
+    if (input.teacherProfileId) {
+      byNameQuery = byNameQuery.eq("teacher_profile_id", input.teacherProfileId);
+    }
+
+    const { data: byName } = await byNameQuery.limit(5);
 
     const candidates = (byName ?? []) as FloraDocument[];
 
     if (input.checksum) {
-      const { data: byChecksum } = await (await floraDb())
+      let byChecksumQuery = (await floraDb())
         .from("documents")
         .select("*")
-        .contains("metadata", { file_checksum: input.checksum })
-        .limit(3);
+        .contains("metadata", { file_checksum: input.checksum });
+
+      if (input.teacherProfileId) {
+        byChecksumQuery = byChecksumQuery.eq("teacher_profile_id", input.teacherProfileId);
+      }
+
+      const { data: byChecksum } = await byChecksumQuery.limit(3);
 
       for (const row of (byChecksum ?? []) as FloraDocument[]) {
         if (!candidates.some((item) => item.id === row.id)) {

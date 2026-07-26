@@ -61,6 +61,7 @@ export type SequenceDraft = {
   resourceIds: string[];
   sessions: SequenceSession[];
   evaluations: SequenceEvaluation[];
+  metadata?: Record<string, unknown>;
 };
 
 export type StoredSequence = Omit<SequenceDraft, "sessions" | "evaluations"> & {

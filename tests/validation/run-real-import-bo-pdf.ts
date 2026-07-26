@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { extractPdfBuffer } from "@/lib/documents/extraction/pdf-extractor";
+import { extractBoFaithfully, mapFaithfulResultToDrafts } from "@/lib/referentiel/bo-faithful/extract-faithful";
 import { inferBoMetadata, splitBoTextIntoSections } from "@/lib/referentiel/bo-section-splitter";
 import { validateBoExtraction } from "@/lib/referentiel/bo-validator";
 import { documentClassifier } from "@/lib/documents/import/DocumentClassifier";
@@ -59,6 +60,21 @@ async function main() {
     sections,
     matiere: metadata.matiere,
   });
+  const faithful = extractBoFaithfully({
+    text: extraction.text,
+    cycle: metadata.cycle,
+    matiere: metadata.matiere,
+  });
+  const drafts = mapFaithfulResultToDrafts(faithful, {
+    cycle: metadata.cycle,
+    matiere: metadata.matiere,
+  });
+  const faithfulValidation = validateBoExtraction({
+    competences: drafts,
+    sections,
+    matiere: metadata.matiere,
+    qualityReport: faithful.quality as unknown as Record<string, unknown>,
+  });
 
   const lines = [
     "# Validation réelle — Bulletin officiel PDF",
@@ -96,6 +112,17 @@ async function main() {
     "",
     `- Avertissements : ${validation.warnings.length === 0 ? "aucun" : validation.warnings.join(" ; ")}`,
     "",
+    "## Extraction fidèle (moteur tabulaire)",
+    "",
+    `- Introduction : ${faithful.quality.introductionCharCount} caractères`,
+    `- Compétences extraites : ${faithful.quality.totalCompetences}`,
+    `- Tableaux détectés : ${faithful.quality.tablesDetected}`,
+    `- Tableaux traités : ${faithful.quality.tablesProcessed}`,
+    `- Contrôle qualité : ${faithful.quality.passed ? "OK" : "À vérifier"}`,
+    `- Par sous-matière : ${JSON.stringify(faithful.quality.competencesBySousMatiere)}`,
+    `- Par niveau : ${JSON.stringify(faithful.quality.competencesByNiveau)}`,
+    `- Avertissements fidèles : ${faithfulValidation.warnings.length === 0 ? "aucun" : faithfulValidation.warnings.join(" ; ")}`,
+    "",
   ];
 
   fs.mkdirSync(path.dirname(reportOut), { recursive: true });
@@ -103,6 +130,7 @@ async function main() {
 
   console.log(`✓ Extraction OK — ${extraction.pageCount} pages, ${extraction.textLength} caractères, OCR=${extraction.usedOcr ? "oui" : "non"}`);
   console.log(`✓ Matière : ${metadata.matiere}, sections : ${sections.length}`);
+  console.log(`✓ Extraction fidèle : ${faithful.quality.totalCompetences} compétences, ${faithful.quality.tablesProcessed} tableaux`);
   console.log(`Rapport : ${reportOut}`);
   console.log("\nTest BO PDF : SUCCÈS");
 }

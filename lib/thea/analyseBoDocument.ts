@@ -1,4 +1,5 @@
 import { askThea } from "@/lib/thea/services/gemini";
+import { isAnyAiProviderConfigured } from "@/lib/thea/orchestrator";
 import { buildAnalyseDocumentPrompt } from "@/lib/thea/prompts/analyseDocument";
 import { extractJsonObject, toErrorMessage } from "@/lib/api/route-diagnostics";
 
@@ -44,8 +45,8 @@ export async function analyseBoDocumentText(
     throw new Error("Le texte extrait du document est vide.");
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("La variable d'environnement GEMINI_API_KEY est absente.");
+  if (!isAnyAiProviderConfigured()) {
+    throw new Error("Aucun fournisseur IA configuré (GEMINI_API_KEY ou OPENROUTER_API_KEY).");
   }
 
   const rawText = (

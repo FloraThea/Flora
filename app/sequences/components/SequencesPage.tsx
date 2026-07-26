@@ -309,7 +309,7 @@ function SequencesPageContent() {
     } finally {
       setIsTrashing(false);
     }
-  }, [loadAllSequences, selectedPayload?.sequence.id, trashTarget]);
+  }, [loadAllSequences, selectedPayload, trashTarget]);
 
   return (
     <div className="flex flex-col gap-8">

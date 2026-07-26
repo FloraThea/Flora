@@ -223,6 +223,9 @@ export async function appendBoCompetences(input: {
     metadata: {
       section_id: item.sectionId,
       sort_order: sortOrderStart + index,
+      table_title: item.tableTitle ?? null,
+      column_name: item.columnName ?? null,
+      table_format: item.tableFormat ?? null,
     },
   }));
 

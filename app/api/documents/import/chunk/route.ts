@@ -37,8 +37,10 @@ export async function POST(request: Request) {
       return importRouteError(SUBPATH, 400, "chunk requis.");
     }
 
-    const session = await uploadManager.getSession(sessionId);
-    if (!session) {
+    let session;
+    try {
+      ({ session } = await uploadManager.requireSessionForCurrentTeacher(sessionId));
+    } catch {
       return importRouteError(SUBPATH, 404, "Session d'upload introuvable.");
     }
 
