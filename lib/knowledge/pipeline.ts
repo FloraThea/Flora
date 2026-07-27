@@ -5,6 +5,8 @@ import {
   hasFaithfulStructure,
 } from "@/lib/pedagogical/document-tree";
 import { buildFaithfulChunksFromTree } from "@/lib/pedagogical/document-tree/faithful-chunks";
+import { detectDocumentStructure } from "@/lib/pedagogical/document-structure";
+import type { DocumentStructure } from "@/lib/pedagogical/document-structure/types";
 import { chunkManager } from "./ChunkManager";
 import { competenceMatcher } from "./CompetenceMatcher";
 import { knowledgeIndexer } from "./KnowledgeIndexer";
@@ -66,6 +68,7 @@ async function persistKnowledge(
   input: KnowledgePipelineInput,
   result: KnowledgePipelineResult,
   chunkRecords: Array<{ id: string; chunk_index: number }>,
+  structure: DocumentStructure,
 ) {
   const documentId = input.documentId;
   const chunkIdByIndex = new Map(
@@ -178,6 +181,7 @@ async function persistKnowledge(
         knowledge_processed_at: new Date().toISOString(),
         type_confidence: result.parsedResource.confidence,
         hierarchy_template: result.parsedResource.hierarchyTemplate,
+        structure_document: structure,
         parser_signals: result.parsedResource.signals,
         entities_count: insertedEntities?.length ?? 0,
         tags_count: tagRows.length,
@@ -212,6 +216,13 @@ export async function runKnowledgePipeline(
   });
 
   const useFaithfulStructure = hasFaithfulStructure(faithful);
+  const structure = detectDocumentStructure({
+    methode: String(input.existingMetadata?.methode ?? input.analysis?.methode ?? ""),
+    matiere: parsedResource.documentType,
+    text: input.text,
+    filename: input.filename,
+    tree: useFaithfulStructure ? faithful.tree : undefined,
+  });
   const chunks = chunkManager.buildSmartChunks(input.text, parsedResource);
 
   let chunksToPersist = chunks;
@@ -284,7 +295,7 @@ export async function runKnowledgePipeline(
 
   await clearPreviousKnowledge(input.documentId);
   const chunkRecords = await replaceSmartChunks(input.documentId, chunksToPersist);
-  await persistKnowledge(input, result, chunkRecords);
+  await persistKnowledge(input, result, chunkRecords, structure);
 
   return result;
 }

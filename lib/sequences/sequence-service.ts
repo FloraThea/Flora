@@ -64,6 +64,7 @@ async function insertSequenceRecord(input: {
     status: "validated",
     metadata: {
       generated_at: new Date().toISOString(),
+      ...(input.draft.metadata ?? {}),
       ...input.metadata,
     },
   };
@@ -466,4 +467,74 @@ export async function getSequenceByRowId(progressionRowId: string) {
   ).maybeSingle();
 
   return data?.id ?? null;
+}
+
+export async function updateSequenceFromInput(input: {
+  sequenceId: string;
+  draftInput: IndependentSequenceCreateInput;
+}): Promise<SequencePayload> {
+  const scope = await requireTeacherScope();
+  const draft = buildIndependentSequenceDraft(input.draftInput);
+
+  const { data: existing, error: loadError } = await onlyActive(
+    (await floraDb()).from("sequences").select("id, teacher_profile_id, metadata").eq("id", input.sequenceId),
+  ).single();
+
+  if (loadError || !existing || existing.teacher_profile_id !== scope.profileId) {
+    throw new Error("Séquence introuvable.");
+  }
+
+  const previousMetadata = (existing.metadata as Record<string, unknown> | null) ?? {};
+
+  const { error } = await (await floraDb())
+    .from("sequences")
+    .update({
+      title: draft.title,
+      matiere: draft.matiere,
+      sous_matiere: draft.sousMatiere,
+      cycle: draft.cycle,
+      niveau: draft.niveau,
+      competence_bo: draft.competenceBo,
+      attendus: draft.attendus,
+      objectifs: draft.objectifs,
+      duree_estimee_minutes: draft.dureeEstimeeMinutes,
+      session_count: draft.sessionCount,
+      materiel: draft.materiel,
+      resources: draft.resources,
+      referentiel_ids: draft.referentielIds,
+      resource_ids: draft.resourceIds,
+      metadata: {
+        ...previousMetadata,
+        ...(draft.metadata ?? {}),
+        updated_at: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.sequenceId);
+
+  if (error) throw error;
+
+  await (await floraDb()).from("sequence_sessions").delete().eq("sequence_id", input.sequenceId);
+
+  const { data: sessions, error: sessionsError } = await (await floraDb())
+    .from("sequence_sessions")
+    .insert(
+      draft.sessions.map((session) => ({
+        sequence_id: input.sequenceId,
+        session_number: session.sessionNumber,
+        title: session.title,
+        objectif: session.objectif,
+        duree_minutes: session.dureeMinutes,
+        ordre_pedagogique: session.ordrePedagogique,
+        place_progression: session.placeProgression,
+        metadata: session.metadata ?? {},
+      })),
+    )
+    .select("*");
+
+  if (sessionsError) throw sessionsError;
+
+  const payload = await loadSequence(input.sequenceId);
+  if (!payload) throw new Error("Séquence introuvable après mise à jour.");
+  return payload;
 }

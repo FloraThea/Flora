@@ -12,12 +12,13 @@ import { evaluationPlanner } from "./EvaluationPlanner";
 import { learningScenarioBuilder } from "./LearningScenarioBuilder";
 import { buildSequencePrompt, parseSequenceEnrichment } from "./prompts/generateSequence";
 import {
-  buildSequenceDraftFromModuleRows,
-  findModuleRowsForAnchorRow,
+  buildSequenceDraftFromGroupedRows,
+  findGroupedRowsForAnchorRow,
   loadAllProgressionRows,
-  normalizeSequenceModuleKey,
+  normalizeSequenceGroupKey,
   shouldUseSequenceRestitution,
 } from "./sequence-restitution";
+import { resolveProgressionStructureSync } from "@/lib/pedagogical/document-structure/resolve-structure-sync";
 import { resourcePlanner } from "./ResourcePlanner";
 import type { SequenceContext, SequenceDraft, SequenceGenerationInput } from "./types";
 
@@ -160,35 +161,62 @@ export class SequenceGenerator {
     draft: SequenceDraft;
     context: SequenceContext;
     restitution?: {
+      groupLabel: string;
+      groupKey: string;
+      sequenceGrouping: string;
+      structureDocument: string;
+      progressionRowIds: string[];
+      /** @deprecated compatibilité */
       sequenceModule: string;
       sequenceModuleKey: string;
-      progressionRowIds: string[];
     };
   }> {
     const context = await this.buildContext(input);
 
+    const structure = resolveProgressionStructureSync({
+      progressionMetadata: context.progression.metadata,
+      methode: context.methode,
+      matiere: context.tab.subjectLabel,
+    });
+
     if (
       shouldUseSequenceRestitution({
         methode: context.methode,
+        matiere: context.tab.subjectLabel,
         progressionMetadata: context.progression.metadata,
+        structure,
       })
     ) {
       const { rows } = await loadAllProgressionRows(context.progression.id);
-      const moduleRows = findModuleRowsForAnchorRow(rows, context.row);
-      const draft = buildSequenceDraftFromModuleRows({
-        rows: moduleRows,
+      const groupedRows = findGroupedRowsForAnchorRow(rows, context.row, structure);
+      const draft = buildSequenceDraftFromGroupedRows({
+        rows: groupedRows,
         tab: context.tab,
         context,
+        structure,
       });
 
-      const sequenceModule = moduleRows[0]?.sequenceModule || context.row.sequenceModule;
+      const groupLabel =
+        groupedRows[0]?.sequenceModule ||
+        context.row.sequenceModule ||
+        draft.title;
+      const groupKey = normalizeSequenceGroupKey(
+        groupLabel,
+        structure.sequenceGrouping,
+        groupedRows[0] ?? context.row,
+      );
+
       return {
         draft,
         context,
         restitution: {
-          sequenceModule,
-          sequenceModuleKey: normalizeSequenceModuleKey(sequenceModule),
-          progressionRowIds: moduleRows.map((row) => row.id),
+          groupLabel,
+          groupKey,
+          sequenceGrouping: structure.sequenceGrouping,
+          structureDocument: structure.kind,
+          progressionRowIds: groupedRows.map((row) => row.id),
+          sequenceModule: groupLabel,
+          sequenceModuleKey: groupKey,
         },
       };
     }

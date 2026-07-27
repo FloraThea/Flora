@@ -1,3 +1,8 @@
+import { parseDocumentStructure, shouldRestituteFromStructure } from "@/lib/pedagogical/document-structure/detect-structure";
+import {
+  buildPhasesFromDeroulement,
+  parseSessionPreparationDetail,
+} from "@/lib/pedagogical/preparation/deroulement-utils";
 import type { ProgressionRow } from "@/lib/progression/types";
 import type { SequenceSession } from "@/lib/sequences/types";
 import type {
@@ -72,11 +77,15 @@ function buildPhasesFromProgressionRow(row: ProgressionRow, dureeMinutes: number
 }
 
 export function shouldUseSeanceRestitution(input: {
-  methode: string;
+  methode?: string;
   sequenceMetadata?: Record<string, unknown>;
 }): boolean {
-  if (/mhm/i.test(input.methode)) return true;
-  return input.sequenceMetadata?.restitutionMode === true;
+  if (input.sequenceMetadata?.restitutionMode === true) return true;
+
+  const structure = parseDocumentStructure(input.sequenceMetadata?.structure_document);
+  if (structure) return shouldRestituteFromStructure(structure);
+
+  return false;
 }
 
 export function buildSeanceDraftFromProgressionRow(input: {
@@ -90,6 +99,7 @@ export function buildSeanceDraftFromProgressionRow(input: {
   periodNumber: number;
 }): SeanceDraft {
   const sessionMeta = (input.sequenceSession.metadata ?? {}) as Record<string, unknown>;
+  const sessionDetail = parseSessionPreparationDetail(sessionMeta);
   const rowFromSession = sessionMeta as Partial<ProgressionRow> & {
     objectifs?: string[];
     deroulement?: string;
@@ -101,15 +111,28 @@ export function buildSeanceDraftFromProgressionRow(input: {
     ...input.row,
     objectifs: (rowFromSession.objectifs as string[] | undefined) ?? input.row.objectifs,
     deroulement: String(rowFromSession.deroulement ?? input.row.deroulement ?? ""),
-    materiel: (rowFromSession.materiel as string[] | undefined) ?? input.row.materiel,
-    resources: (rowFromSession.resources as string[] | undefined) ?? input.row.resources,
-    competenceBo: String(rowFromSession.competenceBo ?? input.row.competenceBo ?? ""),
+    materiel: (rowFromSession.materiel as string[] | undefined) ?? sessionDetail.materiel.length > 0
+      ? sessionDetail.materiel
+      : input.row.materiel,
+    resources: (rowFromSession.resources as string[] | undefined) ?? sessionDetail.resources.length > 0
+      ? sessionDetail.resources
+      : input.row.resources,
+    competenceBo: String(
+      sessionDetail.competences[0] ??
+        rowFromSession.competenceBo ??
+        input.row.competenceBo ??
+        "",
+    ),
     remarques: String(rowFromSession.remarques ?? input.row.remarques ?? ""),
     commentaires: String(rowFromSession.commentaires ?? input.row.commentaires ?? ""),
   };
 
   const dureeMinutes = input.sequenceSession.dureeMinutes || 45;
-  const phases = buildPhasesFromProgressionRow(row, dureeMinutes);
+  const phasesFromDetail = buildPhasesFromDeroulement(sessionDetail.deroulement, dureeMinutes);
+  const phases =
+    phasesFromDetail.length > 0
+      ? phasesFromDetail
+      : buildPhasesFromProgressionRow(row, dureeMinutes);
   const materielItems = row.materiel.filter(Boolean);
 
   return {
@@ -126,8 +149,8 @@ export function buildSeanceDraftFromProgressionRow(input: {
     objectif: input.sequenceSession.objectif || row.objectifs[0] || row.deroulement,
     prerequis: [],
     methode: input.methode,
-    resourceIds: row.resourceIds,
-    referentielIds: row.referentielIds,
+    referentielIds: sessionDetail.referentielIds.length > 0 ? sessionDetail.referentielIds : row.referentielIds,
+    resourceIds: sessionDetail.resourceIds.length > 0 ? sessionDetail.resourceIds : row.resourceIds,
     resources: row.resources,
     materiel: listToMaterial(materielItems),
     differentiation: {

@@ -38,7 +38,7 @@ export async function saveProgression(input: {
   sousMatiere?: string;
   niveau?: string;
   periode?: string;
-  importMeta?: {
+    importMeta?: {
     sourceType?: string;
     sourceFileName?: string;
     sourceStoragePath?: string;
@@ -46,6 +46,7 @@ export async function saveProgression(input: {
     originalImport?: Record<string, unknown>;
     competencyMatches?: Record<string, unknown>;
     sourceDocument?: SourceDocument;
+    structureDocument?: Record<string, unknown>;
   };
 }): Promise<ProgressionPayload> {
   const scope = await requireTeacherScope();
@@ -77,6 +78,9 @@ export async function saveProgression(input: {
       import_format: input.importMeta?.importFormat ?? "",
       original_import: input.importMeta?.originalImport ?? {},
       competency_matches: input.importMeta?.competencyMatches ?? {},
+      ...(input.importMeta?.structureDocument
+        ? { structure_document: input.importMeta.structureDocument }
+        : {}),
       ...(input.importMeta?.sourceType === "imported"
         ? { imported_at: new Date().toISOString() }
         : {}),
@@ -418,6 +422,24 @@ export async function listProgressionRows(progressionId: string) {
 }
 
 export async function listProgressionModules(progressionId: string) {
+  const { data: progression } = await (await floraDb())
+    .from("progressions")
+    .select("methode, matiere, metadata")
+    .eq("id", progressionId)
+    .maybeSingle();
+
+  const { resolveProgressionStructureSync } = await import(
+    "@/lib/pedagogical/document-structure/resolve-structure-sync"
+  );
+  const { groupProgressionRowsByStructure } = await import("@/lib/sequences/sequence-grouping");
+  const { findExistingGroupedSequence } = await import("@/lib/sequences/sequence-restitution");
+
+  const structure = resolveProgressionStructureSync({
+    progressionMetadata: (progression?.metadata as Record<string, unknown> | null) ?? undefined,
+    methode: String(progression?.methode ?? ""),
+    matiere: String(progression?.matiere ?? ""),
+  });
+
   const { data: tabs } = await (await floraDb())
     .from("progression_tabs")
     .select("id, subject_label, sub_subject_label")
@@ -447,51 +469,61 @@ export async function listProgressionModules(progressionId: string) {
     }>;
   }> = [];
 
-  const { normalizeSequenceModuleKey, findExistingModuleSequence } = await import(
-    "@/lib/sequences/sequence-restitution"
-  );
-
   for (const tab of tabs ?? []) {
     const { data: tabRows } = await (await floraDb())
       .from("progression_rows")
-      .select("id, period_number, week_number, seance_label, competence_bo, sequence_module, sort_order")
+      .select("id, period_number, week_number, session_number, seance_label, competence_bo, sequence_module, sort_order")
       .eq("tab_id", tab.id)
       .order("sort_order");
 
-    const grouped = new Map<string, typeof tabRows>();
-    for (const row of tabRows ?? []) {
-      const key = normalizeSequenceModuleKey(String(row.sequence_module ?? ""));
-      const list = grouped.get(key) ?? [];
-      list.push(row);
-      grouped.set(key, list);
-    }
+    const progressionRows: ProgressionRow[] = (tabRows ?? []).map((row) => ({
+      id: row.id,
+      sortOrder: row.sort_order,
+      periodNumber: row.period_number,
+      weekNumber: row.week_number,
+      sessionNumber: row.session_number,
+      sequenceModule: row.sequence_module,
+      seanceLabel: row.seance_label,
+      competenceBo: row.competence_bo,
+      objectifs: [],
+      deroulement: "",
+      materiel: [],
+      resources: [],
+      remarques: "",
+      commentaires: "",
+      referentielIds: [],
+      resourceIds: [],
+      metadata: {},
+    }));
 
-    for (const [moduleKey, moduleRows] of grouped.entries()) {
-      const rows = moduleRows ?? [];
-      const sequenceModule = String(rows[0]?.sequence_module ?? moduleKey);
-      const existingSequenceId = await findExistingModuleSequence({
+    const grouped = groupProgressionRowsByStructure(progressionRows, structure);
+
+    for (const [groupKey, groupRows] of grouped.entries()) {
+      const sequenceModule = String(groupRows[0]?.sequenceModule ?? groupKey);
+      const existingSequenceId = await findExistingGroupedSequence({
         progressionId,
-        sequenceModule,
+        groupKey,
+        groupLabel: sequenceModule,
       });
 
       const mappedRows = [];
-      for (const row of rows ?? []) {
+      for (const row of groupRows) {
         mappedRows.push({
           id: row.id,
           tabId: tab.id,
           subjectLabel: tab.subject_label,
           subSubjectLabel: tab.sub_subject_label,
-          periodNumber: row.period_number,
-          weekNumber: row.week_number,
-          seanceLabel: row.seance_label,
-          competenceBo: row.competence_bo,
-          sequenceModule: row.sequence_module,
+          periodNumber: row.periodNumber,
+          weekNumber: row.weekNumber,
+          seanceLabel: row.seanceLabel,
+          competenceBo: row.competenceBo,
+          sequenceModule: row.sequenceModule,
           hasSequence: Boolean(existingSequenceId),
         });
       }
 
       modules.push({
-        moduleKey,
+        moduleKey: groupKey,
         sequenceModule,
         tabId: tab.id,
         subjectLabel: tab.subject_label,

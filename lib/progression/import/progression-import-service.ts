@@ -10,6 +10,7 @@ import { saveProgressionWithSync } from "../progression-service";
 import type { ProgressionPayload } from "../types";
 import { mapImportedRowsToStandaloneTabs, mapImportedRowsToTabs } from "./map-import-to-tabs";
 import { parseProgressionFile } from "./parse-progression";
+import { detectDocumentStructure } from "@/lib/pedagogical/document-structure";
 import {
   buildStandaloneProgressionContext,
   emptyCalendarSnapshot,
@@ -114,6 +115,14 @@ export async function saveImportedProgression(input: {
     primaryTab?.subSubjectLabel ??
     "";
 
+  const structure = detectDocumentStructure({
+    methode: input.session.methode,
+    matiere,
+    rows: input.session.parsed.rows,
+    filename: input.session.parsed.fileName,
+    text: input.session.parsed.extractedTextPreview,
+  });
+
   return saveProgressionWithSync({
     title: input.session.title,
     programmationId: input.session.programmationId,
@@ -134,6 +143,7 @@ export async function saveImportedProgression(input: {
       originalImport: input.session.parsed as unknown as Record<string, unknown>,
       competencyMatches: input.session.competencyMatches,
       sourceDocument: input.session.parsed.sourceDocument,
+      structureDocument: structure,
     },
   });
 }

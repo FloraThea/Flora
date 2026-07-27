@@ -1,3 +1,8 @@
+import {
+  emptyDeroulementSteps,
+  serializeSessionPreparationDetail,
+  buildSessionDetailFromProgressionRow,
+} from "@/lib/pedagogical/preparation/deroulement-utils";
 import type { IndependentSequenceCreateInput, SequenceDraft, SequenceEvaluation, SequenceSession } from "./types";
 
 function defaultSessions(count: number, matiere: string): SequenceSession[] {
@@ -8,6 +13,14 @@ function defaultSessions(count: number, matiere: string): SequenceSession[] {
     dureeMinutes: 45,
     ordrePedagogique: index + 1,
     placeProgression: "",
+    metadata: serializeSessionPreparationDetail({
+      competences: [],
+      referentielIds: [],
+      deroulement: emptyDeroulementSteps(),
+      materiel: [],
+      resources: [],
+      resourceIds: [],
+    }),
   }));
 }
 
@@ -23,6 +36,14 @@ export function buildIndependentSequenceDraft(
         dureeMinutes: session.dureeMinutes ?? 45,
         ordrePedagogique: index + 1,
         placeProgression: "",
+        metadata: serializeSessionPreparationDetail({
+          competences: session.competences ?? [],
+          referentielIds: session.referentielIds ?? [],
+          deroulement: session.deroulement ?? emptyDeroulementSteps(),
+          materiel: session.materiel ?? [],
+          resources: session.resources ?? [],
+          resourceIds: session.resourceIds ?? [],
+        }),
       }))
     : defaultSessions(sessionCount, input.matiere);
 
@@ -65,12 +86,18 @@ export function buildIndependentSequenceDraft(
       adaptations: [],
     },
     prolongements: [],
-    referentielIds: [],
-    resourceIds: [],
+    referentielIds: input.referentielIds ?? [],
+    resourceIds: input.resourceIds ?? [],
     sessions,
     evaluations,
+    metadata: {
+      deroulementGeneral: input.deroulementGeneral ?? emptyDeroulementSteps(),
+      competences: input.attendus ?? (input.competenceBo ? [input.competenceBo] : []),
+    },
   };
 }
+
+export { buildSessionDetailFromProgressionRow };
 
 export function resolveSequenceLinkMode(input: IndependentSequenceCreateInput): "linked" | "independent" {
   if (input.progressionId && input.progressionRowId) return "linked";

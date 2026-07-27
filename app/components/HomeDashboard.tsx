@@ -8,6 +8,7 @@ import { FloraDashboardCard } from "@/components/ui/FloraDashboardCard";
 import { TheaHeroPanel } from "@/components/ui/TheaGlow";
 import { useTheaChat } from "@/components/thea/thea-chat-context";
 import { FloraProgressBar } from "@/components/ui/FloraProgressBar";
+import { HOURS_108_CATEGORIES, TOTAL_108H_AT_100 } from "@/lib/agenda/hours-108";
 
 type DashboardSummary = {
   profileComplete: boolean;
@@ -220,6 +221,10 @@ export function HomeDashboard() {
 
           <FloraCard variant="white" padding="lg">
             <h3 className="font-serif text-xl font-medium text-flora-text">Suivi des 108h</h3>
+            <p className="mt-1 text-xs font-light text-flora-text-subtle">
+              {TOTAL_108H_AT_100} h annualisées · 60 h besoins élèves · 24 h conseils · 18 h animations · 6 h
+              conseils d&apos;école
+            </p>
             <div className="mt-5 flex flex-col gap-6 sm:flex-row sm:items-center">
               <div className="relative mx-auto flex h-28 w-28 shrink-0 items-center justify-center sm:mx-0">
                 <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
@@ -231,36 +236,46 @@ export function HomeDashboard() {
                     fill="none"
                     stroke="#4a6752"
                     strokeWidth="3"
-                    strokeDasharray={`${(58 / 108) * 97.4} 97.4`}
+                    strokeDasharray={`${(58 / TOTAL_108H_AT_100) * 97.4} 97.4`}
                     strokeLinecap="round"
                   />
                 </svg>
                 <div className="absolute text-center">
                   <p className="font-serif text-lg font-medium text-flora-text">58h</p>
-                  <p className="text-[10px] font-light text-flora-text-subtle">sur 108h</p>
+                  <p className="text-[10px] font-light text-flora-text-subtle">sur {TOTAL_108H_AT_100}h</p>
                 </div>
               </div>
               <div className="flex-1 space-y-2 text-xs font-light text-flora-text-muted">
-                <p className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-sauge" /> APC — 18h
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-rose-poudre" /> Animations — 12h
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-lavande" /> Réunions — 8h
-                </p>
-                <p className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-peche" /> Autres — 20h
-                </p>
+                {HOURS_108_CATEGORIES.map((category) => (
+                  <p key={category.code} className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        category.color === "lavender"
+                          ? "bg-lavande"
+                          : category.color === "sage"
+                            ? "bg-sauge"
+                            : category.color === "rose"
+                              ? "bg-rose-poudre"
+                              : category.color === "peach"
+                                ? "bg-peche"
+                                : "bg-cream"
+                      }`}
+                    />
+                    {category.label} — {category.baseHoursAt100}h
+                  </p>
+                ))}
               </div>
             </div>
             <div className="mt-5">
-              <FloraProgressBar value={Math.round((58 / 108) * 100)} accent="sage" size="sm" />
+              <FloraProgressBar
+                value={Math.round((58 / TOTAL_108H_AT_100) * 100)}
+                accent="sage"
+                size="sm"
+              />
             </div>
-            <Link href="/cahier-journal" className="mt-6 inline-block">
+            <Link href="/agenda" className="mt-6 inline-block">
               <FloraButton accent="sage" variant="outline" size="sm">
-                Ajouter une activité
+                Voir le suivi 108h
               </FloraButton>
             </Link>
           </FloraCard>

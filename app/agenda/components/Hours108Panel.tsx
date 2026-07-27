@@ -89,7 +89,12 @@ export function Hours108Panel({ dashboard, isLoading, onRefresh }: Hours108Panel
       <FloraCard padding="lg" accent="sage" className="xl:col-span-2">
         <h2 className="font-serif text-2xl font-medium">Suivi des 108 heures</h2>
         <p className="mt-2 text-sm font-light text-flora-text-subtle">
-          Quotité {dashboard.workQuotaLabel} · Année {dashboard.schoolYear}
+          Quotité {dashboard.workQuotaLabel} · Année {dashboard.schoolYear} ·{" "}
+          {Math.round(dashboard.totalPlannedMinutes / 60)} h annualisées (réglementation)
+        </p>
+        <p className="mt-1 text-xs font-light text-flora-text-subtle">
+          60 h besoins des élèves (36 h APC + 24 h forfait) · 24 h conseils et relations · 18 h
+          animations · 6 h conseils d&apos;école
         </p>
 
         <div className="mt-6">

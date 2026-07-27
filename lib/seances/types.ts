@@ -138,11 +138,15 @@ export type IndependentSeanceCreateInput = {
   sessionDate?: string | null;
   dureeMinutes?: number;
   competenceBo?: string;
+  competences?: string[];
   objectif?: string;
   prerequis?: string[];
   methode?: string;
   materiel?: string[];
   resources?: string[];
+  referentielIds?: string[];
+  resourceIds?: string[];
+  deroulement?: Array<{ key: string; label: string; content: string }>;
   evaluation?: string;
   sequenceId?: string | null;
   sequenceSessionId?: string | null;

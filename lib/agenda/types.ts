@@ -10,6 +10,7 @@ export type AgendaEventType =
   | "conseil_ecole"
   | "animation_pedagogique"
   | "apc"
+  | "prep_apc"
   | "rdv_parents"
   | "ess"
   | "equipe_educative"

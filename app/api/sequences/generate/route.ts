@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sequenceGenerator } from "@/lib/sequences/SequenceGenerator";
-import { findExistingModuleSequence } from "@/lib/sequences/sequence-restitution";
+import { findExistingGroupedSequence } from "@/lib/sequences/sequence-restitution";
 import { saveSequence } from "@/lib/sequences/sequence-service";
 import type { SequenceGenerationInput } from "@/lib/sequences/types";
 import { floraDb } from "@/lib/supabase/get-db";
@@ -17,14 +17,15 @@ export async function POST(request: Request) {
     const { draft, context, restitution } = await sequenceGenerator.generate(body);
 
     if (restitution) {
-      const existingId = await findExistingModuleSequence({
+      const existingId = await findExistingGroupedSequence({
         progressionId: context.progression.id,
-        sequenceModule: restitution.sequenceModule,
+        groupKey: restitution.groupKey,
+        groupLabel: restitution.groupLabel,
       });
 
       if (existingId) {
         return NextResponse.json(
-          { error: `Une séquence existe déjà pour ${restitution.sequenceModule}.` },
+          { error: `Une séquence existe déjà pour ${restitution.groupLabel}.` },
           { status: 409 },
         );
       }
@@ -50,6 +51,10 @@ export async function POST(request: Request) {
       metadata: restitution
         ? {
             restitutionMode: true,
+            structureDocument: restitution.structureDocument,
+            sequenceGrouping: restitution.sequenceGrouping,
+            sequenceGroup: restitution.groupLabel,
+            sequenceGroupKey: restitution.groupKey,
             sequenceModule: restitution.sequenceModule,
             sequenceModuleKey: restitution.sequenceModuleKey,
             progressionRowIds: restitution.progressionRowIds,

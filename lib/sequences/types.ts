@@ -95,10 +95,19 @@ export type IndependentSequenceCreateInput = {
   methode?: string;
   materiel?: string[];
   resources?: string[];
+  referentielIds?: string[];
+  resourceIds?: string[];
+  deroulementGeneral?: Array<{ key: string; label: string; content: string }>;
   sessions?: Array<{
     title: string;
     objectif?: string;
     dureeMinutes?: number;
+    competences?: string[];
+    referentielIds?: string[];
+    deroulement?: Array<{ key: string; label: string; content: string }>;
+    materiel?: string[];
+    resources?: string[];
+    resourceIds?: string[];
   }>;
   progressionId?: string | null;
   progressionRowId?: string | null;

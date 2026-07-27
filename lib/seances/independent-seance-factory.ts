@@ -1,4 +1,8 @@
 import {
+  buildPhasesFromDeroulement,
+  emptyDeroulementSteps,
+} from "@/lib/pedagogical/preparation/deroulement-utils";
+import {
   LESSON_PHASES,
   type IndependentSeanceCreateInput,
   type SeanceDraft,
@@ -49,6 +53,10 @@ export function buildEmptySeancePhases(dureeMinutes: number): SeancePhase[] {
 
 export function buildIndependentSeanceDraft(input: IndependentSeanceCreateInput): SeanceDraft {
   const dureeMinutes = input.dureeMinutes ?? 45;
+  const phasesFromDeroulement = buildPhasesFromDeroulement(
+    input.deroulement ?? emptyDeroulementSteps(),
+    dureeMinutes,
+  );
 
   return {
     title: input.title.trim(),
@@ -64,8 +72,8 @@ export function buildIndependentSeanceDraft(input: IndependentSeanceCreateInput)
     objectif: input.objectif?.trim() ?? "",
     prerequis: input.prerequis ?? [],
     methode: input.methode ?? "",
-    resourceIds: [],
-    referentielIds: [],
+    resourceIds: input.resourceIds ?? [],
+    referentielIds: input.referentielIds ?? [],
     resources: input.resources ?? [],
     materiel: { ...EMPTY_MATERIAL, autres: input.materiel ?? [] },
     differentiation: {
@@ -94,7 +102,7 @@ export function buildIndependentSeanceDraft(input: IndependentSeanceCreateInput)
       aideMemoire: "",
     },
     pedagogicalChoices: [],
-    phases: buildEmptySeancePhases(dureeMinutes),
+    phases: phasesFromDeroulement.length > 0 ? phasesFromDeroulement : buildEmptySeancePhases(dureeMinutes),
   };
 }
 

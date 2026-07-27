@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { FloraBadge } from "@/components/ui/FloraBadge";
 import { FloraButton } from "@/components/ui/FloraButton";
 import { FloraCard } from "@/components/ui/FloraCard";
@@ -7,6 +8,12 @@ import {
   CompetenceAssociationSummary,
   readCompetenceAssociationMetadata,
 } from "@/components/pedagogical/CompetenceAssociationSummary";
+import { SequencePreparationForm } from "@/components/pedagogical/preparation/SequencePreparationForm";
+import {
+  mapSequenceFormToUpdateInput,
+  mapSequencePayloadToFormValues,
+} from "@/lib/pedagogical/preparation/form-mappers";
+import { deroulementSummary, parseDeroulementSteps, parseSessionPreparationDetail } from "@/lib/pedagogical/preparation/deroulement-utils";
 import { sequenceExporter } from "@/lib/sequences/SequenceExporter";
 import type { SequencePayload } from "@/lib/sequences/types";
 
@@ -16,8 +23,40 @@ type SequenceDetailModalProps = {
 };
 
 export function SequenceDetailModal({ payload, onClose }: SequenceDetailModalProps) {
-  const { sequence } = payload;
+  const [currentPayload, setCurrentPayload] = useState(payload);
+  const [isEditing, setIsEditing] = useState(false);
+  const { sequence } = currentPayload;
   const competenceAssociation = readCompetenceAssociationMetadata(sequence.metadata);
+  const deroulementGeneral = parseDeroulementSteps(sequence.metadata?.deroulementGeneral);
+  const deroulementGeneralText = deroulementSummary(deroulementGeneral);
+
+  if (isEditing) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-flora-text/25 p-4 backdrop-blur-sm">
+        <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto">
+          <SequencePreparationForm
+            initialValues={mapSequencePayloadToFormValues(currentPayload)}
+            submitLabel="Enregistrer la séquence"
+            onCancel={() => setIsEditing(false)}
+            onSubmit={async (values) => {
+              const body = mapSequenceFormToUpdateInput(sequence.id, values);
+              const response = await fetch("/api/sequences/update", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              });
+              const data = (await response.json()) as SequencePayload & { error?: string };
+              if (!response.ok) {
+                throw new Error(data.error || "Impossible de mettre à jour la séquence.");
+              }
+              setCurrentPayload(data);
+              setIsEditing(false);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-flora-text/25 p-4 backdrop-blur-sm">
@@ -66,6 +105,14 @@ export function SequenceDetailModal({ payload, onClose }: SequenceDetailModalPro
                 <li key={item}>{item}</li>
               ))}
             </ul>
+            {deroulementGeneralText ? (
+              <>
+                <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Déroulement général</h4>
+                <p className="whitespace-pre-wrap text-sm font-light text-flora-text-muted">
+                  {deroulementGeneralText}
+                </p>
+              </>
+            ) : null}
           </section>
 
           <section>
@@ -87,9 +134,12 @@ export function SequenceDetailModal({ payload, onClose }: SequenceDetailModalPro
         </div>
 
         <section className="mt-8">
-          <h4 className="mb-3 font-serif text-xl text-flora-text">Séances</h4>
+          <h4 className="mb-3 font-serif text-xl text-flora-text">Séances de la séquence</h4>
           <div className="grid gap-3">
-            {payload.sessions.map((session) => (
+            {currentPayload.sessions.map((session) => {
+              const detail = parseSessionPreparationDetail(session.metadata);
+              const sessionDeroulement = deroulementSummary(detail.deroulement);
+              return (
               <div key={session.id ?? session.sessionNumber} className="rounded-2xl border border-white/70 bg-white/55 p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <FloraBadge accent="lavender">Séance {session.sessionNumber}</FloraBadge>
@@ -97,16 +147,40 @@ export function SequenceDetailModal({ payload, onClose }: SequenceDetailModalPro
                   <span className="text-sm font-light text-flora-text-subtle">{session.dureeMinutes} min</span>
                 </div>
                 <p className="mt-2 text-sm font-light text-flora-text-muted">{session.objectif}</p>
+                {detail.competences.length > 0 ? (
+                  <p className="mt-2 text-sm font-light text-flora-text-muted">
+                    <span className="font-medium text-flora-text">Compétences : </span>
+                    {detail.competences.join(" · ")}
+                  </p>
+                ) : null}
+                {sessionDeroulement ? (
+                  <p className="mt-2 whitespace-pre-wrap text-sm font-light text-flora-text-muted">
+                    <span className="font-medium text-flora-text">Déroulement : </span>
+                    {sessionDeroulement}
+                  </p>
+                ) : null}
+                {detail.materiel.length > 0 ? (
+                  <p className="mt-2 text-sm font-light text-flora-text-muted">
+                    <span className="font-medium text-flora-text">Matériel : </span>
+                    {detail.materiel.join(", ")}
+                  </p>
+                ) : null}
+                {detail.resources.length > 0 ? (
+                  <p className="mt-2 text-sm font-light text-flora-text-muted">
+                    <span className="font-medium text-flora-text">Ressources : </span>
+                    {detail.resources.join(", ")}
+                  </p>
+                ) : null}
                 <p className="mt-1 text-xs font-light text-flora-text-subtle">{session.placeProgression}</p>
               </div>
-            ))}
+            )})}
           </div>
         </section>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-2">
           <div>
             <h4 className="mb-3 font-serif text-xl text-flora-text">Évaluations</h4>
-            {payload.evaluations.map((evaluation) => (
+            {currentPayload.evaluations.map((evaluation) => (
               <div key={evaluation.id ?? evaluation.label} className="mb-3 rounded-2xl bg-white/50 p-4">
                 <p className="font-medium text-flora-text">{evaluation.label}</p>
                 <ul className="mt-2 list-disc pl-5 text-sm font-light text-flora-text-muted">
@@ -142,10 +216,13 @@ export function SequenceDetailModal({ payload, onClose }: SequenceDetailModalPro
         </section>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <FloraButton onClick={() => sequenceExporter.exportPayload(payload, "word")}>
+          <FloraButton variant="secondary" onClick={() => setIsEditing(true)}>
+            Modifier la séquence
+          </FloraButton>
+          <FloraButton onClick={() => sequenceExporter.exportPayload(currentPayload, "word")}>
             Exporter Word
           </FloraButton>
-          <FloraButton variant="secondary" onClick={() => sequenceExporter.exportPayload(payload, "pdf")}>
+          <FloraButton variant="secondary" onClick={() => sequenceExporter.exportPayload(currentPayload, "pdf")}>
             Exporter PDF
           </FloraButton>
         </div>

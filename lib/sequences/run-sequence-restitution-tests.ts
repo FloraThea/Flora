@@ -17,7 +17,7 @@ import {
   findModuleRowsForAnchorRow,
   groupProgressionRowsByModule,
   shouldUseSequenceRestitution,
-} from "@/lib/sequences/sequence-restitution";
+} from "@/lib/sequences/sequence-grouping";
 import { buildSeanceDraftFromProgressionRow } from "@/lib/seances/seance-restitution";
 
 const FIXTURES_DIR = path.join(process.cwd(), "tests/validation/progression");
@@ -130,8 +130,31 @@ function testMhmSequenceRestitutionFromProgressionRows() {
 }
 
 function testRestitutionModeDetection() {
-  assert.equal(shouldUseSequenceRestitution({ methode: "MHM" }), true);
+  assert.equal(
+    shouldUseSequenceRestitution({ methode: "MHM", matiere: "Mathématiques" }),
+    true,
+  );
+  assert.equal(
+    shouldUseSequenceRestitution({ methode: "MHM", matiere: "Français" }),
+    false,
+  );
   assert.equal(shouldUseSequenceRestitution({ methode: "Lecture" }), false);
+  assert.equal(
+    shouldUseSequenceRestitution({
+      methode: "Lecture",
+      progressionMetadata: {
+        structure_document: {
+          kind: "sequences",
+          sequenceGrouping: "sequence",
+          levels: ["sequence"],
+          labels: {},
+          signals: [],
+          source: "detected",
+        },
+      },
+    }),
+    true,
+  );
 }
 
 function runSequenceRestitutionTests() {

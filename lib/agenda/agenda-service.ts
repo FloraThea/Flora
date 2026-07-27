@@ -25,6 +25,7 @@ import {
   getCategoryColor,
   getCategoryLabel,
   HOURS_108_CATEGORIES,
+  aggregateCompletedMinutesByCategory,
 } from "./hours-108";
 import { REMINDER_OFFSETS } from "./event-types";
 import type { FloraAccent } from "@/lib/theme";
@@ -475,11 +476,7 @@ export async function refreshHours108Summary(
     .eq("teacher_profile_id", teacherProfileId)
     .eq("school_year", schoolYear);
 
-  const completedByCategory = new Map<string, number>();
-  for (const row of entries ?? []) {
-    const code = String(row.category_code);
-    completedByCategory.set(code, (completedByCategory.get(code) ?? 0) + Number(row.duration_minutes ?? 0));
-  }
+  const completedByCategory = aggregateCompletedMinutesByCategory(entries ?? []);
 
   for (const category of HOURS_108_CATEGORIES) {
     const planned = computePlannedMinutesForCategory(category.code, workQuotaPercentage);
@@ -520,11 +517,11 @@ export async function getHours108Dashboard(): Promise<Hours108Dashboard> {
     monthly.set(month, (monthly.get(month) ?? 0) + Number(row.duration_minutes ?? 0));
   }
 
+  const completedByCategory = aggregateCompletedMinutesByCategory(entries ?? []);
+
   const categories = HOURS_108_CATEGORIES.map((category) => {
     const planned = computePlannedMinutesForCategory(category.code, bundle.profile.workQuotaPercentage);
-    const completedMinutes = (entries ?? [])
-      .filter((row) => String(row.category_code) === category.code)
-      .reduce((sum, row) => sum + Number(row.duration_minutes ?? 0), 0);
+    const completedMinutes = completedByCategory.get(category.code) ?? 0;
 
     const remaining = Math.max(0, planned - completedMinutes);
     const percentComplete = planned > 0 ? Math.round((completedMinutes / planned) * 100) : 0;

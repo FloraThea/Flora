@@ -203,11 +203,17 @@ async function insertSeanceRecord(input: {
     throw error ?? new Error("Impossible d'enregistrer la séance.");
   }
 
-  for (const phase of input.draft.phases) {
+  await insertSeancePhases(String(seance.id), input.draft.phases);
+
+  return loadSeance(String(seance.id)) as Promise<SeancePayload>;
+}
+
+async function insertSeancePhases(seanceId: string, phases: SeancePhase[]) {
+  for (const phase of phases) {
     const { data: phaseRow, error: phaseError } = await (await floraDb())
       .from("seance_phases")
       .insert({
-        seance_id: seance.id,
+        seance_id: seanceId,
         phase_key: phase.phaseKey,
         title: phase.title,
         sort_order: phase.sortOrder,
@@ -221,7 +227,7 @@ async function insertSeanceRecord(input: {
 
     for (const activity of phase.activities) {
       const { error: activityError } = await (await floraDb()).from("seance_activities").insert({
-        seance_id: seance.id,
+        seance_id: seanceId,
         phase_id: phaseRow.id,
         sort_order: activity.sortOrder,
         objectif: activity.objectif,
@@ -239,8 +245,6 @@ async function insertSeanceRecord(input: {
       if (activityError) throw activityError;
     }
   }
-
-  return loadSeance(String(seance.id)) as Promise<SeancePayload>;
 }
 
 export async function insertSeanceRecordForImport(input: {
@@ -348,6 +352,7 @@ export async function createIndependentSeance(
     metadata: {
       source_type: linkMode === "independent" ? "manual_independent" : "manual_linked",
       created_independently: linkMode === "independent",
+      deroulement: input.deroulement ?? [],
     },
   });
 }
@@ -634,6 +639,79 @@ export async function getSeanceBySessionId(sequenceSessionId: string) {
     .maybeSingle();
 
   return data?.id ? String(data.id) : null;
+}
+
+export async function updateSeanceFromInput(input: {
+  seanceId: string;
+  draftInput: IndependentSeanceCreateInput;
+}): Promise<SeancePayload> {
+  const scope = await requireTeacherScope();
+  const current = await loadSeance(input.seanceId);
+  if (!current) throw new Error("Séance introuvable.");
+
+  if (
+    current.seance.teacherProfileId &&
+    current.seance.teacherProfileId !== scope.profileId
+  ) {
+    throw new Error("Séance introuvable.");
+  }
+
+  const draft = buildIndependentSeanceDraft(input.draftInput);
+  const previousMetadata = current.seance.metadata ?? {};
+  const competences =
+    input.draftInput.competences ??
+    (input.draftInput.competenceBo ? [input.draftInput.competenceBo] : []);
+
+  const mergedDraft: SeanceDraft = {
+    ...draft,
+    prerequis: current.seance.prerequis,
+    methode: current.seance.methode || draft.methode,
+    differentiation: current.seance.differentiation,
+    evaluation: current.seance.evaluation,
+    homework: current.seance.homework,
+    traceEcrite: current.seance.traceEcrite,
+    pedagogicalChoices: current.seance.pedagogicalChoices,
+    periodNumber: input.draftInput.periodNumber ?? current.seance.periodNumber,
+    weekNumber: input.draftInput.weekNumber ?? current.seance.weekNumber,
+  };
+
+  const metadata = {
+    ...previousMetadata,
+    deroulement: input.draftInput.deroulement ?? previousMetadata.deroulement ?? [],
+    competences,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await (await floraDb())
+    .from("seances")
+    .update({
+      title: mergedDraft.title,
+      matiere: mergedDraft.matiere,
+      sous_matiere: mergedDraft.sousMatiere,
+      niveau: mergedDraft.niveau,
+      cycle: mergedDraft.cycle,
+      session_date: mergedDraft.sessionDate,
+      duree_minutes: mergedDraft.dureeMinutes,
+      competence_bo: mergedDraft.competenceBo,
+      objectif: mergedDraft.objectif,
+      resource_ids: mergedDraft.resourceIds,
+      referentiel_ids: mergedDraft.referentielIds,
+      resources: mergedDraft.resources,
+      materiel: mergedDraft.materiel,
+      metadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.seanceId);
+
+  if (error) throw error;
+
+  await (await floraDb()).from("seance_activities").delete().eq("seance_id", input.seanceId);
+  await (await floraDb()).from("seance_phases").delete().eq("seance_id", input.seanceId);
+  await insertSeancePhases(input.seanceId, mergedDraft.phases);
+
+  const payload = await loadSeance(input.seanceId);
+  if (!payload) throw new Error("Séance introuvable après mise à jour.");
+  return payload;
 }
 
 const SEANCE_FIELD_MAP: Record<string, string> = {

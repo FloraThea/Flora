@@ -8,6 +8,12 @@ import {
   CompetenceAssociationSummary,
   readCompetenceAssociationMetadata,
 } from "@/components/pedagogical/CompetenceAssociationSummary";
+import { SeancePreparationForm } from "@/components/pedagogical/preparation/SeancePreparationForm";
+import {
+  mapSeanceFormToUpdateInput,
+  mapSeancePayloadToFormValues,
+} from "@/lib/pedagogical/preparation/form-mappers";
+import { deroulementSummary, parseDeroulementSteps } from "@/lib/pedagogical/preparation/deroulement-utils";
 import { lessonExporter } from "@/lib/seances/LessonExporter";
 import type { SeancePayload } from "@/lib/seances/types";
 
@@ -20,12 +26,42 @@ type SeanceDetailModalProps = {
 const inputClassName =
   "w-full rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-sm font-light outline-none focus:border-rose-poudre/50";
 
+function collectMaterielItems(payload: SeancePayload): string[] {
+  const { materiel } = payload.seance;
+  return [
+    ...materiel.guides,
+    ...materiel.albums,
+    ...materiel.affichages,
+    ...materiel.manipulation,
+    ...materiel.videoprojecteur,
+    ...materiel.photocopies,
+    ...materiel.fiches,
+    ...materiel.cartes,
+    ...materiel.jeux,
+    ...materiel.autres,
+  ].filter(Boolean);
+}
+
 export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailModalProps) {
   const [localPayload, setLocalPayload] = useState(payload);
+  const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { seance } = localPayload;
   const competenceAssociation = readCompetenceAssociationMetadata(seance.metadata);
+  const deroulement = parseDeroulementSteps(seance.metadata?.deroulement);
+  const deroulementText =
+    deroulementSummary(deroulement) ||
+    localPayload.phases
+      .filter((phase) => phase.summary.trim())
+      .map((phase) => `${phase.title}: ${phase.summary.trim()}`)
+      .join("\n\n");
+  const competences = Array.isArray(seance.metadata?.competences)
+    ? seance.metadata.competences.map(String).filter(Boolean)
+    : seance.competenceBo
+      ? [seance.competenceBo]
+      : [];
+  const materielItems = collectMaterielItems(localPayload);
 
   const patchField = async (
     entityType: "seance" | "phase" | "activity",
@@ -103,6 +139,35 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
     }
   };
 
+  if (isEditing) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-flora-text/25 p-4 backdrop-blur-sm">
+        <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto">
+          <SeancePreparationForm
+            initialValues={mapSeancePayloadToFormValues(localPayload)}
+            submitLabel="Enregistrer la séance"
+            onCancel={() => setIsEditing(false)}
+            onSubmit={async (values) => {
+              const body = mapSeanceFormToUpdateInput(seance.id, values);
+              const response = await fetch("/api/seances/update", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              });
+              const data = (await response.json()) as SeancePayload & { error?: string };
+              if (!response.ok) {
+                throw new Error(data.error || "Impossible de mettre à jour la séance.");
+              }
+              setLocalPayload(data);
+              onUpdated(data);
+              setIsEditing(false);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-flora-text/25 p-4 backdrop-blur-sm">
       <FloraCard padding="lg" className="max-h-[92vh] w-full max-w-6xl overflow-y-auto">
@@ -120,7 +185,8 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
               onBlur={(event) => void patchField("seance", seance.id, "title", event.target.value)}
             />
             <p className="mt-2 text-sm font-light text-flora-text-muted">
-              {seance.matiere} · {seance.sousMatiere} · {seance.niveau} · {seance.cycle}
+              {seance.matiere}
+              {seance.sousMatiere ? ` · ${seance.sousMatiere}` : ""} · {seance.niveau} · {seance.cycle}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <FloraBadge accent="sage">Période {seance.periodNumber}</FloraBadge>
@@ -138,11 +204,14 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
           </button>
         </div>
 
-        {error && <p className="mb-4 text-sm text-[#b88989]">{error}</p>}
+        {error ? <p className="mb-4 text-sm text-[#b88989]">{error}</p> : null}
 
         <div className="mb-6 flex flex-wrap gap-2">
+          <FloraButton variant="secondary" onClick={() => setIsEditing(true)}>
+            Modifier la séance
+          </FloraButton>
           <FloraButton variant="secondary" onClick={() => void handleUndo()} disabled={isSaving}>
-            Annuler
+            Annuler la dernière modification
           </FloraButton>
           <FloraButton onClick={() => lessonExporter.exportPayload(localPayload, "word")}>
             Word
@@ -160,7 +229,19 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
 
         <div className="grid gap-6 lg:grid-cols-2">
           <section>
-            <h4 className="mb-2 font-serif text-lg text-flora-text">Objectif</h4>
+            <h4 className="mb-2 font-serif text-lg text-flora-text">Compétence(s)</h4>
+            {competences.length > 0 ? (
+              <ul className="list-disc pl-5 text-sm font-light text-flora-text-muted">
+                {competences.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm font-light text-flora-text-muted">—</p>
+            )}
+            <CompetenceAssociationSummary association={competenceAssociation} className="mt-4" />
+
+            <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Objectif</h4>
             <textarea
               rows={3}
               className={inputClassName}
@@ -173,22 +254,41 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
               }
               onBlur={(event) => void patchField("seance", seance.id, "objectif", event.target.value)}
             />
-            <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Compétence BO</h4>
-            <p className="text-sm font-light text-flora-text-muted">{seance.competenceBo}</p>
-            <CompetenceAssociationSummary
-              association={competenceAssociation}
-              className="mt-4"
-            />
-            <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Choix pédagogiques</h4>
-            <ul className="list-disc pl-5 text-sm font-light text-flora-text-muted">
-              {seance.pedagogicalChoices.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+
+            {deroulementText ? (
+              <>
+                <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Déroulement</h4>
+                <p className="whitespace-pre-wrap text-sm font-light text-flora-text-muted">
+                  {deroulementText}
+                </p>
+              </>
+            ) : null}
           </section>
 
           <section>
-            <h4 className="mb-2 font-serif text-lg text-flora-text">Trace écrite élève</h4>
+            <h4 className="mb-2 font-serif text-lg text-flora-text">Matériel</h4>
+            {materielItems.length > 0 ? (
+              <ul className="list-disc pl-5 text-sm font-light text-flora-text-muted">
+                {materielItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm font-light text-flora-text-muted">—</p>
+            )}
+
+            <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Ressources</h4>
+            {seance.resources.length > 0 ? (
+              <ul className="list-disc pl-5 text-sm font-light text-flora-text-muted">
+                {seance.resources.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm font-light text-flora-text-muted">—</p>
+            )}
+
+            <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Trace écrite élève</h4>
             <textarea
               rows={5}
               className={inputClassName}
@@ -210,12 +310,23 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
               }
             />
             <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Évaluation formative</h4>
-            <p className="text-sm font-light text-flora-text-muted">{seance.evaluation.formative}</p>
+            <p className="text-sm font-light text-flora-text-muted">{seance.evaluation.formative || "—"}</p>
+
+            {seance.pedagogicalChoices.length > 0 ? (
+              <>
+                <h4 className="mb-2 mt-4 font-serif text-lg text-flora-text">Choix pédagogiques</h4>
+                <ul className="list-disc pl-5 text-sm font-light text-flora-text-muted">
+                  {seance.pedagogicalChoices.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
           </section>
         </div>
 
         <section className="mt-8">
-          <h4 className="mb-4 font-serif text-xl text-flora-text">Déroulé</h4>
+          <h4 className="mb-4 font-serif text-xl text-flora-text">Déroulé détaillé</h4>
           <div className="grid gap-4">
             {localPayload.phases.map((phase) => (
               <div
@@ -277,7 +388,7 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
                       }
                     />
                     <div className="flex flex-wrap gap-2">
-                      {activity.id && (
+                      {activity.id ? (
                         <button
                           type="button"
                           className="text-xs text-[#b88989] hover:underline"
@@ -285,7 +396,7 @@ export function SeanceDetailModal({ payload, onClose, onUpdated }: SeanceDetailM
                         >
                           Dupliquer
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 ))}
