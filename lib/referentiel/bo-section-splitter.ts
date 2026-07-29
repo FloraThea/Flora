@@ -1,4 +1,8 @@
 import { BO_EVAR_SECTIONS } from "./bo-emc-sections";
+import {
+  inferCycle2ProgrammesMetadata,
+  isCycle2ProgrammesFormat,
+} from "./bo-faithful/extract-cycle2-programmes";
 import type { BoSectionChunk, BoSectionDefinition, BoSectionId } from "./bo-types";
 import { BO_FRANCAIS_SECTIONS } from "./bo-types";
 
@@ -37,16 +41,32 @@ function findBestSectionStart(
 
 export type BoProgrammeKind = "francais" | "evar" | "emc_moral";
 
-export function inferBoMetadata(text: string): {
+export function inferBoMetadata(
+  text: string,
+  filename?: string,
+): {
   cycle: string;
   matiere: string;
   domaine: string;
   programme: BoProgrammeKind;
 } {
+  if (isCycle2ProgrammesFormat(text)) {
+    const meta = inferCycle2ProgrammesMetadata(text, filename);
+    return {
+      cycle: meta.cycle,
+      matiere: meta.matiere,
+      domaine: meta.domaine,
+      programme: meta.programme,
+    };
+  }
+
   const normalized = normalizeForMatch(text);
 
   let cycle = "";
-  if (normalized.includes("cycle 3")) cycle = "Cycle 3";
+  const titleCycle = text.match(/Programmes\s+scolaires\s+\d{4}\s*[–\-]\s*(Cycle\s+[123])/i);
+  if (titleCycle) {
+    cycle = titleCycle[1].replace(/\s+/g, " ");
+  } else if (normalized.includes("cycle 3")) cycle = "Cycle 3";
   else if (normalized.includes("cycle 2")) cycle = "Cycle 2";
   else if (normalized.includes("cycle 1")) cycle = "Cycle 1";
   else if (normalized.includes("ecole elementaire")) cycle = "Cycle 2";
@@ -54,6 +74,31 @@ export function inferBoMetadata(text: string): {
   let matiere = "Français";
   let programme: BoProgrammeKind = "francais";
   let domaine = "Français";
+
+  if (filename) {
+    const fileKey = normalizeForMatch(filename);
+    if (fileKey.includes("math")) {
+      matiere = "Mathématiques";
+      domaine = "Mathématiques";
+    } else if (fileKey.includes("histoire") || fileKey.includes("geo")) {
+      matiere = "Histoire-Géographie";
+      domaine = "Histoire-Géographie";
+    } else if (fileKey.includes("sciences")) {
+      matiere = "Sciences";
+      domaine = "Sciences et technologie";
+    } else if (fileKey.includes("langues") || fileKey.includes("lv")) {
+      matiere = "Langues vivantes";
+      domaine = "Langues vivantes";
+    } else if (fileKey.includes("evar")) {
+      matiere = "EMC";
+      programme = "evar";
+      domaine = "Éducation à la vie affective et relationnelle";
+    } else if (fileKey.includes("emc")) {
+      matiere = "EMC";
+      programme = "emc_moral";
+      domaine = "Enseignement moral et civique";
+    }
+  }
 
   if (
     normalized.includes("education a la vie affective") ||

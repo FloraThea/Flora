@@ -211,7 +211,7 @@ export async function runBoAnalyzeTick(
     await startBoAnalyzeJob(documentId);
   }
 
-  const metadata = inferBoMetadata(existing.extracted_text);
+  const metadata = inferBoMetadata(existing.extracted_text, existing.original_filename);
   const defaults = {
     cycle: existing.cycle || metadata.cycle,
     matiere: existing.matiere || metadata.matiere,

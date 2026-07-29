@@ -29,6 +29,7 @@
     "test:validation:bo-api": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-bo-api.ts",
     "test:validation:bo-analyze": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/validation/run-real-import-bo-analyze.ts",
     "test:validation:bo-faithful": "node node_modules/tsx/dist/cli.mjs scripts/run-bo-faithful-tests.ts",
+    "test:validation:cycle2-programmes": "node node_modules/tsx/dist/cli.mjs scripts/run-cycle2-programmes-tests.ts",
     "test:validation:bo-niveau": "node node_modules/tsx/dist/cli.mjs scripts/run-bo-niveau-separation-tests.ts",
     "test:validation:structure": "node node_modules/tsx/dist/cli.mjs lib/pedagogical/document-structure/run-structure-detection-tests.ts && node node_modules/tsx/dist/cli.mjs lib/sequences/run-sequence-restitution-tests.ts",
     "test:validation:preparation": "node node_modules/tsx/dist/cli.mjs lib/pedagogical/preparation/run-preparation-tests.ts",

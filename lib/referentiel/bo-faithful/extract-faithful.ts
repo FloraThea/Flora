@@ -1,6 +1,7 @@
 import type { BoCompetenceDraft, BoSectionId } from "../bo-types";
 import { resolveProgrammeKind, sectionIdFromLabel, type BoProgrammeKind } from "../bo-section-splitter";
 import type { BoFaithfulCompetence, BoFaithfulExtractionResult, BoFaithfulQualityReport } from "./types";
+import { extractCycle2Programmes, isCycle2ProgrammesFormat } from "./extract-cycle2-programmes";
 import { extractFaithfulBoCompetences, sliceProgrammeText } from "./extract-tables";
 import { findIntroductionSplitIndex } from "./normalize";
 import {
@@ -92,6 +93,14 @@ export function extractBoFaithfully(input: {
   programme?: BoProgrammeKind;
   documentNiveaux?: string;
 }): BoFaithfulExtractionResult & { toReview: BoCompetenceReviewItem[] } {
+  if (isCycle2ProgrammesFormat(input.text)) {
+    return extractCycle2Programmes({
+      text: input.text,
+      cycle: input.cycle,
+      matiere: input.matiere,
+    });
+  }
+
   const programme = resolveProgrammeKind({
     text: input.text,
     matiere: input.matiere,

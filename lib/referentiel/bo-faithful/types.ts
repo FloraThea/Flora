@@ -51,5 +51,5 @@ export type BoFaithfulExtractionResult = {
   structuredText: string;
   competences: BoFaithfulCompetence[];
   quality: BoFaithfulQualityReport;
-  extractionMethod: "faithful_v1";
+  extractionMethod: "faithful_v1" | "cycle2_programmes_v1";
 };

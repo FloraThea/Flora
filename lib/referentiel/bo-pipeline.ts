@@ -19,7 +19,7 @@ export async function runBoImportAndExtractStep(input: {
   file: File;
   extraction: DocumentExtractionResult;
 }): Promise<BoImportResult> {
-  const metadata = inferBoMetadata(input.extraction.text);
+  const metadata = inferBoMetadata(input.extraction.text, input.file.name);
   const upload = await tryUploadBoFileOptional(input.file);
   const faithfulPreview = extractBoFaithfully({
     text: input.extraction.text,
